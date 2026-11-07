@@ -1,0 +1,117 @@
+package dev.stepcron.wear.data.settings
+
+import android.content.Context
+import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import dev.stepcron.wear.domain.AlarmKind
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import java.io.IOException
+
+private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "deskbreak_settings")
+
+/** Einstellungen und Timer-Zustand auf Basis von Jetpack DataStore Preferences. */
+class SettingsRepository(private val dataStore: DataStore<Preferences>) {
+
+    constructor(context: Context) : this(context.applicationContext.settingsDataStore)
+
+    private val preferences: Flow<Preferences> = dataStore.data.catch { error ->
+        if (error is IOException) {
+            Log.w(TAG, "DataStore nicht lesbar – verwende Standardwerte", error)
+            emit(emptyPreferences())
+        } else {
+            throw error
+        }
+    }
+
+    val settings: Flow<ReminderSettings> = preferences.map { it.toSettings() }.distinctUntilChanged()
+
+    val state: Flow<ReminderState> = preferences.map { it.toState() }.distinctUntilChanged()
+
+    suspend fun currentSettings(): ReminderSettings = settings.first()
+
+    suspend fun currentState(): ReminderState = state.first()
+
+    /** Atomares Read-Modify-Write der Einstellungen; liefert die gespeicherten (bereinigten) Werte. */
+    suspend fun updateSettings(transform: (ReminderSettings) -> ReminderSettings): ReminderSettings =
+        dataStore.edit { prefs -> prefs.writeSettings(transform(prefs.toSettings()).sanitized()) }.toSettings()
+
+    /** Atomares Read-Modify-Write des Laufzeitzustands. */
+    suspend fun updateState(transform: (ReminderState) -> ReminderState): ReminderState =
+        dataStore.edit { prefs -> prefs.writeState(transform(prefs.toState())) }.toState()
+
+    private object Keys {
+        val ENABLED = booleanPreferencesKey("enabled")
+        val INTERVAL_MINUTES = intPreferencesKey("interval_minutes")
+        val ACTIVE_START_HOUR = intPreferencesKey("active_start_hour")
+        val ACTIVE_END_HOUR = intPreferencesKey("active_end_hour")
+        val AUTO_STEP_ENABLED = booleanPreferencesKey("auto_step_enabled")
+        val PERMISSIONS_REQUESTED = booleanPreferencesKey("permissions_requested")
+
+        val NEXT_ALARM_AT = longPreferencesKey("next_alarm_at")
+        val NEXT_ALARM_KIND = stringPreferencesKey("next_alarm_kind")
+        val CYCLE_START_AT = longPreferencesKey("cycle_start_at")
+        val SNOOZE_UNTIL = longPreferencesKey("snooze_until")
+        val PENDING_REMINDER_AT = longPreferencesKey("pending_reminder_at")
+        val LAST_MOVEMENT_AT = longPreferencesKey("last_movement_at")
+        val LAST_WALK_DETECTED_AT = longPreferencesKey("last_walk_detected_at")
+        val STEP_TRACKING_ACTIVE = booleanPreferencesKey("step_tracking_active")
+    }
+
+    private fun Preferences.toSettings(): ReminderSettings = ReminderSettings(
+        enabled = this[Keys.ENABLED] ?: false,
+        intervalMinutes = this[Keys.INTERVAL_MINUTES] ?: ReminderSettings.DEFAULT_INTERVAL_MINUTES,
+        activeStartHour = this[Keys.ACTIVE_START_HOUR] ?: ReminderSettings.DEFAULT_START_HOUR,
+        activeEndHour = this[Keys.ACTIVE_END_HOUR] ?: ReminderSettings.DEFAULT_END_HOUR,
+        autoStepEnabled = this[Keys.AUTO_STEP_ENABLED] ?: true,
+        permissionsRequested = this[Keys.PERMISSIONS_REQUESTED] ?: false,
+    ).sanitized()
+
+    private fun MutablePreferences.writeSettings(settings: ReminderSettings) {
+        this[Keys.ENABLED] = settings.enabled
+        this[Keys.INTERVAL_MINUTES] = settings.intervalMinutes
+        this[Keys.ACTIVE_START_HOUR] = settings.activeStartHour
+        this[Keys.ACTIVE_END_HOUR] = settings.activeEndHour
+        this[Keys.AUTO_STEP_ENABLED] = settings.autoStepEnabled
+        this[Keys.PERMISSIONS_REQUESTED] = settings.permissionsRequested
+    }
+
+    private fun Preferences.toState(): ReminderState = ReminderState(
+        nextAlarmAt = this[Keys.NEXT_ALARM_AT] ?: 0L,
+        nextAlarmKind = AlarmKind.fromName(this[Keys.NEXT_ALARM_KIND]),
+        cycleStartAt = this[Keys.CYCLE_START_AT] ?: 0L,
+        snoozeUntil = this[Keys.SNOOZE_UNTIL] ?: 0L,
+        pendingReminderAt = this[Keys.PENDING_REMINDER_AT] ?: 0L,
+        lastMovementAt = this[Keys.LAST_MOVEMENT_AT] ?: 0L,
+        lastWalkDetectedAt = this[Keys.LAST_WALK_DETECTED_AT] ?: 0L,
+        stepTrackingActive = this[Keys.STEP_TRACKING_ACTIVE] ?: false,
+    )
+
+    private fun MutablePreferences.writeState(state: ReminderState) {
+        this[Keys.NEXT_ALARM_AT] = state.nextAlarmAt
+        val kind = state.nextAlarmKind
+        if (kind != null) this[Keys.NEXT_ALARM_KIND] = kind.name else remove(Keys.NEXT_ALARM_KIND)
+        this[Keys.CYCLE_START_AT] = state.cycleStartAt
+        this[Keys.SNOOZE_UNTIL] = state.snoozeUntil
+        this[Keys.PENDING_REMINDER_AT] = state.pendingReminderAt
+        this[Keys.LAST_MOVEMENT_AT] = state.lastMovementAt
+        this[Keys.LAST_WALK_DETECTED_AT] = state.lastWalkDetectedAt
+        this[Keys.STEP_TRACKING_ACTIVE] = state.stepTrackingActive
+    }
+
+    private companion object {
+        const val TAG = "SettingsRepository"
+    }
+}

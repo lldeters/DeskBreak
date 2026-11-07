@@ -1,0 +1,8 @@
+# Linux/macOS-Startskript immer mit LF auschecken
+/gradlew        text eol=lf
+
+# Windows-Skripte mit CRLF
+*.bat           text eol=crlf
+
+# Binärdateien unverändert lassen
+*.jar           binary

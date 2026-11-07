@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">DeskBreak</string>
+
+    <!-- Hauptbildschirm -->
+    <string name="home_title">DeskBreak</string>
+    <string name="home_status_disabled">Deaktiviert</string>
+    <string name="home_status_disabled_hint">Schalter antippen zum Starten</string>
+    <string name="home_status_planning">Wird geplant …</string>
+    <string name="home_status_paused">Pausiert (Ruhezeit)</string>
+    <string name="home_status_paused_resume_today">Weiter um %1$s</string>
+    <string name="home_status_paused_resume_tomorrow">Weiter morgen um %1$s</string>
+    <string name="home_status_next_reminder">Nächste Erinnerung</string>
+    <string name="home_status_snoozed_until">Snooze bis</string>
+    <string name="home_status_remaining">in %1$d min</string>
+    <string name="home_status_remaining_now">gleich</string>
+    <string name="home_status_day_done">Für heute geschafft</string>
+    <string name="home_status_day_done_hint">Ruhezeit ab %1$s</string>
+    <string name="home_reminder_pending">Erinnerung offen – beweg dich!</string>
+
+    <string name="home_toggle_label">Erinnerungen</string>
+    <string name="home_toggle_on">Aktiv</string>
+    <string name="home_toggle_off">Aus</string>
+    <string name="home_reset_label">Jetzt bewegt</string>
+    <string name="home_reset_secondary">(Timer Reset)</string>
+    <string name="home_reset_done">Zurückgesetzt ✓</string>
+    <string name="home_stats_label">Auswertung &amp; Graphen</string>
+
+    <string name="home_settings_header">Einstellungen</string>
+    <string name="home_interval_label">Intervall</string>
+    <string name="home_interval_value">%1$d min</string>
+    <string name="home_start_label">Aktiv ab</string>
+    <string name="home_end_label">Aktiv bis</string>
+    <string name="home_hour_value">%1$02d:00</string>
+    <string name="home_auto_step_label">Auto-Schritte</string>
+    <string name="home_auto_step_active">30 Schritte in 2 Min · aktiv</string>
+    <string name="home_auto_step_idle">30 Schritte in 2 Min</string>
+    <string name="home_auto_step_no_sensor">Kein Schrittsensor</string>
+    <string name="home_auto_step_no_permission">Berechtigung fehlt</string>
+    <string name="home_permissions_label">Berechtigungen</string>
+    <string name="home_permissions_secondary">Antippen zum Erteilen</string>
+    <string name="home_exact_alarm_label">Exakte Alarme</string>
+    <string name="home_exact_alarm_secondary">Erlauben für pünktliche Erinnerungen</string>
+
+    <string name="cd_interval_decrease">Intervall verringern</string>
+    <string name="cd_interval_increase">Intervall erhöhen</string>
+    <string name="cd_start_decrease">Startzeit früher</string>
+    <string name="cd_start_increase">Startzeit später</string>
+    <string name="cd_end_decrease">Endzeit früher</string>
+    <string name="cd_end_increase">Endzeit später</string>
+
+    <!-- Auswertung -->
+    <string name="stats_title">Auswertung</string>
+    <string name="stats_score_value">%1$d %% regelmäßig</string>
+    <string name="stats_score_empty" formatted="false">– % regelmäßig</string>
+    <!-- „verpasst" ist im Deutschen unveränderlich, daher kein Plural nötig. -->
+    <string name="stats_score_detail" tools:ignore="PluralsCandidate">Heute · %1$s · %2$d verpasst</string>
+    <string name="stats_score_detail_empty">Heute noch nichts fällig</string>
+    <string name="stats_streak_value">Serie: %1$d</string>
+    <string name="stats_streak_detail">erfolgreiche Intervalle in Folge</string>
+    <string name="stats_today_title">Heute</string>
+    <string name="stats_today_subtitle">%1$02d–%2$02d Uhr</string>
+    <string name="stats_week_title">7 Tage</string>
+    <string name="stats_week_subtitle">Ø %1$s · %2$s</string>
+    <string name="stats_week_hint" formatted="false">Säule = Quote in % · Zahl = Pausen</string>
+    <string name="percent_value">%1$d %%</string>
+    <string name="chart_no_data">–</string>
+    <string name="legend_done">Erledigt</string>
+    <string name="legend_snoozed">Snooze</string>
+    <string name="legend_missed">Verpasst</string>
+    <plurals name="cd_day_timeline">
+        <item quantity="one">Heute: %1$d von %2$d Stunde mit Bewegungspause</item>
+        <item quantity="other">Heute: %1$d von %2$d Stunden mit Bewegungspause</item>
+    </plurals>
+    <string name="cd_week_trend">Regelmäßigkeit der letzten 7 Tage: %1$s</string>
+
+    <string name="stats_debug_header">Debug</string>
+    <string name="stats_seed_label">Demo-Daten erzeugen</string>
+    <string name="stats_seed_secondary">Ersetzt die letzten 7 Tage</string>
+    <string name="stats_seed_done">Demo-Daten erzeugt ✓</string>
+    <string name="stats_clear_label">Verlauf löschen</string>
+    <string name="stats_clear_confirm">Nochmal tippen zum Löschen</string>
+
+    <plurals name="breaks_count">
+        <item quantity="one">%d Pause</item>
+        <item quantity="other">%d Pausen</item>
+    </plurals>
+
+    <string-array name="weekday_short">
+        <item>Mo</item>
+        <item>Di</item>
+        <item>Mi</item>
+        <item>Do</item>
+        <item>Fr</item>
+        <item>Sa</item>
+        <item>So</item>
+    </string-array>
+
+    <!-- Notifications -->
+    <string name="channel_reminder_name">Bewegungs-Erinnerungen</string>
+    <string name="channel_reminder_description">Erinnert dich daran, aufzustehen und ein paar Schritte zu gehen.</string>
+    <string name="channel_tracking_name">Schritterkennung</string>
+    <string name="channel_tracking_description">Hält die automatische Schritterkennung während der aktiven Zeit am Laufen.</string>
+    <string name="notification_reminder_title">Bewegungspause</string>
+    <string name="notification_reminder_text">Zeit aufzustehen! Geh ein paar Schritte.</string>
+    <string name="action_done">Erledigt</string>
+    <string name="action_snooze">+10 Min Snooze</string>
+    <string name="notification_tracking_title">Schritterkennung aktiv</string>
+    <string name="notification_tracking_text">30 Schritte setzen den Timer zurück.</string>
+    <string name="ongoing_status">Schritterkennung aktiv</string>
+</resources>
