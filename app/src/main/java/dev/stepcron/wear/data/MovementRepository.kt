@@ -9,8 +9,15 @@ import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
-/** Schreib- und Lesezugriff auf die Bewegungs-Historie. */
-class MovementRepository(private val dao: MovementDao) {
+/**
+ * Schreib- und Lesezugriff auf die Bewegungs-Historie.
+ *
+ * Die Room-Datenbank wird erst beim ersten echten Zugriff gebaut – nicht schon, wenn ViewModel und
+ * Engine beim App-Start (auf dem Main-Thread, im ersten Frame) das Repository erhalten.
+ */
+class MovementRepository(daoProvider: () -> MovementDao) {
+
+    private val dao: MovementDao by lazy(daoProvider)
 
     suspend fun log(type: MovementEventType, timestampMillis: Long, intervalMinutes: Int): Long =
         dao.insert(

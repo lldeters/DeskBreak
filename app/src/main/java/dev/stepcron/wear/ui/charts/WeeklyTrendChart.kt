@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -13,6 +14,8 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -32,14 +35,33 @@ private const val TARGET_PERCENT = 80f
  * darunter Wochentag und Anzahl der Bewegungspausen. Gestrichelt: Ziel 80 %.
  */
 @Composable
-fun WeeklyTrendChart(days: List<DayStat>, modifier: Modifier = Modifier) {
-    val weekdayLabels = stringArrayResource(R.array.weekday_short)
-    val textMeasurer = rememberTextMeasurer()
+fun WeeklyTrendChart(
+    days: List<DayStat>,
+    modifier: Modifier = Modifier,
+    textMeasurer: TextMeasurer = rememberTextMeasurer(),
+) {
+    // Als Liste: vergleicht inhaltlich und taugt damit als Schlüssel für remember.
+    val weekdayLabels = stringArrayResource(R.array.weekday_short).asList()
     val colors = MaterialTheme.colors
     val valueStyle = TextStyle(color = colors.onSurface, fontSize = 9.sp, fontWeight = FontWeight.Medium)
     val weekdayStyle = TextStyle(color = colors.onSurfaceVariant, fontSize = 10.sp)
     val todayStyle = weekdayStyle.copy(color = colors.primary, fontWeight = FontWeight.Bold)
     val countStyle = TextStyle(color = colors.onSurfaceVariant, fontSize = 9.sp)
+    // Die 21 Beschriftungen (Quote, Wochentag, Anzahl je Tag) einmal pro Datenstand messen – in der
+    // Komposition, die der Listen-Prefetch vorziehen kann, statt bei jedem Zeichnen. Der Standard-Cache
+    // von rememberTextMeasurer fasst nur 8 Layouts und hätte sonst bei jedem Zeichnen alles neu gemessen.
+    val labels = remember(days, weekdayLabels, valueStyle, weekdayStyle, todayStyle, countStyle, textMeasurer) {
+        days.map { day ->
+            ColumnLabels(
+                value = textMeasurer.measure(day.percent?.toString() ?: "–", valueStyle),
+                weekday = textMeasurer.measure(
+                    weekdayLabels.getOrElse(day.date.dayOfWeek.value - 1) { "" },
+                    if (day.isToday) todayStyle else weekdayStyle,
+                ),
+                count = textMeasurer.measure(day.movements.toString(), countStyle),
+            )
+        }
+    }
     val guideColor = colors.onSurfaceVariant.copy(alpha = 0.35f)
     val noData = stringResource(R.string.chart_no_data)
     val description = stringResource(
@@ -84,7 +106,7 @@ fun WeeklyTrendChart(days: List<DayStat>, modifier: Modifier = Modifier) {
             )
 
             val percent = day.percent
-            val valueLayout = textMeasurer.measure(percent?.toString() ?: "–", valueStyle)
+            val valueLayout = labels[index].value
             val valueTop = if (percent != null) {
                 val barHeight = (chartHeight * percent / 100f).coerceAtLeast(3.dp.toPx())
                 drawRoundRect(
@@ -102,12 +124,11 @@ fun WeeklyTrendChart(days: List<DayStat>, modifier: Modifier = Modifier) {
                 topLeft = Offset(centerX - valueLayout.size.width / 2f, valueTop.coerceAtLeast(0f)),
             )
 
-            val weekday = weekdayLabels.getOrElse(day.date.dayOfWeek.value - 1) { "" }
-            val weekdayLayout = textMeasurer.measure(weekday, if (day.isToday) todayStyle else weekdayStyle)
+            val weekdayLayout = labels[index].weekday
             val weekdayTop = chartBottom + 2.dp.toPx()
             drawText(weekdayLayout, topLeft = Offset(centerX - weekdayLayout.size.width / 2f, weekdayTop))
 
-            val countLayout = textMeasurer.measure(day.movements.toString(), countStyle)
+            val countLayout = labels[index].count
             drawText(
                 countLayout,
                 topLeft = Offset(centerX - countLayout.size.width / 2f, weekdayTop + weekdayLayout.size.height),
@@ -115,3 +136,10 @@ fun WeeklyTrendChart(days: List<DayStat>, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** Vorab gemessene Beschriftungen einer Säule. */
+private class ColumnLabels(
+    val value: TextLayoutResult,
+    val weekday: TextLayoutResult,
+    val count: TextLayoutResult,
+)

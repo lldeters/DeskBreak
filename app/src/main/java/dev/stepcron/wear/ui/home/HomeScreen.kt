@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import dev.stepcron.wear.ui.WEAR_SMALL_ROUND
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
@@ -40,8 +42,6 @@ import androidx.wear.compose.material.Switch
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
-import androidx.wear.compose.material.Vignette
-import androidx.wear.compose.material.VignettePosition
 import dev.stepcron.wear.R
 import dev.stepcron.wear.ui.HomeStatus
 import dev.stepcron.wear.ui.HomeUiState
@@ -65,8 +65,8 @@ fun HomeScreen(
     onAutoStepChange: (Boolean) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
+    listState: ScalingLazyListState = rememberScalingLazyListState(initialCenterItemIndex = 0),
 ) {
-    val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
     val haptics = LocalHapticFeedback.current
     var resetConfirmed by remember { mutableStateOf(false) }
     LaunchedEffect(resetConfirmed) {
@@ -76,9 +76,18 @@ fun HomeScreen(
         }
     }
 
+    // Die Items lesen den Zustand über ein State-Objekt: So bleibt der Listeninhalt bei einem neuen
+    // Zustand (z. B. alle 15 s durch den Countdown) derselbe, die Liste wird nicht neu aufgebaut und
+    // nur die Items, die `current` lesen, aktualisieren sich.
+    val current by rememberUpdatedState(state)
+    // Diese beiden Werte bestimmen, welche Items es überhaupt gibt – deshalb direkt als Wert.
+    val showPermissionsChip = state.needsPermissions
+    val showExactAlarmChip = !state.system.exactAlarmsAllowed
+
+    // Die Uhrzeit kommt aus dem gemeinsamen Scaffold in DeskBreakNavHost. Bewusst ohne Vignette: Sie
+    // dunkelt nur einen schmalen Randstreifen ab, kostet aber zwei bildschirmgroße Bitmaps, die beim
+    // Aufbau dekodiert und in jedem Frame über den ganzen Bildschirm geblendet werden.
     Scaffold(
-        timeText = { TimeText() },
-        vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
     ) {
         ScalingLazyColumn(
@@ -86,10 +95,10 @@ fun HomeScreen(
             state = listState,
             autoCentering = AutoCenteringParams(itemIndex = 0),
         ) {
-            item { StatusHeader(state) }
+            item(key = "status") { StatusHeader(current) }
 
-            if (state.needsPermissions) {
-                item {
+            if (showPermissionsChip) {
+                item(key = "permissions") {
                     Chip(
                         onClick = onRequestPermissions,
                         label = { Text(stringResource(R.string.home_permissions_label)) },
@@ -108,20 +117,21 @@ fun HomeScreen(
 
             // Toggle-Chips ohne App-Icon: Auf kleinen runden Displays bliebe sonst zu wenig Platz
             // und Labels wie „Erinnerungen" würden mitten im Wort umbrechen.
-            item {
+            item(key = "enabled") {
+                val enabled = current.enabled
                 ToggleChip(
-                    checked = state.enabled,
+                    checked = enabled,
                     onCheckedChange = onEnabledChange,
                     label = { Text(stringResource(R.string.home_toggle_label), maxLines = 1) },
                     secondaryLabel = {
-                        Text(stringResource(if (state.enabled) R.string.home_toggle_on else R.string.home_toggle_off))
+                        Text(stringResource(if (enabled) R.string.home_toggle_on else R.string.home_toggle_off))
                     },
-                    toggleControl = { Switch(checked = state.enabled) },
+                    toggleControl = { Switch(checked = enabled) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            item {
+            item(key = "reset") {
                 Chip(
                     onClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -138,7 +148,7 @@ fun HomeScreen(
                 )
             }
 
-            item {
+            item(key = "stats") {
                 Chip(
                     onClick = onOpenStats,
                     label = { Text(stringResource(R.string.home_stats_label), maxLines = 2) },
@@ -148,61 +158,64 @@ fun HomeScreen(
                 )
             }
 
-            item { ListHeader { Text(stringResource(R.string.home_settings_header)) } }
+            item(key = "settings_header") { ListHeader { Text(stringResource(R.string.home_settings_header)) } }
 
-            item {
+            item(key = "interval") {
                 StepperRow(
                     label = stringResource(R.string.home_interval_label),
-                    value = stringResource(R.string.home_interval_value, state.intervalMinutes),
+                    value = stringResource(R.string.home_interval_value, current.intervalMinutes),
                     onDecrease = { onIntervalStep(-1) },
                     onIncrease = { onIntervalStep(1) },
-                    decreaseEnabled = state.canDecreaseInterval,
-                    increaseEnabled = state.canIncreaseInterval,
+                    decreaseEnabled = current.canDecreaseInterval,
+                    increaseEnabled = current.canIncreaseInterval,
                     decreaseDescription = stringResource(R.string.cd_interval_decrease),
                     increaseDescription = stringResource(R.string.cd_interval_increase),
                 )
             }
-            item {
+            item(key = "start_hour") {
                 StepperRow(
                     label = stringResource(R.string.home_start_label),
-                    value = stringResource(R.string.home_hour_value, state.startHour),
+                    value = stringResource(R.string.home_hour_value, current.startHour),
                     onDecrease = { onStartHourStep(-1) },
                     onIncrease = { onStartHourStep(1) },
-                    decreaseEnabled = state.canDecreaseStart,
-                    increaseEnabled = state.canIncreaseStart,
+                    decreaseEnabled = current.canDecreaseStart,
+                    increaseEnabled = current.canIncreaseStart,
                     decreaseDescription = stringResource(R.string.cd_start_decrease),
                     increaseDescription = stringResource(R.string.cd_start_increase),
                 )
             }
-            item {
+            item(key = "end_hour") {
                 StepperRow(
                     label = stringResource(R.string.home_end_label),
-                    value = stringResource(R.string.home_hour_value, state.endHour),
+                    value = stringResource(R.string.home_hour_value, current.endHour),
                     onDecrease = { onEndHourStep(-1) },
                     onIncrease = { onEndHourStep(1) },
-                    decreaseEnabled = state.canDecreaseEnd,
-                    increaseEnabled = state.canIncreaseEnd,
+                    decreaseEnabled = current.canDecreaseEnd,
+                    increaseEnabled = current.canIncreaseEnd,
                     decreaseDescription = stringResource(R.string.cd_end_decrease),
                     increaseDescription = stringResource(R.string.cd_end_increase),
                 )
             }
 
-            item {
+            item(key = "auto_step") {
                 // Ohne Schrittsensor wirkt ein eingeschalteter, aber gesperrter Schalter irreführend.
-                val autoStepOn = state.autoStepEnabled && state.system.stepSensorAvailable
+                val sensorAvailable = current.system.stepSensorAvailable
+                val autoStepOn = current.autoStepEnabled && sensorAvailable
+                // Als Int übergeben, damit die Slot-Lambdas nur bei geändertem Text neu entstehen.
+                val statusText = autoStepStatus(current)
                 ToggleChip(
                     checked = autoStepOn,
                     onCheckedChange = onAutoStepChange,
                     label = { Text(stringResource(R.string.home_auto_step_label), maxLines = 1) },
-                    secondaryLabel = { Text(stringResource(autoStepStatus(state)), maxLines = 2) },
-                    toggleControl = { Switch(checked = autoStepOn, enabled = state.system.stepSensorAvailable) },
-                    enabled = state.system.stepSensorAvailable,
+                    secondaryLabel = { Text(stringResource(statusText), maxLines = 2) },
+                    toggleControl = { Switch(checked = autoStepOn, enabled = sensorAvailable) },
+                    enabled = sensorAvailable,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            if (!state.system.exactAlarmsAllowed) {
-                item {
+            if (showExactAlarmChip) {
+                item(key = "exact_alarm") {
                     Chip(
                         onClick = onOpenExactAlarmSettings,
                         label = { Text(stringResource(R.string.home_exact_alarm_label)) },
@@ -333,28 +346,31 @@ private fun autoStepStatus(state: HomeUiState): Int = when {
 @Composable
 private fun HomeScreenPreview() {
     DeskBreakTheme {
-        HomeScreen(
-            state = HomeUiState(
-                loading = false,
-                enabled = true,
-                status = HomeStatus.Scheduled(
-                    atMillis = System.currentTimeMillis() + 32 * 60_000L,
-                    remainingMinutes = 32,
-                    progress = 0.3f,
-                    snoozed = false,
+        // Die Uhrzeit liefert in der App der gemeinsame Scaffold aus DeskBreakNavHost.
+        Scaffold(timeText = { TimeText() }) {
+            HomeScreen(
+                state = HomeUiState(
+                    loading = false,
+                    enabled = true,
+                    status = HomeStatus.Scheduled(
+                        atMillis = System.currentTimeMillis() + 32 * 60_000L,
+                        remainingMinutes = 32,
+                        progress = 0.3f,
+                        snoozed = false,
+                    ),
+                    stepTrackingActive = true,
+                    system = SystemStatus(),
                 ),
-                stepTrackingActive = true,
-                system = SystemStatus(),
-            ),
-            onEnabledChange = {},
-            onManualReset = {},
-            onOpenStats = {},
-            onIntervalStep = {},
-            onStartHourStep = {},
-            onEndHourStep = {},
-            onAutoStepChange = {},
-            onRequestPermissions = {},
-            onOpenExactAlarmSettings = {},
-        )
+                onEnabledChange = {},
+                onManualReset = {},
+                onOpenStats = {},
+                onIntervalStep = {},
+                onStartHourStep = {},
+                onEndHourStep = {},
+                onAutoStepChange = {},
+                onRequestPermissions = {},
+                onOpenExactAlarmSettings = {},
+            )
+        }
     }
 }

@@ -26,7 +26,7 @@ class AppContainer(context: Context) {
 
     val database: DeskBreakDatabase by lazy { DeskBreakDatabase.create(appContext) }
     val settingsRepository: SettingsRepository by lazy { SettingsRepository(appContext) }
-    val movementRepository: MovementRepository by lazy { MovementRepository(database.movementDao()) }
+    val movementRepository: MovementRepository by lazy { MovementRepository { database.movementDao() } }
     val alarmScheduler: AlarmScheduler by lazy { AlarmScheduler(appContext) }
     val notifier: ReminderNotifier by lazy { ReminderNotifier(appContext) }
     val engine: ReminderEngine by lazy {

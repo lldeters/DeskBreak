@@ -9,8 +9,11 @@ import dev.stepcron.wear.data.settings.SettingsRepository
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.PlannedAlarm
 import dev.stepcron.wear.domain.ReminderPlanner
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.time.ZoneId
 
 /**
@@ -21,6 +24,9 @@ import java.time.ZoneId
  * - [AlarmKind.REMINDER]: Erinnerung innerhalb der aktiven Zeit
  * - [AlarmKind.WINDOW_END]: Ende der aktiven Zeit (Schritterkennung stoppen)
  * - [AlarmKind.CYCLE_START]: Beginn der nächsten aktiven Zeit (Zyklus startet neu)
+ *
+ * Alle Einstiegspunkte dürfen vom Main-Thread aufgerufen werden: Die Arbeit (Binder-Aufrufe an
+ * AlarmManager und ActivityManager, DataStore, Room) läuft auf [dispatcher], damit sie keine Frames kostet.
  */
 class ReminderEngine(
     private val context: Context,
@@ -30,20 +36,26 @@ class ReminderEngine(
     private val notifier: ReminderNotifier,
     private val clock: () -> Long = System::currentTimeMillis,
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private val mutex = Mutex()
+
+    /** Serialisiert einen Einstiegspunkt über [mutex] und führt ihn abseits des Main-Threads aus. */
+    private suspend fun locked(block: suspend () -> Unit) {
+        withContext(dispatcher) { mutex.withLock { block() } }
+    }
 
     // ---------------------------------------------------------------------------------------------
     // Alarm
     // ---------------------------------------------------------------------------------------------
 
-    suspend fun onAlarmFired(kind: AlarmKind?): Unit = mutex.withLock {
+    suspend fun onAlarmFired(kind: AlarmKind?): Unit = locked {
         val now = clock()
         val settings = settingsRepository.currentSettings()
         if (!settings.enabled) {
             cancelScheduleLocked()
             syncStepTrackerLocked(now, settings)
-            return@withLock
+            return@locked
         }
         when (kind ?: settingsRepository.currentState().nextAlarmKind ?: AlarmKind.REMINDER) {
             AlarmKind.REMINDER -> handleReminderLocked(now, settings)
@@ -121,26 +133,26 @@ class ReminderEngine(
     // ---------------------------------------------------------------------------------------------
 
     /** „Erledigt": Notification schließen und Erfolg loggen. Der Takt (jetzt + X) läuft weiter. */
-    suspend fun onReminderDone(): Unit = mutex.withLock {
+    suspend fun onReminderDone(): Unit = locked {
         notifier.cancelReminder()
         val now = clock()
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()
-        if (state.pendingReminderAt == 0L) return@withLock // bereits erledigt, z. B. per Schritterkennung
+        if (state.pendingReminderAt == 0L) return@locked // bereits erledigt, z. B. per Schritterkennung
         movementRepository.log(MovementEventType.COMPLETED_REMINDER, now, settings.intervalMinutes)
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
     }
 
     /** „+10 Min Snooze": Snooze loggen und den nächsten Alarm einmalig auf jetzt + 10 Minuten legen. */
-    suspend fun onReminderSnoozed(): Unit = mutex.withLock {
+    suspend fun onReminderSnoozed(): Unit = locked {
         notifier.cancelReminder()
         val now = clock()
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()
-        if (state.pendingReminderAt == 0L) return@withLock
+        if (state.pendingReminderAt == 0L) return@locked
         movementRepository.log(MovementEventType.SNOOZED, now, settings.intervalMinutes)
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
-        if (!settings.enabled) return@withLock
+        if (!settings.enabled) return@locked
 
         val zone = zoneProvider()
         if (settings.window.contains(now, zone)) {
@@ -159,7 +171,7 @@ class ReminderEngine(
     // ---------------------------------------------------------------------------------------------
 
     /** „Jetzt bewegt (Timer Reset)": Intervall sofort neu starten und positives Ereignis loggen. */
-    suspend fun onManualReset(): Unit = mutex.withLock {
+    suspend fun onManualReset(): Unit = locked {
         val now = clock()
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()
@@ -180,11 +192,11 @@ class ReminderEngine(
      * Erinnerung und loggt [MovementEventType.AUTO_STEP_RESET]. Geht der Nutzer am Stück weiter,
      * wird der Timer nur still verlängert, damit eine lange Gehpause nicht mehrfach zählt.
      */
-    suspend fun onWalkDetected(): Unit = mutex.withLock {
+    suspend fun onWalkDetected(): Unit = locked {
         val now = clock()
         val settings = settingsRepository.currentSettings()
         if (!settings.enabled || !settings.autoStepEnabled || !settings.window.contains(now, zoneProvider())) {
-            return@withLock
+            return@locked
         }
         val state = settingsRepository.currentState()
         val lastActivity = maxOf(state.lastWalkDetectedAt, state.lastMovementAt)
@@ -217,7 +229,7 @@ class ReminderEngine(
     // Einstellungen & Synchronisation
     // ---------------------------------------------------------------------------------------------
 
-    suspend fun setEnabled(enabled: Boolean): Unit = mutex.withLock {
+    suspend fun setEnabled(enabled: Boolean): Unit = locked {
         val now = clock()
         val settings = settingsRepository.updateSettings { it.copy(enabled = enabled) }
         if (enabled) {
@@ -235,35 +247,35 @@ class ReminderEngine(
         }
     }
 
-    suspend fun setIntervalMinutes(minutes: Int): Unit = mutex.withLock {
+    suspend fun setIntervalMinutes(minutes: Int): Unit = locked {
         val settings = settingsRepository.updateSettings { it.copy(intervalMinutes = minutes) }
         resyncLocked(clock(), settings)
     }
 
-    suspend fun setActiveHours(startHour: Int, endHour: Int): Unit = mutex.withLock {
+    suspend fun setActiveHours(startHour: Int, endHour: Int): Unit = locked {
         val settings = settingsRepository.updateSettings {
             it.copy(activeStartHour = startHour, activeEndHour = endHour)
         }
         resyncLocked(clock(), settings)
     }
 
-    suspend fun setAutoStepEnabled(enabled: Boolean): Unit = mutex.withLock {
+    suspend fun setAutoStepEnabled(enabled: Boolean): Unit = locked {
         val settings = settingsRepository.updateSettings { it.copy(autoStepEnabled = enabled) }
         syncStepTrackerLocked(clock(), settings)
     }
 
     /** Gleicht Alarm und Schritterkennung mit dem gespeicherten Zustand ab (App-Start, Zeitänderung …). */
-    suspend fun resync(): Unit = mutex.withLock {
+    suspend fun resync(): Unit = locked {
         resyncLocked(clock(), settingsRepository.currentSettings())
     }
 
     /** Nach Neustart/Update: Alarm aus dem DataStore wiederherstellen. */
-    suspend fun restoreAfterBoot(): Unit = mutex.withLock {
+    suspend fun restoreAfterBoot(): Unit = locked {
         val now = clock()
         val settings = settingsRepository.currentSettings()
         if (!settings.enabled) {
             syncStepTrackerLocked(now, settings)
-            return@withLock
+            return@locked
         }
         val state = settingsRepository.currentState()
         val kind = state.nextAlarmKind

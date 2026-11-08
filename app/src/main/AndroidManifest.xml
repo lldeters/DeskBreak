@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Reine Wear-OS-App -->
     <uses-feature android:name="android.hardware.type.watch" />
@@ -76,5 +77,18 @@
             android:name=".service.StepTrackerService"
             android:exported="false"
             android:foregroundServiceType="health" />
+
+        <!-- Die App zeigt keine Emojis: EmojiCompat nicht beim Start laden. Spart das Nachladen der
+             Emoji-Schrift und den Frame, in dem danach alle sichtbaren Texte neu vermessen werden.
+             Die übrigen Initializer (u. a. ProfileInstaller) bleiben aktiv. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                tools:node="remove" />
+        </provider>
     </application>
 </manifest>

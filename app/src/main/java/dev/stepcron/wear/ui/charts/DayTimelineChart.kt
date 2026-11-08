@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -13,6 +14,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -34,9 +36,16 @@ fun DayTimelineChart(
     slots: List<HourSlot>,
     startHour: Int,
     modifier: Modifier = Modifier,
+    textMeasurer: TextMeasurer = rememberTextMeasurer(),
 ) {
-    val textMeasurer = rememberTextMeasurer()
     val labelStyle = TextStyle(color = MaterialTheme.colors.onSurfaceVariant, fontSize = 9.sp)
+    // Stunden-Beschriftung an den Slot-Grenzen (z. B. 8 · 11 · 14 · 17) einmal pro Fenster messen –
+    // in der Komposition, die der Listen-Prefetch vorziehen kann, statt bei jedem Zeichnen.
+    val hourLabels = remember(slots.size, startHour, labelStyle, textMeasurer) {
+        timelineLabelIndices(slots.size).map { boundary ->
+            boundary to textMeasurer.measure("${startHour + boundary}", labelStyle)
+        }
+    }
     val outlineColor = MaterialTheme.colors.onSurface
     val markerColor = Color.Black.copy(alpha = 0.5f)
     val description = pluralStringResource(
@@ -89,10 +98,8 @@ fun DayTimelineChart(
             }
         }
 
-        // Stunden-Beschriftung an den Slot-Grenzen (z. B. 8 · 11 · 14 · 17).
-        timelineLabelIndices(count).forEach { boundary ->
+        hourLabels.forEach { (boundary, layout) ->
             val x = if (boundary == count) size.width else boundary * (slotWidth + gap)
-            val layout = textMeasurer.measure("${startHour + boundary}", labelStyle)
             val left = (x - layout.size.width / 2f).coerceIn(0f, size.width - layout.size.width)
             drawText(layout, topLeft = Offset(left, barHeight + 2.dp.toPx()))
         }

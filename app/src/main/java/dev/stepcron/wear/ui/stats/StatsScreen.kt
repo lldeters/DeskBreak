@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import dev.stepcron.wear.ui.WEAR_SMALL_ROUND
@@ -32,8 +33,6 @@ import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
-import androidx.wear.compose.material.Vignette
-import androidx.wear.compose.material.VignettePosition
 import dev.stepcron.wear.R
 import dev.stepcron.wear.domain.DayStat
 import dev.stepcron.wear.domain.HourSlot
@@ -61,6 +60,9 @@ fun StatsScreen(
 ) {
     val context = LocalContext.current
     val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
+    // Ein Messer für beide Diagramme auf Bildschirmebene: Sein Cache (rund 25 Beschriftungen) bleibt
+    // erhalten, wenn eine Diagrammkarte beim Scrollen aus der Liste fällt und wieder hineinkommt.
+    val chartTextMeasurer = rememberTextMeasurer(cacheSize = CHART_TEXT_CACHE_SIZE)
     var seeded by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     LaunchedEffect(seeded) {
@@ -76,9 +78,8 @@ fun StatsScreen(
         }
     }
 
+    // Uhrzeit aus dem gemeinsamen Scaffold in DeskBreakNavHost; ohne Vignette (siehe HomeScreen).
     Scaffold(
-        timeText = { TimeText() },
-        vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) },
     ) {
         ScalingLazyColumn(
@@ -133,7 +134,11 @@ fun StatsScreen(
                     title = stringResource(R.string.stats_today_title),
                     subtitle = stringResource(R.string.stats_today_subtitle, state.startHour, state.endHour),
                 ) {
-                    DayTimelineChart(slots = state.hourSlots, startHour = state.startHour)
+                    DayTimelineChart(
+                        slots = state.hourSlots,
+                        startHour = state.startHour,
+                        textMeasurer = chartTextMeasurer,
+                    )
                     Spacer(Modifier.height(6.dp))
                     ChartLegend(
                         items = listOf(
@@ -158,7 +163,11 @@ fun StatsScreen(
                     ),
                 ) {
                     // Etwas Innenabstand, damit Mo/So am runden Rand nicht abgeschnitten werden.
-                    WeeklyTrendChart(days = state.week, modifier = Modifier.padding(horizontal = 6.dp))
+                    WeeklyTrendChart(
+                        days = state.week,
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                        textMeasurer = chartTextMeasurer,
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.stats_week_hint),
@@ -235,38 +244,44 @@ private fun StatsScreenPreview() {
     )
     val percents = listOf(82, 75, 91, null, 64, 88, 80)
     DeskBreakTheme {
-        StatsScreen(
-            state = StatsUiState(
-                loading = false,
-                todayPercent = 80,
-                todayMovements = 4,
-                todayMissed = 1,
-                streak = 3,
-                hourSlots = statuses.mapIndexed { index, status ->
-                    HourSlot(
-                        hour = 8 + index,
-                        status = status,
-                        movementCount = if (status == SlotStatus.DONE) 1 + index % 2 else 0,
-                        isCurrent = index == 6,
-                        isFuture = index > 6,
-                    )
-                },
-                week = percents.mapIndexed { index, percent ->
-                    DayStat(
-                        date = today.minusDays((6 - index).toLong()),
-                        movements = (percent ?: 0) / 10,
-                        snoozes = 1,
-                        missed = 1,
-                        percent = percent,
-                        isToday = index == 6,
-                    )
-                },
-                weekPercent = 80,
-                weekMovements = 41,
-            ),
-            showDebugTools = true,
-            onSeedDemoData = {},
-            onClearHistory = {},
-        )
+        // Die Uhrzeit liefert in der App der gemeinsame Scaffold aus DeskBreakNavHost.
+        Scaffold(timeText = { TimeText() }) {
+            StatsScreen(
+                state = StatsUiState(
+                    loading = false,
+                    todayPercent = 80,
+                    todayMovements = 4,
+                    todayMissed = 1,
+                    streak = 3,
+                    hourSlots = statuses.mapIndexed { index, status ->
+                        HourSlot(
+                            hour = 8 + index,
+                            status = status,
+                            movementCount = if (status == SlotStatus.DONE) 1 + index % 2 else 0,
+                            isCurrent = index == 6,
+                            isFuture = index > 6,
+                        )
+                    },
+                    week = percents.mapIndexed { index, percent ->
+                        DayStat(
+                            date = today.minusDays((6 - index).toLong()),
+                            movements = (percent ?: 0) / 10,
+                            snoozes = 1,
+                            missed = 1,
+                            percent = percent,
+                            isToday = index == 6,
+                        )
+                    },
+                    weekPercent = 80,
+                    weekMovements = 41,
+                ),
+                showDebugTools = true,
+                onSeedDemoData = {},
+                onClearHistory = {},
+            )
+        }
     }
 }
+
+/** Platz für alle Diagramm-Beschriftungen (7 Tage × 3 Texte plus Stundenmarken). */
+private const val CHART_TEXT_CACHE_SIZE = 32

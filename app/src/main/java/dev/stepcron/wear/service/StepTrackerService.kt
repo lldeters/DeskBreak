@@ -38,22 +38,28 @@ class StepTrackerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Nach startForegroundService() muss startForeground() immer zuerst erfolgen.
         if (!enterForeground()) {
-            stopSelf()
+            stopSelfAndForgetStart()
             return START_NOT_STICKY
         }
         if (stepTracker == null && !startTracking()) {
             Log.w(TAG, "Kein Schrittsensor verfügbar – Dienst wird beendet")
-            stopSelf()
+            stopSelfAndForgetStart()
             return START_NOT_STICKY
         }
         // Bei einem Neustart durch das System (START_STICKY) die Bedingungen erneut prüfen.
         scope.launch {
             val settings = appContainer.settingsRepository.currentSettings()
             if (!shouldRun(this@StepTrackerService, settings, System.currentTimeMillis(), ZoneId.systemDefault())) {
-                stopSelf()
+                stopSelfAndForgetStart()
             }
         }
         return START_STICKY
+    }
+
+    /** Beendet den Dienst und erlaubt dem nächsten [start] wieder einen echten Start. */
+    private fun stopSelfAndForgetStart() {
+        startRequested = false
+        stopSelf()
     }
 
     private fun enterForeground(): Boolean {
@@ -113,6 +119,7 @@ class StepTrackerService : Service() {
     }
 
     override fun onDestroy() {
+        startRequested = false
         stepTracker?.stop()
         stepTracker = null
         wakeLock?.let { if (it.isHeld) it.release() }
@@ -131,6 +138,15 @@ class StepTrackerService : Service() {
         private const val WAKE_LOCK_TAG = "DeskBreak:StepReset"
         private const val WAKE_LOCK_TIMEOUT_MILLIS = 10_000L
 
+        /**
+         * Prozesslokal: Start angefordert und seitdem nicht beendet. Verhindert, dass jeder Abgleich
+         * (z. B. bei jedem Öffnen der App) einen weiteren onStartCommand auslöst, der auf dem Main-Thread
+         * die Foreground-Notification neu baut und neu postet. Im Zweifel `false` – ein überzähliger
+         * Start ist harmlos, ein verpasster nicht.
+         */
+        @Volatile
+        private var startRequested = false
+
         /** Läuft die Schritterkennung jetzt sinnvollerweise? */
         fun shouldRun(context: Context, settings: ReminderSettings, nowMillis: Long, zone: ZoneId): Boolean =
             settings.enabled &&
@@ -140,18 +156,25 @@ class StepTrackerService : Service() {
                 StepTracker.isAvailable(context)
 
         fun start(context: Context) {
+            if (startRequested) return
+            // Vor dem Aufruf setzen: Bricht der Dienst seinen Start ab (stopSelf), setzt er das Flag
+            // danach zuverlässig wieder zurück – es kann also nicht fälschlich auf `true` hängen bleiben.
+            startRequested = true
             val intent = Intent(context, StepTrackerService::class.java).setAction(ACTION_START)
             try {
                 ContextCompat.startForegroundService(context, intent)
             } catch (e: IllegalStateException) {
                 // ForegroundServiceStartNotAllowedException: Start aus dem Hintergrund nicht erlaubt.
+                startRequested = false
                 Log.w(TAG, "Schritterkennung konnte nicht gestartet werden", e)
             } catch (e: SecurityException) {
+                startRequested = false
                 Log.w(TAG, "Schritterkennung konnte nicht gestartet werden", e)
             }
         }
 
         fun stop(context: Context) {
+            startRequested = false
             context.stopService(Intent(context, StepTrackerService::class.java))
         }
     }

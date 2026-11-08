@@ -25,6 +25,18 @@ android {
                 "proguard-rules.pro",
             )
         }
+        // Wie release (R8, nicht debuggable, Baseline-Profile), aber mit dem Debug-Schlüssel signiert,
+        // damit sich die optimierte App lokal installieren lässt: ./gradlew installBenchmark.
+        // Flüssigkeit nur mit dieser Variante beurteilen – der Debug-Build ist um ein Vielfaches
+        // langsamer. Nur für Tests, nicht verteilen.
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            // Erlaubt Profiler/Perfetto-Messungen ohne Debuggable-Overhead.
+            isProfileable = true
+        }
     }
 
     compileOptions {
@@ -73,6 +85,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.profileinstaller)
 
     testImplementation(libs.junit)
 }

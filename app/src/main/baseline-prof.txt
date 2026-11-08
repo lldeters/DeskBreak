@@ -1,0 +1,16 @@
+# Baseline-Profil für den eigenen App-Code (Compose- und Wear-Bibliotheken bringen ihre eigenen mit).
+# Release- und Benchmark-Builds kompilieren diese Methoden bei der Installation vorab (AOT), statt sie
+# in den ersten Sekunden zu interpretieren. Debug-Builds nutzen das Profil nicht.
+
+# Gesamter App-Code (klein genug, um ihn vollständig aufzunehmen).
+HSPLdev/stepcron/wear/**->**(**)**
+Ldev/stepcron/wear/**;
+
+# Verwendete Bibliotheks-Teile, die deren eigene Profile nicht (oder nur als „post-startup") abdecken.
+HSPLandroidx/wear/compose/material/ScaffoldKt**->**(**)**
+HSPLandroidx/wear/compose/material/ListHeaderKt**->**(**)**
+HSPLandroidx/wear/compose/material/ToggleControlKt**->**(**)**
+HSPLandroidx/wear/compose/material/IconKt**->**(**)**
+HSPLandroidx/compose/ui/text/TextMeasurer**->**(**)**
+HSPLandroidx/compose/ui/text/TextLayoutCache;->**(**)**
+HSPLandroidx/compose/ui/text/TextPainterKt;->**(**)**

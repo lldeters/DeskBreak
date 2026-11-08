@@ -16,6 +16,7 @@ import dev.stepcron.wear.domain.toLocalDate
 import dev.stepcron.wear.service.AlarmScheduler
 import dev.stepcron.wear.service.ReminderEngine
 import dev.stepcron.wear.service.StepTracker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -24,8 +25,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -53,30 +56,31 @@ class ReminderViewModel(
         }
     }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), replay = 1)
 
-    private val systemStatus = MutableStateFlow(readSystemStatus())
+    /** `null`, bis [onResume] den Status zum ersten Mal gelesen hat. */
+    private val systemStatus = MutableStateFlow<SystemStatus?>(null)
 
     val homeUiState: StateFlow<HomeUiState> = combine(
         settingsRepository.settings,
         settingsRepository.state,
         ticker,
-        systemStatus,
+        systemStatus.filterNotNull(),
     ) { settings, state, _, system ->
         // Der Ticker löst nur die Neuberechnung aus; gerechnet wird mit der aktuellen Uhrzeit,
         // sonst wäre der Countdown direkt nach einem Reset um bis zu einen Tick zu lang.
         HomeUiState.create(settings, state, System.currentTimeMillis(), system, zone)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), HomeUiState())
+    }
+        // Berechnung (inkl. der einmaligen Zeitzonen-Initialisierung von java.time) nicht im UI-Thread.
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), HomeUiState())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val statsUiState: StateFlow<StatsUiState> = ticker
         .map { now -> now.toLocalDate(zone) }
         .distinctUntilChanged()
         .flatMapLatest { today -> statsFor(today) }
+        // Room-Aufbau beim ersten Zugriff und die Auswertung laufen abseits des UI-Threads.
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), StatsUiState())
-
-    init {
-        // App-Start: Alarm und Schritterkennung mit dem gespeicherten Zustand abgleichen.
-        viewModelScope.launch { engine.resync() }
-    }
 
     private fun statsFor(today: LocalDate): Flow<StatsUiState> {
         val zone = zone
@@ -94,10 +98,16 @@ class ReminderViewModel(
         }
     }
 
-    /** Beim Zurückkehren in die App: Berechtigungen neu lesen und Timer abgleichen. */
+    /**
+     * Bei jedem Öffnen bzw. Zurückkehren in die App (auch nach dem Berechtigungsdialog): Berechtigungen
+     * neu lesen und Alarm/Schritterkennung abgleichen – einmal pro Resume und nicht auf dem Main-Thread,
+     * denn beides besteht aus Binder-Aufrufen ans System, die sonst die ersten Frames verzögern.
+     */
     fun onResume() {
-        systemStatus.value = readSystemStatus()
-        viewModelScope.launch { engine.resync() }
+        viewModelScope.launch(Dispatchers.Default) {
+            systemStatus.value = readSystemStatus()
+            engine.resync()
+        }
     }
 
     fun markPermissionsRequested() {
@@ -142,13 +152,14 @@ class ReminderViewModel(
     }
 
     fun seedDemoData() {
-        viewModelScope.launch {
+        // Default: Kann der erste Datenbankzugriff sein (Room-Aufbau) und erzeugt Daten im Speicher.
+        viewModelScope.launch(Dispatchers.Default) {
             demoDataSeeder.seedLastSevenDays(settingsRepository.currentSettings())
         }
     }
 
     fun clearHistory() {
-        viewModelScope.launch { movementRepository.clearAll() }
+        viewModelScope.launch(Dispatchers.Default) { movementRepository.clearAll() }
     }
 
     private fun readSystemStatus() = SystemStatus(
