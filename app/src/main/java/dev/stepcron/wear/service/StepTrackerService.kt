@@ -149,9 +149,7 @@ class StepTrackerService : Service() {
 
         /** Läuft die Schritterkennung jetzt sinnvollerweise? */
         fun shouldRun(context: Context, settings: ReminderSettings, nowMillis: Long, zone: ZoneId): Boolean =
-            settings.enabled &&
-                settings.autoStepEnabled &&
-                settings.schedule.contains(nowMillis, zone) &&
+            settings.wantsStepTracking(nowMillis, zone) &&
                 Permissions.hasActivityRecognition(context) &&
                 StepTracker.isAvailable(context)
 
@@ -178,4 +176,14 @@ class StepTrackerService : Service() {
             context.stopService(Intent(context, StepTrackerService::class.java))
         }
     }
+}
+
+/** [StepTracking] über den [StepTrackerService]. */
+class ServiceStepTracking(private val context: Context) : StepTracking {
+    override fun shouldRun(settings: ReminderSettings, nowMillis: Long, zone: ZoneId): Boolean =
+        StepTrackerService.shouldRun(context, settings, nowMillis, zone)
+
+    override fun start() = StepTrackerService.start(context)
+
+    override fun stop() = StepTrackerService.stop(context)
 }

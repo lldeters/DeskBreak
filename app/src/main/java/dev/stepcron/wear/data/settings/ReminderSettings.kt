@@ -2,6 +2,7 @@ package dev.stepcron.wear.data.settings
 
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.WeeklySchedule
+import java.time.ZoneId
 
 /** Vom Nutzer einstellbare Werte (persistiert im DataStore). */
 data class ReminderSettings(
@@ -14,6 +15,10 @@ data class ReminderSettings(
     val permissionsRequested: Boolean = false,
 ) {
     val intervalMillis: Long get() = intervalMinutes * 60_000L
+
+    /** Soll die Schritterkennung jetzt laufen? Berechtigung und Sensor prüft der Aufrufer. */
+    fun wantsStepTracking(nowMillis: Long, zone: ZoneId): Boolean =
+        enabled && autoStepEnabled && schedule.contains(nowMillis, zone)
 
     /** Bringt das Intervall in den gültigen Bereich (5–120 in 5er-Schritten); der Wochenplan ist immer gültig. */
     fun sanitized(): ReminderSettings {

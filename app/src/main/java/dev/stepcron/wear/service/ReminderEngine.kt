@@ -1,8 +1,7 @@
 package dev.stepcron.wear.service
 
-import android.content.Context
 import android.util.Log
-import dev.stepcron.wear.data.MovementRepository
+import dev.stepcron.wear.data.MovementLog
 import dev.stepcron.wear.data.db.MovementEventType
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.SettingsRepository
@@ -31,11 +30,11 @@ import java.time.ZoneId
  * AlarmManager und ActivityManager, DataStore, Room) läuft auf [dispatcher], damit sie keine Frames kostet.
  */
 class ReminderEngine(
-    private val context: Context,
     private val settingsRepository: SettingsRepository,
-    private val movementRepository: MovementRepository,
-    private val alarmScheduler: AlarmScheduler,
-    private val notifier: ReminderNotifier,
+    private val movementLog: MovementLog,
+    private val alarms: Alarms,
+    private val alerts: ReminderAlerts,
+    private val stepTracking: StepTracking,
     private val clock: () -> Long = System::currentTimeMillis,
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -92,12 +91,12 @@ class ReminderEngine(
 
         // 2) War die vorherige Erinnerung noch unbestätigt, gilt sie als verpasst.
         if (previous.pendingReminderAt > 0L) {
-            movementRepository.log(MovementEventType.MISSED, previous.pendingReminderAt, settings.intervalMinutes)
+            movementLog.log(MovementEventType.MISSED, previous.pendingReminderAt, settings.intervalMinutes)
         }
 
         // 3) Vibrationsmuster und 4) High-Priority-Notification.
-        notifier.vibrateReminder()
-        notifier.showReminder()
+        alerts.vibrateReminder()
+        alerts.showReminder(now)
         settingsRepository.updateState { it.copy(pendingReminderAt = now) }
 
         // Schritterkennung sicherstellen (exakte Alarme dürfen Foreground-Services starten).
@@ -114,8 +113,8 @@ class ReminderEngine(
         }
         // Erinnerung vom Vortag, die nie beantwortet wurde, endgültig als verpasst werten.
         if (state.pendingReminderAt > 0L) {
-            movementRepository.log(MovementEventType.MISSED, state.pendingReminderAt, settings.intervalMinutes)
-            notifier.cancelReminder()
+            movementLog.log(MovementEventType.MISSED, state.pendingReminderAt, settings.intervalMinutes)
+            alerts.cancelReminder()
             settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
         }
         startCycleLocked(now, settings)
@@ -131,8 +130,8 @@ class ReminderEngine(
         }
         var pendingReminderAt = settingsRepository.currentState().pendingReminderAt
         if (pendingReminderAt > 0L && now - pendingReminderAt >= ReminderPlanner.WINDOW_END_GRACE_MILLIS) {
-            movementRepository.log(MovementEventType.MISSED, pendingReminderAt, settings.intervalMinutes)
-            notifier.cancelReminder()
+            movementLog.log(MovementEventType.MISSED, pendingReminderAt, settings.intervalMinutes)
+            alerts.cancelReminder()
             settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
             pendingReminderAt = 0L
         }
@@ -151,23 +150,23 @@ class ReminderEngine(
     suspend fun onReminderDone(): Unit = locked { completeReminderLocked() }
 
     private suspend fun completeReminderLocked() {
-        notifier.cancelReminder()
+        alerts.cancelReminder()
         val now = clock()
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()
         if (state.pendingReminderAt == 0L) return // bereits erledigt, z. B. per Schritterkennung
-        movementRepository.log(MovementEventType.COMPLETED_REMINDER, now, settings.intervalMinutes)
+        movementLog.log(MovementEventType.COMPLETED_REMINDER, now, settings.intervalMinutes)
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
     }
 
     /** „+10 Min Snooze": Snooze loggen und den nächsten Alarm einmalig auf jetzt + 10 Minuten legen. */
     suspend fun onReminderSnoozed(): Unit = locked {
-        notifier.cancelReminder()
+        alerts.cancelReminder()
         val now = clock()
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()
         if (state.pendingReminderAt == 0L) return@locked
-        movementRepository.log(MovementEventType.SNOOZED, now, settings.intervalMinutes)
+        movementLog.log(MovementEventType.SNOOZED, now, settings.intervalMinutes)
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
         if (!settings.enabled) return@locked
 
@@ -201,10 +200,10 @@ class ReminderEngine(
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()
         val hadPending = state.pendingReminderAt > 0L
-        if (hadPending) notifier.cancelReminder()
+        if (hadPending) alerts.cancelReminder()
         // Doppeltipps innerhalb einer Minute nicht doppelt zählen (der Timer wird trotzdem zurückgesetzt).
         if (hadPending || now - state.lastMovementAt >= MANUAL_DEBOUNCE_MILLIS) {
-            movementRepository.log(MovementEventType.MANUAL_RESET, now, settings.intervalMinutes)
+            movementLog.log(MovementEventType.MANUAL_RESET, now, settings.intervalMinutes)
         }
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
         if (settings.enabled && settings.schedule.contains(now, zoneProvider())) {
@@ -220,9 +219,7 @@ class ReminderEngine(
     suspend fun onWalkDetected(): Unit = locked {
         val now = clock()
         val settings = settingsRepository.currentSettings()
-        if (!settings.enabled || !settings.autoStepEnabled || !settings.schedule.contains(now, zoneProvider())) {
-            return@locked
-        }
+        if (!settings.wantsStepTracking(now, zoneProvider())) return@locked
         val state = settingsRepository.currentState()
         val lastActivity = maxOf(state.lastWalkDetectedAt, state.lastMovementAt)
         val sameSession = now - lastActivity < WALK_SESSION_GAP_MILLIS
@@ -230,8 +227,8 @@ class ReminderEngine(
 
         when {
             state.pendingReminderAt > 0L -> {
-                notifier.cancelReminder()
-                movementRepository.log(MovementEventType.AUTO_STEP_RESET, now, settings.intervalMinutes)
+                alerts.cancelReminder()
+                movementLog.log(MovementEventType.AUTO_STEP_RESET, now, settings.intervalMinutes)
                 settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
                 startCycleLocked(now, settings)
             }
@@ -243,7 +240,7 @@ class ReminderEngine(
             }
 
             else -> {
-                movementRepository.log(MovementEventType.AUTO_STEP_RESET, now, settings.intervalMinutes)
+                movementLog.log(MovementEventType.AUTO_STEP_RESET, now, settings.intervalMinutes)
                 settingsRepository.updateState { it.copy(lastMovementAt = now) }
                 startCycleLocked(now, settings)
             }
@@ -264,7 +261,7 @@ class ReminderEngine(
             resyncLocked(now, settings)
         } else {
             cancelScheduleLocked()
-            notifier.cancelReminder()
+            alerts.cancelReminder()
             settingsRepository.updateState {
                 it.copy(cycleStartAt = 0L, snoozeUntil = 0L, pendingReminderAt = 0L)
             }
@@ -293,7 +290,7 @@ class ReminderEngine(
                 ScheduleChange.TODAY_OFF -> {
                     // Heute frei gestellt: offene Erinnerung schließen, ohne sie als verpasst zu werten
                     // (wie beim Ausschalten der Erinnerungen).
-                    notifier.cancelReminder()
+                    alerts.cancelReminder()
                     settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L) }
                 }
 
@@ -335,7 +332,7 @@ class ReminderEngine(
         val state = settingsRepository.currentState()
         val kind = state.nextAlarmKind
         if (kind != null && state.nextAlarmAt > now) {
-            alarmScheduler.schedule(PlannedAlarm(state.nextAlarmAt, kind))
+            alarms.schedule(PlannedAlarm(state.nextAlarmAt, kind))
             syncStepTrackerLocked(now, settings)
         } else {
             // Der Alarm wäre während der Ausschaltzeit fällig gewesen → frischen Zyklus beginnen.
@@ -389,7 +386,7 @@ class ReminderEngine(
             cancelScheduleLocked()
             return
         }
-        val exact = alarmScheduler.schedule(alarm)
+        val exact = alarms.schedule(alarm)
         if (!exact) Log.i(TAG, "Alarm ${alarm.kind} nur ungenau geplant")
         settingsRepository.updateState {
             it.copy(nextAlarmAt = alarm.triggerAtMillis, nextAlarmKind = alarm.kind)
@@ -397,16 +394,16 @@ class ReminderEngine(
     }
 
     private suspend fun cancelScheduleLocked() {
-        alarmScheduler.cancel()
+        alarms.cancel()
         settingsRepository.updateState { it.copy(nextAlarmAt = 0L, nextAlarmKind = null) }
     }
 
     /** Startet bzw. stoppt die Schritterkennung passend zu Einstellungen, Uhrzeit und Berechtigung. */
     private suspend fun syncStepTrackerLocked(now: Long, settings: ReminderSettings) {
-        if (StepTrackerService.shouldRun(context, settings, now, zoneProvider())) {
-            StepTrackerService.start(context)
+        if (stepTracking.shouldRun(settings, now, zoneProvider())) {
+            stepTracking.start()
         } else {
-            StepTrackerService.stop(context)
+            stepTracking.stop()
             settingsRepository.updateState { it.copy(stepTrackingActive = false) }
         }
     }

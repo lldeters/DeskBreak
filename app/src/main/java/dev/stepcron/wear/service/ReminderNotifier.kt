@@ -19,7 +19,7 @@ import dev.stepcron.wear.R
 import dev.stepcron.wear.domain.ExercisePicker
 
 /** Notifications (Erinnerung + Schritterkennung) und das Vibrationsmuster. */
-class ReminderNotifier(private val context: Context) {
+class ReminderNotifier(private val context: Context) : ReminderAlerts {
 
     private val notificationManager = NotificationManagerCompat.from(context)
 
@@ -52,7 +52,7 @@ class ReminderNotifier(private val context: Context) {
      * Zeigt die High-Priority-Erinnerung mit einer Bewegungsidee und den Aktionen „Erledigt",
      * „+10 Min Snooze" und „1-Min-Übung" (öffnet den Timer in der App).
      */
-    fun showReminder(reminderAtMillis: Long = System.currentTimeMillis()) {
+    override fun showReminder(reminderAtMillis: Long) {
         if (!Permissions.canPostNotifications(context)) {
             Log.w(TAG, "Notifications nicht erlaubt – Erinnerung nur per Vibration")
             return
@@ -96,7 +96,7 @@ class ReminderNotifier(private val context: Context) {
         }
     }
 
-    fun cancelReminder() {
+    override fun cancelReminder() {
         notificationManager.cancel(NOTIFICATION_ID_REMINDER)
     }
 
@@ -126,7 +126,7 @@ class ReminderNotifier(private val context: Context) {
     }
 
     /** Deutliches, mehrstufiges Muster: 2× lang, 3× kurz, 1× lang (≈ 3,7 s). */
-    fun vibrateReminder() {
+    override fun vibrateReminder() {
         val vibrator = vibrator() ?: return
         if (!vibrator.hasVibrator()) return
         val effect = if (vibrator.hasAmplitudeControl()) {

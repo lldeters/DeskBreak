@@ -9,6 +9,7 @@ import dev.stepcron.wear.data.settings.SettingsRepository
 import dev.stepcron.wear.service.AlarmScheduler
 import dev.stepcron.wear.service.ReminderEngine
 import dev.stepcron.wear.service.ReminderNotifier
+import dev.stepcron.wear.service.ServiceStepTracking
 import dev.stepcron.wear.surface.SurfaceUpdates
 
 class DeskBreakApp : Application() {
@@ -32,11 +33,11 @@ class AppContainer(context: Context) {
     val notifier: ReminderNotifier by lazy { ReminderNotifier(appContext) }
     val engine: ReminderEngine by lazy {
         ReminderEngine(
-            context = appContext,
             settingsRepository = settingsRepository,
-            movementRepository = movementRepository,
-            alarmScheduler = alarmScheduler,
-            notifier = notifier,
+            movementLog = movementRepository,
+            alarms = alarmScheduler,
+            alerts = notifier,
+            stepTracking = ServiceStepTracking(appContext),
             onStateChanged = { SurfaceUpdates.request(appContext) },
         )
     }

@@ -15,11 +15,11 @@ import java.time.format.DateTimeParseException
  * Die Room-Datenbank wird erst beim ersten echten Zugriff gebaut – nicht schon, wenn ViewModel und
  * Engine beim App-Start (auf dem Main-Thread, im ersten Frame) das Repository erhalten.
  */
-class MovementRepository(daoProvider: () -> MovementDao) {
+class MovementRepository(daoProvider: () -> MovementDao) : MovementLog {
 
     private val dao: MovementDao by lazy(daoProvider)
 
-    suspend fun log(type: MovementEventType, timestampMillis: Long, intervalMinutes: Int): Long =
+    override suspend fun log(type: MovementEventType, timestampMillis: Long, intervalMinutes: Int): Long =
         dao.insert(
             MovementEvent(
                 timestamp = timestampMillis,

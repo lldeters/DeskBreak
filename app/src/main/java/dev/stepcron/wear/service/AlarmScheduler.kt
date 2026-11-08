@@ -13,7 +13,7 @@ import dev.stepcron.wear.domain.PlannedAlarm
  * Plant den einzigen DeskBreak-Alarm über den [AlarmManager] (kein WorkManager).
  * Ein neuer Alarm ersetzt immer den vorherigen, da dieselbe PendingIntent-Identität genutzt wird.
  */
-class AlarmScheduler(private val context: Context) {
+class AlarmScheduler(private val context: Context) : Alarms {
 
     private val alarmManager: AlarmManager = context.getSystemService(AlarmManager::class.java)
 
@@ -21,7 +21,7 @@ class AlarmScheduler(private val context: Context) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
     /** @return `true`, wenn der Alarm exakt geplant wurde (sonst ungenauer Fallback). */
-    fun schedule(alarm: PlannedAlarm): Boolean {
+    override fun schedule(alarm: PlannedAlarm): Boolean {
         val pendingIntent = alarmPendingIntent(alarm.kind)
         if (canScheduleExactAlarms()) {
             try {
@@ -39,7 +39,7 @@ class AlarmScheduler(private val context: Context) {
         return false
     }
 
-    fun cancel() {
+    override fun cancel() {
         alarmManager.cancel(alarmPendingIntent(AlarmKind.REMINDER))
     }
 
