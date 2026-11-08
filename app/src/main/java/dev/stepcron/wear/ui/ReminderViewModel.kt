@@ -13,7 +13,9 @@ import dev.stepcron.wear.data.MovementRepository
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.SettingsRepository
 import dev.stepcron.wear.data.settings.stepFrom
+import dev.stepcron.wear.data.db.MovementEvent
 import dev.stepcron.wear.domain.ActiveWindow
+import dev.stepcron.wear.domain.StatsCalculator
 import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.domain.toLocalDate
 import dev.stepcron.wear.service.AlarmScheduler
@@ -34,6 +36,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -66,15 +69,33 @@ class ReminderViewModel(
     /** `null`, bis [onResume] den Status zum ersten Mal gelesen hat. */
     private val systemStatus = MutableStateFlow<SystemStatus?>(null)
 
+    /**
+     * Heutige Bewegungspausen für das Tagesziel. Beginnt mit `null`, damit der Startbildschirm nicht auf die
+     * Datenbank wartet (sie wird erst dabei aufgebaut).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val todayMovements: Flow<Int?> = ticker
+        .map { now -> now.toLocalDate(zone) }
+        .distinctUntilChanged()
+        .flatMapLatest { today ->
+            val zone = zone
+            movementRepository.eventsBetween(
+                today.atStartOfDay(zone).toInstant().toEpochMilli(),
+                today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
+            ).map<List<MovementEvent>, Int?> { events -> events.count { it.eventType.isMovement } }
+        }
+        .onStart { emit(null) }
+
     val homeUiState: StateFlow<HomeUiState> = combine(
         settingsRepository.settings,
         settingsRepository.state,
         ticker,
         systemStatus.filterNotNull(),
-    ) { settings, state, _, system ->
+        todayMovements,
+    ) { settings, state, _, system, movements ->
         // Der Ticker löst nur die Neuberechnung aus; gerechnet wird mit der aktuellen Uhrzeit,
         // sonst wäre der Countdown direkt nach einem Reset um bis zu einen Tick zu lang.
-        HomeUiState.create(settings, state, System.currentTimeMillis(), system, zone)
+        HomeUiState.create(settings, state, System.currentTimeMillis(), system, zone, movements)
     }
         // Berechnung (inkl. der einmaligen Zeitzonen-Initialisierung von java.time) nicht im UI-Thread.
         .flowOn(Dispatchers.Default)
@@ -93,15 +114,21 @@ class ReminderViewModel(
         val zone = zone
         val todayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
         val tomorrowStart = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val weekStart = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
-        return combine(
+        // Monatsansicht (deckt auch die 7 Tage ab) und Tageszeiten der letzten 30 Tage.
+        val calendarStart = StatsCalculator.calendarStart(today).atStartOfDay(zone).toInstant().toEpochMilli()
+        val hourlyStart = today.minusDays(TIME_OF_DAY_DAYS - 1L).atStartOfDay(zone).toInstant().toEpochMilli()
+        val history = combine(
             movementRepository.eventsBetween(todayStart, tomorrowStart),
-            movementRepository.dailyCountsSince(weekStart),
+            movementRepository.dailyCountsSince(calendarStart),
+            movementRepository.hourlyCountsSince(hourlyStart),
+        ) { todayEvents, dailyCounts, hourlyCounts -> Triple(todayEvents, dailyCounts, hourlyCounts) }
+        return combine(
+            history,
             movementRepository.currentStreak(),
             settingsRepository.settings,
             ticker,
-        ) { todayEvents, dailyCounts, streak, settings, now ->
-            StatsUiState.create(todayEvents, dailyCounts, streak, settings, now, today, zone)
+        ) { (todayEvents, dailyCounts, hourlyCounts), streak, settings, now ->
+            StatsUiState.create(todayEvents, dailyCounts, hourlyCounts, streak, settings, now, today, zone)
         }
     }
 
@@ -183,6 +210,13 @@ class ReminderViewModel(
         viewModelScope.launch { engine.onManualReset() }
     }
 
+    fun changeDailyGoal(steps: Int) {
+        viewModelScope.launch {
+            val current = settingsRepository.currentSettings().dailyGoal
+            engine.setDailyGoal(current + steps)
+        }
+    }
+
     fun changeSnooze(steps: Int) {
         viewModelScope.launch {
             val current = settingsRepository.currentSettings().snoozeMinutes
@@ -247,6 +281,7 @@ class ReminderViewModel(
 
     companion object {
         private const val TICK_MILLIS = 15_000L
+        private const val TIME_OF_DAY_DAYS = 30
         private const val STOP_TIMEOUT_MILLIS = 5_000L
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {

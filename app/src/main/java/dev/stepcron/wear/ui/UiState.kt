@@ -10,7 +10,9 @@ import dev.stepcron.wear.domain.DailyCounts
 import dev.stepcron.wear.domain.DaySchedule
 import dev.stepcron.wear.domain.DayStat
 import dev.stepcron.wear.domain.HourSlot
+import dev.stepcron.wear.domain.HourlyCounts
 import dev.stepcron.wear.domain.StatsCalculator
+import dev.stepcron.wear.domain.TimeOfDayInsight
 import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.domain.toLocalDate
 import java.time.LocalDate
@@ -77,12 +79,18 @@ data class HomeUiState(
     val onlyWhenWorn: Boolean = true,
     /** Die letzte Erinnerung fiel still aus (Ruhemodus, abgelegt); seitdem läuft dieser Zyklus. */
     val skippedReason: SkipReason? = null,
+    val dailyGoal: Int = ReminderSettings.DEFAULT_DAILY_GOAL,
+    /** Heutige Bewegungspausen; `null`, bis die Historie geladen ist. */
+    val todayMovements: Int? = null,
     val permissionsRequested: Boolean = false,
     val status: HomeStatus = HomeStatus.Disabled,
     val reminderPending: Boolean = false,
     val stepTrackingActive: Boolean = false,
     val system: SystemStatus = SystemStatus(),
 ) {
+    val canDecreaseGoal: Boolean get() = dailyGoal > ReminderSettings.MIN_DAILY_GOAL
+    val canIncreaseGoal: Boolean get() = dailyGoal < ReminderSettings.MAX_DAILY_GOAL
+
     val canDecreaseInterval: Boolean get() = intervalMinutes > ReminderSettings.MIN_INTERVAL_MINUTES
     val canIncreaseInterval: Boolean get() = intervalMinutes < ReminderSettings.MAX_INTERVAL_MINUTES
 
@@ -96,6 +104,7 @@ data class HomeUiState(
             nowMillis: Long,
             system: SystemStatus,
             zone: ZoneId,
+            todayMovements: Int? = null,
         ) = HomeUiState(
             loading = false,
             enabled = settings.enabled,
@@ -111,6 +120,8 @@ data class HomeUiState(
             skippedReason = state.lastSkipReason.takeIf {
                 settings.enabled && state.lastSkippedAt > 0L && state.lastSkippedAt == state.cycleStartAt
             },
+            dailyGoal = settings.dailyGoal,
+            todayMovements = todayMovements,
             permissionsRequested = settings.permissionsRequested,
             status = homeStatus(settings, state, nowMillis, zone),
             reminderPending = settings.enabled && state.pendingReminderAt > 0L,
@@ -180,11 +191,22 @@ data class StatsUiState(
     val week: List<DayStat> = emptyList(),
     val weekPercent: Int? = null,
     val weekMovements: Int = 0,
+    val dailyGoal: Int = ReminderSettings.DEFAULT_DAILY_GOAL,
+    /** Monatsansicht: die letzten Kalenderwochen, je Montag bis Sonntag; künftige Tage sind `null`. */
+    val calendarWeeks: List<List<DayStat?>> = emptyList(),
+    /** Tage der Monatsansicht mit erreichtem Tagesziel bzw. mit Daten überhaupt. */
+    val goalDays: Int = 0,
+    val daysWithData: Int = 0,
+    /** Beste und schwächste Tageszeit der letzten 30 Tage; `null` bei zu wenigen Daten. */
+    val timeOfDay: TimeOfDayInsight? = null,
 ) {
+    val goalReached: Boolean get() = todayMovements >= dailyGoal
+
     companion object {
         fun create(
             todayEvents: List<MovementEvent>,
             dailyCounts: List<DailyCounts>,
+            hourlyCounts: List<HourlyCounts>,
             streak: Int,
             settings: ReminderSettings,
             nowMillis: Long,
@@ -193,6 +215,8 @@ data class StatsUiState(
         ): StatsUiState {
             val summary = StatsCalculator.summarize(todayEvents)
             val week = StatsCalculator.lastSevenDays(dailyCounts, today)
+            val calendar = StatsCalculator.calendarWeeks(dailyCounts, today)
+            val calendarDays = calendar.flatten().filterNotNull()
             val weekMovements = week.sumOf { it.movements }
             val weekMissed = week.sumOf { it.missed }
             return StatsUiState(
@@ -207,6 +231,11 @@ data class StatsUiState(
                 week = week,
                 weekPercent = StatsCalculator.regularityPercent(weekMovements, weekMissed),
                 weekMovements = weekMovements,
+                dailyGoal = settings.dailyGoal,
+                calendarWeeks = calendar,
+                goalDays = calendarDays.count { it.movements >= settings.dailyGoal },
+                daysWithData = calendarDays.count { it.movements + it.missed > 0 },
+                timeOfDay = StatsCalculator.timeOfDay(hourlyCounts),
             )
         }
     }

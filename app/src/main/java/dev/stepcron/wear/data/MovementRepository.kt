@@ -4,6 +4,7 @@ import dev.stepcron.wear.data.db.MovementDao
 import dev.stepcron.wear.data.db.MovementEvent
 import dev.stepcron.wear.data.db.MovementEventType
 import dev.stepcron.wear.domain.DailyCounts
+import dev.stepcron.wear.domain.HourlyCounts
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -48,6 +49,12 @@ class MovementRepository(daoProvider: () -> MovementDao) : MovementLog {
                     missed = row.missedCount,
                 )
             }
+        }
+
+    /** Zähler je Stunde des Tages über alle Tage ab [fromMillis]. */
+    fun hourlyCountsSince(fromMillis: Long): Flow<List<HourlyCounts>> =
+        dao.observeHourlyStats(fromMillis).map { rows ->
+            rows.filter { it.hour in 0..23 }.map { HourlyCounts(it.hour, it.movementCount, it.missedCount) }
         }
 
     /** Erfolgreiche Intervalle in Folge seit der letzten verpassten Erinnerung. */

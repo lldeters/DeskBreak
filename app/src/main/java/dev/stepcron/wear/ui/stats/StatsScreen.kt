@@ -1,5 +1,7 @@
 package dev.stepcron.wear.ui.stats
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,10 +14,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +42,7 @@ import androidx.wear.compose.material.TimeText
 import dev.stepcron.wear.R
 import dev.stepcron.wear.domain.DaySchedule
 import dev.stepcron.wear.domain.DayStat
+import dev.stepcron.wear.domain.HourRate
 import dev.stepcron.wear.domain.HourSlot
 import dev.stepcron.wear.domain.SlotStatus
 import dev.stepcron.wear.domain.WeeklySchedule
@@ -43,6 +50,7 @@ import dev.stepcron.wear.ui.StatsUiState
 import dev.stepcron.wear.ui.breaksText
 import dev.stepcron.wear.ui.rememberScheduleTexts
 import dev.stepcron.wear.ui.charts.DayTimelineChart
+import dev.stepcron.wear.ui.charts.MonthHeatmap
 import dev.stepcron.wear.ui.charts.WeeklyTrendChart
 import dev.stepcron.wear.ui.components.ChartCard
 import dev.stepcron.wear.ui.components.ChartLegend
@@ -127,6 +135,19 @@ fun StatsScreen(
                 )
             }
             item {
+                val remaining = (state.dailyGoal - state.todayMovements).coerceAtLeast(0)
+                SummaryChip(
+                    iconRes = R.drawable.ic_walk,
+                    title = stringResource(R.string.stats_goal_value, state.todayMovements, state.dailyGoal),
+                    subtitle = if (state.goalReached) {
+                        stringResource(R.string.stats_goal_reached)
+                    } else {
+                        pluralStringResource(R.plurals.stats_goal_remaining, remaining, remaining)
+                    },
+                    accent = if (state.goalReached) DeskBreakColors.Done else DeskBreakColors.Primary,
+                )
+            }
+            item {
                 SummaryChip(
                     iconRes = R.drawable.ic_streak,
                     title = stringResource(R.string.stats_streak_value, state.streak),
@@ -206,6 +227,67 @@ fun StatsScreen(
                 }
             }
 
+            // 3) Monatsansicht: Tagesziel je Tag der letzten Wochen
+            item {
+                val description = stringResource(
+                    R.string.cd_month_heatmap,
+                    state.goalDays,
+                    state.daysWithData,
+                    state.dailyGoal,
+                )
+                ChartCard(
+                    title = stringResource(R.string.stats_month_title),
+                    subtitle = if (state.daysWithData > 0) {
+                        stringResource(R.string.stats_month_subtitle, state.goalDays, state.daysWithData)
+                    } else {
+                        stringResource(R.string.chart_no_data)
+                    },
+                ) {
+                    MonthHeatmap(
+                        weeks = state.calendarWeeks,
+                        goal = state.dailyGoal,
+                        description = description,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.stats_month_hint),
+                        style = MaterialTheme.typography.caption3,
+                        color = MaterialTheme.colors.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            // 4) Beste und schwächste Tageszeit
+            item {
+                val insight = state.timeOfDay
+                ChartCard(title = stringResource(R.string.stats_time_of_day_title), subtitle = null) {
+                    if (insight == null) {
+                        Text(
+                            text = stringResource(R.string.stats_time_of_day_empty),
+                            style = MaterialTheme.typography.caption2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        TimeOfDayRow(
+                            label = stringResource(R.string.stats_time_of_day_best),
+                            rate = insight.best,
+                            color = scoreColor(insight.best.percent),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        TimeOfDayRow(
+                            label = stringResource(R.string.stats_time_of_day_worst),
+                            rate = insight.worst,
+                            color = scoreColor(insight.worst.percent),
+                        )
+                    }
+                }
+            }
+
             if (showDebugTools) {
                 item { ListHeader { Text(stringResource(R.string.stats_debug_header)) } }
                 item {
@@ -258,6 +340,25 @@ fun StatsScreen(
                 }
             }
         }
+    }
+}
+
+/** „Am besten · 10–11 Uhr · 95 %". */
+@Composable
+private fun TimeOfDayRow(label: String, rate: HourRate, color: Color) {
+    val hours = stringResource(R.string.stats_time_of_day_hours, rate.hour, rate.hour + 1)
+    val percent = stringResource(R.string.percent_value, rate.percent)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.caption3, color = MaterialTheme.colors.onSurfaceVariant)
+            Text(text = hours, style = MaterialTheme.typography.caption1, color = MaterialTheme.colors.onSurface)
+        }
+        Text(text = percent, style = MaterialTheme.typography.title3, color = color)
     }
 }
 

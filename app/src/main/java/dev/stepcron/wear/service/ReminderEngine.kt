@@ -382,6 +382,10 @@ class ReminderEngine(
         settingsRepository.updateSettings { it.copy(snoozeMinutes = minutes) }
     }
 
+    suspend fun setDailyGoal(goal: Int): Unit = locked {
+        settingsRepository.updateSettings { it.copy(dailyGoal = goal) }
+    }
+
     suspend fun setRespectQuietModes(enabled: Boolean): Unit = locked {
         settingsRepository.updateSettings { it.copy(respectQuietModes = enabled) }
     }

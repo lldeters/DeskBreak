@@ -40,6 +40,23 @@
     <string name="home_resume_label">Fortsetzen</string>
     <string name="home_resume_secondary">Pause jetzt beenden</string>
     <string name="home_stats_label">Auswertung &amp; Graphen</string>
+    <!-- Menge = Tagesziel; %1$d = heutige Pausen, %2$d = Ziel -->
+    <plurals name="home_goal_progress">
+        <item quantity="one">Heute %1$d von %2$d Pause</item>
+        <item quantity="other">Heute %1$d von %2$d Pausen</item>
+    </plurals>
+    <!-- Solange die Historie lädt: gleich lang wie home_goal_progress, damit nichts springt -->
+    <plurals name="home_goal_only">
+        <item quantity="one">Heute – von %d Pause</item>
+        <item quantity="other">Heute – von %d Pausen</item>
+    </plurals>
+    <string name="home_goal_label">Tagesziel</string>
+    <plurals name="home_goal_value">
+        <item quantity="one">%d Pause</item>
+        <item quantity="other">%d Pausen</item>
+    </plurals>
+    <string name="cd_goal_decrease">Tagesziel verringern</string>
+    <string name="cd_goal_increase">Tagesziel erhöhen</string>
 
     <string name="home_settings_header">Einstellungen</string>
     <string name="home_interval_label">Intervall</string>
@@ -163,6 +180,25 @@
     <string name="stats_week_title">7 Tage</string>
     <string name="stats_week_subtitle">Ø %1$s · %2$s</string>
     <string name="stats_week_hint">Säule: Quote · Zahl: Pausen</string>
+    <!-- %1$d = heutige Pausen, %2$d = Tagesziel -->
+    <string name="stats_goal_value">%1$d / %2$d</string>
+    <string name="stats_goal_reached">Tagesziel erreicht ✓</string>
+    <plurals name="stats_goal_remaining">
+        <item quantity="one">Tagesziel · noch %d Pause</item>
+        <item quantity="other">Tagesziel · noch %d Pausen</item>
+    </plurals>
+    <string name="stats_month_title">5 Wochen</string>
+    <!-- %1$d = Tage mit erreichtem Ziel, %2$d = Tage mit Daten -->
+    <string name="stats_month_subtitle">Ziel %1$d/%2$d</string>
+    <string name="stats_month_hint">Je grüner, desto näher am Tagesziel</string>
+    <!-- %1$d = Tage mit erreichtem Ziel, %2$d = Tage mit Daten, %3$d = Tagesziel -->
+    <string name="cd_month_heatmap" tools:ignore="PluralsCandidate">Letzte 5 Wochen: Tagesziel von %3$d Pausen an %1$d von %2$d Tagen erreicht</string>
+    <string name="stats_time_of_day_title">Tageszeit</string>
+    <string name="stats_time_of_day_empty">Noch zu wenige Daten (letzte 30 Tage)</string>
+    <string name="stats_time_of_day_best">Am besten</string>
+    <string name="stats_time_of_day_worst">Am schwächsten</string>
+    <!-- %1$d = Stunde, %2$d = folgende Stunde -->
+    <string name="stats_time_of_day_hours">%1$02d–%2$02d Uhr</string>
     <string name="percent_value">%1$d %%</string>
     <string name="chart_no_data">–</string>
     <string name="legend_done">Erledigt</string>

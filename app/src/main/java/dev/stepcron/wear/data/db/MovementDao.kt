@@ -52,6 +52,24 @@ abstract class MovementDao {
     )
     abstract fun observeDailyStats(fromMillis: Long): Flow<List<DailyMovementStats>>
 
+    /**
+     * Zähler je Stunde des Tages (0–23, lokale Zeit) über alle Tage ab [fromMillis] – Grundlage für die beste
+     * und die schwächste Tageszeit. Verpasste Erinnerungen zählen zur Stunde, in der sie fällig waren.
+     */
+    @Query(
+        """
+        SELECT CAST(strftime('%H', timestamp / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour,
+               SUM(CASE WHEN eventType IN ('COMPLETED_REMINDER', 'AUTO_STEP_RESET', 'MANUAL_RESET')
+                        THEN 1 ELSE 0 END) AS movementCount,
+               SUM(CASE WHEN eventType = 'MISSED' THEN 1 ELSE 0 END) AS missedCount
+        FROM movement_events
+        WHERE timestamp >= :fromMillis
+        GROUP BY hour
+        ORDER BY hour ASC
+        """,
+    )
+    abstract fun observeHourlyStats(fromMillis: Long): Flow<List<HourlyMovementStats>>
+
     /** Aktuelle Serie: erfolgreiche Intervalle seit der letzten verpassten Erinnerung. */
     @Query(
         """
@@ -76,6 +94,13 @@ abstract class MovementDao {
         insertAll(events)
     }
 }
+
+/** Ergebniszeile von [MovementDao.observeHourlyStats]. */
+data class HourlyMovementStats(
+    val hour: Int,
+    val movementCount: Int,
+    val missedCount: Int,
+)
 
 /** Ergebniszeile von [MovementDao.observeDailyStats]. [day] im Format `yyyy-MM-dd`. */
 data class DailyMovementStats(

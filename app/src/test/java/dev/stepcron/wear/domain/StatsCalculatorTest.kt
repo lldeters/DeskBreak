@@ -99,4 +99,55 @@ class StatsCalculatorTest {
         assertNull(days[0].percent)
         assertEquals(1, days.count { it.isToday })
     }
+
+    @Test
+    fun `best and worst hour need enough data and a difference`() {
+        val hourly = listOf(
+            HourlyCounts(hour = 9, movements = 9, missed = 1), // 90 %
+            HourlyCounts(hour = 10, movements = 4, missed = 0), // 100 %
+            HourlyCounts(hour = 14, movements = 2, missed = 2), // 50 %
+            HourlyCounts(hour = 16, movements = 1, missed = 1), // zu wenig Daten
+        )
+        val insight = StatsCalculator.timeOfDay(hourly)!!
+        assertEquals(HourRate(hour = 10, percent = 100, due = 4), insight.best)
+        assertEquals(HourRate(hour = 14, percent = 50, due = 4), insight.worst)
+
+        assertNull(StatsCalculator.timeOfDay(hourly.take(1)))
+        // Überall gleich gut: keine Aussage.
+        assertNull(StatsCalculator.timeOfDay(listOf(HourlyCounts(9, 3, 0), HourlyCounts(10, 5, 0))))
+    }
+
+    @Test
+    fun `ties prefer the hour with more data`() {
+        val hourly = listOf(
+            HourlyCounts(hour = 8, movements = 3, missed = 0),
+            HourlyCounts(hour = 9, movements = 6, missed = 0),
+            HourlyCounts(hour = 13, movements = 3, missed = 3),
+            HourlyCounts(hour = 15, movements = 1, missed = 1 + 1),
+        )
+        val insight = StatsCalculator.timeOfDay(hourly)!!
+        assertEquals(9, insight.best.hour)
+        assertEquals(15, insight.worst.hour) // 33 % < 50 %
+    }
+
+    @Test
+    fun `calendar weeks run from monday to sunday and end with this week`() {
+        val today = LocalDate.of(2026, 11, 11) // Mittwoch
+        val daily = listOf(
+            DailyCounts(LocalDate.of(2026, 11, 9), movements = 8, snoozes = 0, missed = 1),
+            DailyCounts(LocalDate.of(2026, 10, 12), movements = 2, snoozes = 1, missed = 0),
+        )
+        val weeks = StatsCalculator.calendarWeeks(daily, today)
+
+        assertEquals(StatsCalculator.CALENDAR_WEEKS, weeks.size)
+        assertTrue(weeks.all { it.size == 7 })
+        assertEquals(LocalDate.of(2026, 10, 12), weeks.first().first()!!.date)
+        assertEquals(LocalDate.of(2026, 10, 12), StatsCalculator.calendarStart(today))
+        assertEquals(2, weeks.first().first()!!.movements)
+        val thisWeek = weeks.last()
+        assertEquals(8, thisWeek[0]!!.movements)
+        assertTrue(thisWeek[2]!!.isToday)
+        // Donnerstag bis Sonntag liegen in der Zukunft.
+        assertTrue(thisWeek.drop(3).all { it == null })
+    }
 }

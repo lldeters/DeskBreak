@@ -32,4 +32,11 @@ class ReminderSettingsTest {
         assertEquals(VibrationLevel.MEDIUM, VibrationLevel.fromName("MEDIUM"))
         assertEquals(null, VibrationLevel.fromName("LOUD"))
     }
+
+    @Test
+    fun `the daily goal stays within its range`() {
+        assertEquals(2, ReminderSettings(dailyGoal = 0).sanitized().dailyGoal)
+        assertEquals(16, ReminderSettings(dailyGoal = 99).sanitized().dailyGoal)
+        assertEquals(8, ReminderSettings().sanitized().dailyGoal)
+    }
 }

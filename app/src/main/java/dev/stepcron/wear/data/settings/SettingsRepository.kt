@@ -65,6 +65,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val VIBRATION = stringPreferencesKey("vibration_level")
         val RESPECT_QUIET_MODES = booleanPreferencesKey("respect_quiet_modes")
         val ONLY_WHEN_WORN = booleanPreferencesKey("only_when_worn")
+        val DAILY_GOAL = intPreferencesKey("daily_goal")
 
         /** Wochenplan im Format von [ScheduleCodec]. Ist der Schlüssel gesetzt, gilt der Plan als übernommen. */
         val WEEKLY_SCHEDULE = stringPreferencesKey("weekly_schedule_v1")
@@ -97,6 +98,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         vibration = VibrationLevel.fromName(this[Keys.VIBRATION]) ?: VibrationLevel.STRONG,
         respectQuietModes = this[Keys.RESPECT_QUIET_MODES] ?: true,
         onlyWhenWorn = this[Keys.ONLY_WHEN_WORN] ?: true,
+        dailyGoal = this[Keys.DAILY_GOAL] ?: ReminderSettings.DEFAULT_DAILY_GOAL,
     ).sanitized()
 
     private fun MutablePreferences.writeSettings(settings: ReminderSettings) {
@@ -114,6 +116,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         this[Keys.VIBRATION] = settings.vibration.name
         this[Keys.RESPECT_QUIET_MODES] = settings.respectQuietModes
         this[Keys.ONLY_WHEN_WORN] = settings.onlyWhenWorn
+        this[Keys.DAILY_GOAL] = settings.dailyGoal
     }
 
     /**

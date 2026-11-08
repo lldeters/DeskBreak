@@ -68,6 +68,7 @@ fun HomeScreen(
     onResume: () -> Unit,
     onOpenStats: () -> Unit,
     onIntervalStep: (Int) -> Unit,
+    onGoalStep: (Int) -> Unit,
     onOpenSchedule: () -> Unit,
     onOpenReminderSettings: () -> Unit,
     onAutoStepChange: (Boolean) -> Unit,
@@ -200,9 +201,18 @@ fun HomeScreen(
             }
 
             item(key = "stats") {
+                val goal = current.dailyGoal
+                val movements = current.todayMovements
+                // Bis die Historie geladen ist, nur das Ziel – gleiche Höhe, damit nichts springt.
+                val goalText = if (movements == null) {
+                    pluralStringResource(R.plurals.home_goal_only, goal, goal)
+                } else {
+                    pluralStringResource(R.plurals.home_goal_progress, goal, movements, goal)
+                }
                 Chip(
                     onClick = onOpenStats,
                     label = { Text(stringResource(R.string.home_stats_label), maxLines = 2) },
+                    secondaryLabel = { Text(goalText, maxLines = 2) },
                     icon = { ChipIcon(R.drawable.ic_chart) },
                     colors = ChipDefaults.secondaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
@@ -221,6 +231,18 @@ fun HomeScreen(
                     increaseEnabled = current.canIncreaseInterval,
                     decreaseDescription = stringResource(R.string.cd_interval_decrease),
                     increaseDescription = stringResource(R.string.cd_interval_increase),
+                )
+            }
+            item(key = "goal") {
+                StepperRow(
+                    label = stringResource(R.string.home_goal_label),
+                    value = pluralStringResource(R.plurals.home_goal_value, current.dailyGoal, current.dailyGoal),
+                    onDecrease = { onGoalStep(-1) },
+                    onIncrease = { onGoalStep(1) },
+                    decreaseEnabled = current.canDecreaseGoal,
+                    increaseEnabled = current.canIncreaseGoal,
+                    decreaseDescription = stringResource(R.string.cd_goal_decrease),
+                    increaseDescription = stringResource(R.string.cd_goal_increase),
                 )
             }
             item(key = "schedule") {
@@ -446,6 +468,7 @@ private fun HomeScreenPreview() {
                 onResume = {},
                 onOpenStats = {},
                 onIntervalStep = {},
+                onGoalStep = {},
                 onOpenSchedule = {},
                 onOpenReminderSettings = {},
                 onAutoStepChange = {},

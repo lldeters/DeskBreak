@@ -24,6 +24,8 @@ data class ReminderSettings(
     val respectQuietModes: Boolean = true,
     /** Keine Erinnerung, wenn die Uhr nicht getragen wird. */
     val onlyWhenWorn: Boolean = true,
+    /** Angestrebte Bewegungspausen pro Tag. */
+    val dailyGoal: Int = DEFAULT_DAILY_GOAL,
 ) {
     val intervalMillis: Long get() = intervalMinutes * 60_000L
 
@@ -47,6 +49,7 @@ data class ReminderSettings(
             intervalMinutes = interval,
             snoozeMinutes = SNOOZE_OPTIONS.nearest(snoozeMinutes),
             stepThreshold = STEP_THRESHOLD_OPTIONS.nearest(stepThreshold),
+            dailyGoal = dailyGoal.coerceIn(MIN_DAILY_GOAL, MAX_DAILY_GOAL),
         )
     }
 
@@ -61,6 +64,10 @@ data class ReminderSettings(
 
         val STEP_THRESHOLD_OPTIONS: List<Int> = listOf(20, 30, 50, 75, 100)
         const val DEFAULT_STEP_THRESHOLD = 30
+
+        const val MIN_DAILY_GOAL = 2
+        const val MAX_DAILY_GOAL = 16
+        const val DEFAULT_DAILY_GOAL = 8
     }
 }
 

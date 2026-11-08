@@ -172,6 +172,7 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     onResume = viewModel::resume,
                     onOpenStats = { navController.navigate(Routes.STATS) },
                     onIntervalStep = viewModel::changeInterval,
+                    onGoalStep = viewModel::changeDailyGoal,
                     onOpenSchedule = openSchedule,
                     onOpenReminderSettings = { navController.navigate(Routes.REMINDER_SETTINGS) },
                     onAutoStepChange = { enabled ->
