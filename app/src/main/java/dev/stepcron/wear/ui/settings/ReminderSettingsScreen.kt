@@ -18,10 +18,13 @@ import androidx.wear.compose.material.ListHeader
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
+import androidx.wear.compose.material.Switch
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
+import androidx.wear.compose.material.ToggleChip
 import dev.stepcron.wear.R
 import dev.stepcron.wear.data.settings.ReminderSettings
+import dev.stepcron.wear.data.settings.SkipReason
 import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.ui.WEAR_SMALL_ROUND
 import dev.stepcron.wear.ui.components.StepperRow
@@ -34,11 +37,13 @@ data class ReminderSettingsUi(
     val stepThreshold: Int,
     /** Schritterkennung an und möglich (Sensor vorhanden). */
     val stepDetectionAvailable: Boolean,
+    val respectQuietModes: Boolean,
+    val onlyWhenWorn: Boolean,
 )
 
 /**
- * Snooze-Dauer, Vibrationsstärke (Antippen wechselt und vibriert zur Probe) und Schritt-Schwelle der
- * automatischen Erkennung.
+ * Snooze-Dauer, Vibrationsstärke (Antippen wechselt und vibriert zur Probe), Rücksicht auf Ruhemodi und das
+ * Tragen der Uhr sowie die Schritt-Schwelle der automatischen Erkennung.
  */
 @Composable
 fun ReminderSettingsScreen(
@@ -46,6 +51,8 @@ fun ReminderSettingsScreen(
     onSnoozeStep: (Int) -> Unit,
     onNextVibration: () -> Unit,
     onStepThresholdStep: (Int) -> Unit,
+    onRespectQuietModesChange: (Boolean) -> Unit,
+    onOnlyWhenWornChange: (Boolean) -> Unit,
 ) {
     val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
     Scaffold(positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
@@ -99,6 +106,27 @@ fun ReminderSettingsScreen(
                 )
             }
 
+            item(key = "quiet_modes") {
+                ToggleChip(
+                    checked = settings.respectQuietModes,
+                    onCheckedChange = onRespectQuietModesChange,
+                    label = { Text(stringResource(R.string.reminder_settings_quiet), maxLines = 2) },
+                    secondaryLabel = { Text(stringResource(R.string.reminder_settings_quiet_secondary), maxLines = 2) },
+                    toggleControl = { Switch(checked = settings.respectQuietModes) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item(key = "only_when_worn") {
+                ToggleChip(
+                    checked = settings.onlyWhenWorn,
+                    onCheckedChange = onOnlyWhenWornChange,
+                    label = { Text(stringResource(R.string.reminder_settings_worn), maxLines = 2) },
+                    secondaryLabel = { Text(stringResource(R.string.reminder_settings_worn_secondary), maxLines = 2) },
+                    toggleControl = { Switch(checked = settings.onlyWhenWorn) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             item(key = "steps") {
                 val options = ReminderSettings.STEP_THRESHOLD_OPTIONS
                 val available = settings.stepDetectionAvailable
@@ -115,6 +143,13 @@ fun ReminderSettingsScreen(
             }
         }
     }
+}
+
+fun skipReasonLabel(reason: SkipReason): Int = when (reason) {
+    SkipReason.DO_NOT_DISTURB -> R.string.skip_reason_dnd
+    SkipReason.BEDTIME -> R.string.skip_reason_bedtime
+    SkipReason.THEATER_MODE -> R.string.skip_reason_theater
+    SkipReason.NOT_WORN -> R.string.skip_reason_not_worn
 }
 
 fun vibrationLabel(level: VibrationLevel): Int = when (level) {
@@ -135,10 +170,14 @@ private fun ReminderSettingsScreenPreview() {
                     vibration = VibrationLevel.STRONG,
                     stepThreshold = 30,
                     stepDetectionAvailable = true,
+                    respectQuietModes = true,
+                    onlyWhenWorn = true,
                 ),
                 onSnoozeStep = {},
                 onNextVibration = {},
                 onStepThresholdStep = {},
+                onRespectQuietModesChange = {},
+                onOnlyWhenWornChange = {},
             )
         }
     }

@@ -53,6 +53,7 @@ import dev.stepcron.wear.ui.components.StepperRow
 import dev.stepcron.wear.ui.formatClock
 import dev.stepcron.wear.ui.rememberResumeText
 import dev.stepcron.wear.ui.rememberScheduleTexts
+import dev.stepcron.wear.ui.settings.skipReasonLabel
 import dev.stepcron.wear.ui.settings.vibrationLabel
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 import kotlinx.coroutines.delay
@@ -356,6 +357,11 @@ private fun StatusHeader(state: HomeUiState) {
                 Headline(stringResource(R.string.home_status_day_done))
                 Caption(stringResource(R.string.home_status_day_done_hint, formatClock(status.windowEndMillis)))
             }
+        }
+        val skipped = state.skippedReason
+        if (skipped != null && state.status is HomeStatus.Scheduled) {
+            Spacer(Modifier.height(4.dp))
+            Caption(stringResource(R.string.home_reminder_skipped, stringResource(skipReasonLabel(skipped))))
         }
         if (state.reminderPending) {
             Spacer(Modifier.height(4.dp))

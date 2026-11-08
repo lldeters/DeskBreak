@@ -1,6 +1,7 @@
 package dev.stepcron.wear.service
 
 import dev.stepcron.wear.data.settings.ReminderSettings
+import dev.stepcron.wear.data.settings.SkipReason
 import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.PlannedAlarm
 import java.time.ZoneId
@@ -38,4 +39,13 @@ interface StepTracking {
     fun start()
 
     fun stop()
+}
+
+/** Zustand der Uhr, der eine fällige Erinnerung ausfallen lässt. */
+interface DeviceState {
+    /** Aktiver Ruhemodus ([SkipReason.DO_NOT_DISTURB], [SkipReason.BEDTIME], [SkipReason.THEATER_MODE]) oder `null`. */
+    fun quietMode(): SkipReason?
+
+    /** Ob die Uhr getragen wird; `null`, wenn sich das nicht feststellen lässt. */
+    suspend fun isWorn(): Boolean?
 }

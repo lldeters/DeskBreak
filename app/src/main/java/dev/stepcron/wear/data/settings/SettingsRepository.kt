@@ -63,6 +63,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
         val STEP_THRESHOLD = intPreferencesKey("step_threshold")
         val VIBRATION = stringPreferencesKey("vibration_level")
+        val RESPECT_QUIET_MODES = booleanPreferencesKey("respect_quiet_modes")
+        val ONLY_WHEN_WORN = booleanPreferencesKey("only_when_worn")
 
         /** Wochenplan im Format von [ScheduleCodec]. Ist der Schlüssel gesetzt, gilt der Plan als übernommen. */
         val WEEKLY_SCHEDULE = stringPreferencesKey("weekly_schedule_v1")
@@ -79,6 +81,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val LAST_MOVEMENT_AT = longPreferencesKey("last_movement_at")
         val LAST_WALK_DETECTED_AT = longPreferencesKey("last_walk_detected_at")
         val STEP_TRACKING_ACTIVE = booleanPreferencesKey("step_tracking_active")
+        val LAST_SKIPPED_AT = longPreferencesKey("last_skipped_at")
+        val LAST_SKIP_REASON = stringPreferencesKey("last_skip_reason")
     }
 
     private fun Preferences.toSettings(): ReminderSettings = ReminderSettings(
@@ -91,6 +95,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         snoozeMinutes = this[Keys.SNOOZE_MINUTES] ?: ReminderSettings.DEFAULT_SNOOZE_MINUTES,
         stepThreshold = this[Keys.STEP_THRESHOLD] ?: ReminderSettings.DEFAULT_STEP_THRESHOLD,
         vibration = VibrationLevel.fromName(this[Keys.VIBRATION]) ?: VibrationLevel.STRONG,
+        respectQuietModes = this[Keys.RESPECT_QUIET_MODES] ?: true,
+        onlyWhenWorn = this[Keys.ONLY_WHEN_WORN] ?: true,
     ).sanitized()
 
     private fun MutablePreferences.writeSettings(settings: ReminderSettings) {
@@ -106,6 +112,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         this[Keys.SNOOZE_MINUTES] = settings.snoozeMinutes
         this[Keys.STEP_THRESHOLD] = settings.stepThreshold
         this[Keys.VIBRATION] = settings.vibration.name
+        this[Keys.RESPECT_QUIET_MODES] = settings.respectQuietModes
+        this[Keys.ONLY_WHEN_WORN] = settings.onlyWhenWorn
     }
 
     /**
@@ -137,6 +145,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         lastMovementAt = this[Keys.LAST_MOVEMENT_AT] ?: 0L,
         lastWalkDetectedAt = this[Keys.LAST_WALK_DETECTED_AT] ?: 0L,
         stepTrackingActive = this[Keys.STEP_TRACKING_ACTIVE] ?: false,
+        lastSkippedAt = this[Keys.LAST_SKIPPED_AT] ?: 0L,
+        lastSkipReason = SkipReason.fromName(this[Keys.LAST_SKIP_REASON]),
     )
 
     private fun MutablePreferences.writeState(state: ReminderState) {
@@ -149,6 +159,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         this[Keys.LAST_MOVEMENT_AT] = state.lastMovementAt
         this[Keys.LAST_WALK_DETECTED_AT] = state.lastWalkDetectedAt
         this[Keys.STEP_TRACKING_ACTIVE] = state.stepTrackingActive
+        this[Keys.LAST_SKIPPED_AT] = state.lastSkippedAt
+        val skipReason = state.lastSkipReason
+        if (skipReason != null) this[Keys.LAST_SKIP_REASON] = skipReason.name else remove(Keys.LAST_SKIP_REASON)
     }
 
     private companion object {

@@ -7,6 +7,7 @@ import dev.stepcron.wear.data.MovementRepository
 import dev.stepcron.wear.data.db.DeskBreakDatabase
 import dev.stepcron.wear.data.settings.SettingsRepository
 import dev.stepcron.wear.service.AlarmScheduler
+import dev.stepcron.wear.service.AndroidDeviceState
 import dev.stepcron.wear.service.ReminderEngine
 import dev.stepcron.wear.service.ReminderNotifier
 import dev.stepcron.wear.service.ServiceStepTracking
@@ -38,6 +39,7 @@ class AppContainer(context: Context) {
             alarms = alarmScheduler,
             alerts = notifier,
             stepTracking = ServiceStepTracking(appContext),
+            deviceState = AndroidDeviceState(appContext),
             onStateChanged = { SurfaceUpdates.request(appContext) },
         )
     }

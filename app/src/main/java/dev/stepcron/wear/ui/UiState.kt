@@ -3,6 +3,7 @@ package dev.stepcron.wear.ui
 import dev.stepcron.wear.data.db.MovementEvent
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
+import dev.stepcron.wear.data.settings.SkipReason
 import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.DailyCounts
@@ -72,6 +73,10 @@ data class HomeUiState(
     val snoozeMinutes: Int = ReminderSettings.DEFAULT_SNOOZE_MINUTES,
     val stepThreshold: Int = ReminderSettings.DEFAULT_STEP_THRESHOLD,
     val vibration: VibrationLevel = VibrationLevel.STRONG,
+    val respectQuietModes: Boolean = true,
+    val onlyWhenWorn: Boolean = true,
+    /** Die letzte Erinnerung fiel still aus (Ruhemodus, abgelegt); seitdem läuft dieser Zyklus. */
+    val skippedReason: SkipReason? = null,
     val permissionsRequested: Boolean = false,
     val status: HomeStatus = HomeStatus.Disabled,
     val reminderPending: Boolean = false,
@@ -101,6 +106,11 @@ data class HomeUiState(
             snoozeMinutes = settings.snoozeMinutes,
             stepThreshold = settings.stepThreshold,
             vibration = settings.vibration,
+            respectQuietModes = settings.respectQuietModes,
+            onlyWhenWorn = settings.onlyWhenWorn,
+            skippedReason = state.lastSkipReason.takeIf {
+                settings.enabled && state.lastSkippedAt > 0L && state.lastSkippedAt == state.cycleStartAt
+            },
             permissionsRequested = settings.permissionsRequested,
             status = homeStatus(settings, state, nowMillis, zone),
             reminderPending = settings.enabled && state.pendingReminderAt > 0L,

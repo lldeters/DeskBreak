@@ -5,6 +5,7 @@ import dev.stepcron.wear.data.MovementLog
 import dev.stepcron.wear.data.db.MovementEventType
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.SettingsRepository
+import dev.stepcron.wear.data.settings.SkipReason
 import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.PlannedAlarm
@@ -39,6 +40,7 @@ class ReminderEngine(
     private val alarms: Alarms,
     private val alerts: ReminderAlerts,
     private val stepTracking: StepTracking,
+    private val deviceState: DeviceState,
     private val clock: () -> Long = System::currentTimeMillis,
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -103,6 +105,18 @@ class ReminderEngine(
             movementLog.log(MovementEventType.MISSED, previous.pendingReminderAt, settings.intervalMinutes)
         }
 
+        // Ruhemodus oder abgelegt: diese Erinnerung still überspringen – sie zählt weder als offen noch als verpasst,
+        // der Takt läuft ab jetzt weiter. Eine noch sichtbare vorherige Erinnerung (oben als verpasst gezählt) geht.
+        val skipReason = skipReasonLocked(settings)
+        if (skipReason != null) {
+            alerts.cancelReminder()
+            settingsRepository.updateState {
+                it.copy(pendingReminderAt = 0L, lastSkippedAt = now, lastSkipReason = skipReason)
+            }
+            syncStepTrackerLocked(now, settings)
+            return
+        }
+
         // 3) Vibrationsmuster und 4) High-Priority-Notification.
         alerts.vibrateReminder(settings.vibration)
         alerts.showReminder(now, settings.snoozeMinutes)
@@ -143,6 +157,14 @@ class ReminderEngine(
         // plant der Planer stattdessen ihren Abschluss nach der Kulanzzeit.
         scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.schedule, zone, pendingReminderAt))
         syncStepTrackerLocked(now, settings)
+    }
+
+    /** Warum die fällige Erinnerung ausfallen soll, nach den Einstellungen; `null`: erinnern. */
+    private suspend fun skipReasonLocked(settings: ReminderSettings): SkipReason? {
+        if (settings.respectQuietModes) deviceState.quietMode()?.let { return it }
+        // Lässt sich das Tragen nicht feststellen (kein Sensor), wird erinnert.
+        if (settings.onlyWhenWorn && deviceState.isWorn() == false) return SkipReason.NOT_WORN
+        return null
     }
 
     /** Die offene Erinnerung von [pendingReminderAt] endgültig als verpasst werten und schließen. */
@@ -358,6 +380,14 @@ class ReminderEngine(
     /** Snooze-Dauer ab der nächsten Erinnerung; ein laufender Snooze bleibt, wie er ist. */
     suspend fun setSnoozeMinutes(minutes: Int): Unit = locked {
         settingsRepository.updateSettings { it.copy(snoozeMinutes = minutes) }
+    }
+
+    suspend fun setRespectQuietModes(enabled: Boolean): Unit = locked {
+        settingsRepository.updateSettings { it.copy(respectQuietModes = enabled) }
+    }
+
+    suspend fun setOnlyWhenWorn(enabled: Boolean): Unit = locked {
+        settingsRepository.updateSettings { it.copy(onlyWhenWorn = enabled) }
     }
 
     suspend fun setVibration(level: VibrationLevel): Unit = locked {

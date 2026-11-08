@@ -20,6 +20,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -136,6 +137,17 @@ class SettingsRepositoryTest {
         assertEquals(20, stored.snoozeMinutes)
         assertEquals(50, stored.stepThreshold)
         assertEquals(VibrationLevel.OFF, stored.vibration)
+
+        assertTrue(defaults.respectQuietModes)
+        assertTrue(defaults.onlyWhenWorn)
+        repository.updateSettings { it.copy(respectQuietModes = false, onlyWhenWorn = false) }
+        assertFalse(repository.currentSettings().respectQuietModes)
+        assertFalse(repository.currentSettings().onlyWhenWorn)
+
+        repository.updateState { it.copy(lastSkippedAt = 1_000L, lastSkipReason = SkipReason.BEDTIME) }
+        assertEquals(SkipReason.BEDTIME, repository.currentState().lastSkipReason)
+        repository.updateState { it.copy(lastSkipReason = null) }
+        assertNull(repository.currentState().lastSkipReason)
 
         // Unbekannte Stufe (z. B. aus einer neueren Version) fällt auf „Stark" zurück.
         dataStore.edit { it[stringPreferencesKey("vibration_level")] = "LOUD" }

@@ -20,6 +20,10 @@ data class ReminderSettings(
     /** So viele Schritte innerhalb von 2 Minuten gelten als Bewegungspause (eine der [STEP_THRESHOLD_OPTIONS]). */
     val stepThreshold: Int = DEFAULT_STEP_THRESHOLD,
     val vibration: VibrationLevel = VibrationLevel.STRONG,
+    /** Keine Erinnerung bei „Nicht stören", Schlafenszeit oder Kinomodus der Uhr. */
+    val respectQuietModes: Boolean = true,
+    /** Keine Erinnerung, wenn die Uhr nicht getragen wird. */
+    val onlyWhenWorn: Boolean = true,
 ) {
     val intervalMillis: Long get() = intervalMinutes * 60_000L
 
@@ -99,4 +103,19 @@ data class ReminderState(
     val lastWalkDetectedAt: Long = 0L,
     /** Läuft die Schritterkennung gerade? */
     val stepTrackingActive: Boolean = false,
+    /** Zeitpunkt der zuletzt still übersprungenen Erinnerung (0 = keine) und warum. */
+    val lastSkippedAt: Long = 0L,
+    val lastSkipReason: SkipReason? = null,
 )
+
+/** Warum eine fällige Erinnerung still übersprungen wurde. */
+enum class SkipReason {
+    DO_NOT_DISTURB,
+    BEDTIME,
+    THEATER_MODE,
+    NOT_WORN;
+
+    companion object {
+        fun fromName(name: String?): SkipReason? = entries.firstOrNull { it.name == name }
+    }
+}

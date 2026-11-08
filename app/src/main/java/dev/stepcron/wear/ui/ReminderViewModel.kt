@@ -197,6 +197,14 @@ class ReminderViewModel(
         }
     }
 
+    fun setRespectQuietModes(enabled: Boolean) {
+        viewModelScope.launch { engine.setRespectQuietModes(enabled) }
+    }
+
+    fun setOnlyWhenWorn(enabled: Boolean) {
+        viewModelScope.launch { engine.setOnlyWhenWorn(enabled) }
+    }
+
     /** Nächste Vibrationsstufe – und gleich zur Probe vibrieren. */
     fun nextVibration() {
         viewModelScope.launch {

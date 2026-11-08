@@ -227,6 +227,8 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                                 vibration = it.vibration,
                                 stepThreshold = it.stepThreshold,
                                 stepDetectionAvailable = it.autoStepEnabled && it.system.stepSensorAvailable,
+                                respectQuietModes = it.respectQuietModes,
+                                onlyWhenWorn = it.onlyWhenWorn,
                             )
                         }
                     }
@@ -236,6 +238,8 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     onSnoozeStep = viewModel::changeSnooze,
                     onNextVibration = viewModel::nextVibration,
                     onStepThresholdStep = viewModel::changeStepThreshold,
+                    onRespectQuietModesChange = viewModel::setRespectQuietModes,
+                    onOnlyWhenWornChange = viewModel::setOnlyWhenWorn,
                 )
             }
             composable(Routes.PAUSE) {

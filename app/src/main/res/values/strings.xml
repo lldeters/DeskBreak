@@ -26,6 +26,8 @@
     <string name="home_status_day_done">Für heute geschafft</string>
     <string name="home_status_day_done_hint">Ruhezeit ab %1$s</string>
     <string name="home_reminder_pending">Erinnerung offen – beweg dich!</string>
+    <!-- %1$s = Grund, z. B. „Nicht stören" -->
+    <string name="home_reminder_skipped">Letzte ausgelassen: %1$s</string>
 
     <string name="home_toggle_label">Erinnerungen</string>
     <string name="home_toggle_on">Aktiv</string>
@@ -76,6 +78,14 @@
     <string name="vibration_light">Sanft</string>
     <string name="vibration_medium">Mittel</string>
     <string name="vibration_strong">Stark</string>
+    <string name="reminder_settings_quiet">Ruhemodi beachten</string>
+    <string name="reminder_settings_quiet_secondary">Nicht stören, Schlafenszeit, Kino</string>
+    <string name="reminder_settings_worn">Nur am Handgelenk</string>
+    <string name="reminder_settings_worn_secondary">Nicht erinnern, wenn abgelegt</string>
+    <string name="skip_reason_dnd">Nicht stören</string>
+    <string name="skip_reason_bedtime">Schlafenszeit</string>
+    <string name="skip_reason_theater">Kinomodus</string>
+    <string name="skip_reason_not_worn">Uhr abgelegt</string>
     <string name="reminder_settings_steps">Auto-Schritte in 2 Min</string>
     <string name="reminder_settings_steps_value">%1$d</string>
     <string name="cd_snooze_decrease">Snooze kürzer</string>

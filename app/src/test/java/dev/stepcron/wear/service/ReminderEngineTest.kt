@@ -11,6 +11,7 @@ import dev.stepcron.wear.data.db.MovementEventType.SNOOZED
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
 import dev.stepcron.wear.data.settings.SettingsRepository
+import dev.stepcron.wear.data.settings.SkipReason
 import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.ActiveWindow
 import dev.stepcron.wear.domain.AlarmKind.CYCLE_START
@@ -52,6 +53,7 @@ class ReminderEngineTest {
     private val alarms = FakeAlarms()
     private val alerts = FakeAlerts()
     private val stepTracking = FakeStepTracking()
+    private val deviceState = FakeDeviceState()
     private val log = FakeMovementLog()
     private var now = at("09:00")
     private var stateChanges = 0
@@ -67,6 +69,7 @@ class ReminderEngineTest {
             alarms = alarms,
             alerts = alerts,
             stepTracking = stepTracking,
+            deviceState = deviceState,
             clock = { now },
             zoneProvider = { zone },
             dispatcher = Dispatchers.Unconfined,
@@ -186,6 +189,62 @@ class ReminderEngineTest {
 
         assertEquals(PlannedAlarm(at("17:00"), WINDOW_END), alarms.planned)
         assertEquals(0L, state().snoozeUntil)
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Ruhemodi und Tragen
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    fun `a reminder during do not disturb is skipped silently and the rhythm goes on`() = runBlocking {
+        engine.setEnabled(true)
+        deviceState.quietMode = SkipReason.DO_NOT_DISTURB
+        fireNextAlarm() // 09:45
+
+        assertNull(alerts.shownFor)
+        assertEquals(0, alerts.vibrations)
+        val state = state()
+        assertEquals(0L, state.pendingReminderAt)
+        assertEquals(at("09:45"), state.lastSkippedAt)
+        assertEquals(SkipReason.DO_NOT_DISTURB, state.lastSkipReason)
+        assertEquals(PlannedAlarm(at("10:30"), REMINDER), alarms.planned)
+        assertTrue(log.events.isEmpty())
+
+        // Danach wieder normal.
+        deviceState.quietMode = null
+        fireNextAlarm()
+        assertEquals(at("10:30"), alerts.shownFor)
+    }
+
+    @Test
+    fun `an unanswered reminder still counts as missed when the next one is skipped`() = runBlocking {
+        engine.setEnabled(true)
+        fireNextAlarm() // 09:45, sichtbar und unbeantwortet
+        deviceState.worn = false
+        fireNextAlarm() // 10:30, abgelegt
+
+        assertEquals(listOf(MISSED to at("09:45")), log.events)
+        assertNull(alerts.shownFor)
+        assertEquals(SkipReason.NOT_WORN, state().lastSkipReason)
+    }
+
+    @Test
+    fun `the settings decide whether quiet modes and wearing matter`() = runBlocking {
+        engine.setEnabled(true)
+        engine.setRespectQuietModes(false)
+        engine.setOnlyWhenWorn(false)
+        deviceState.quietMode = SkipReason.BEDTIME
+        deviceState.worn = false
+        fireNextAlarm()
+        assertEquals(at("09:45"), alerts.shownFor)
+
+        // Unbekannt, ob getragen (kein Sensor): erinnern.
+        engine.setOnlyWhenWorn(true)
+        engine.setRespectQuietModes(true)
+        deviceState.quietMode = null
+        deviceState.worn = null
+        fireNextAlarm()
+        assertEquals(at("10:30"), alerts.shownFor)
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -759,6 +818,15 @@ class ReminderEngineTest {
         override fun stop() {
             running = false
         }
+    }
+
+    private class FakeDeviceState : DeviceState {
+        var quietMode: SkipReason? = null
+        var worn: Boolean? = true
+
+        override fun quietMode(): SkipReason? = quietMode
+
+        override suspend fun isWorn(): Boolean? = worn
     }
 
     private class FakeMovementLog : MovementLog {
