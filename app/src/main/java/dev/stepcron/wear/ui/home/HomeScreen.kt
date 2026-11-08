@@ -1,6 +1,5 @@
 package dev.stepcron.wear.ui.home
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +53,7 @@ import dev.stepcron.wear.ui.components.StepperRow
 import dev.stepcron.wear.ui.formatClock
 import dev.stepcron.wear.ui.rememberResumeText
 import dev.stepcron.wear.ui.rememberScheduleTexts
+import dev.stepcron.wear.ui.settings.vibrationLabel
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 import kotlinx.coroutines.delay
 
@@ -67,6 +68,7 @@ fun HomeScreen(
     onOpenStats: () -> Unit,
     onIntervalStep: (Int) -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenReminderSettings: () -> Unit,
     onAutoStepChange: (Boolean) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
@@ -236,17 +238,33 @@ fun HomeScreen(
                 )
             }
 
+            item(key = "reminder_settings") {
+                val vibration = stringResource(vibrationLabel(current.vibration))
+                Chip(
+                    onClick = onOpenReminderSettings,
+                    label = { Text(stringResource(R.string.home_reminder_settings_label), maxLines = 1) },
+                    secondaryLabel = {
+                        Text(
+                            stringResource(R.string.home_reminder_settings_secondary, current.snoozeMinutes, vibration),
+                            maxLines = 2,
+                        )
+                    },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             item(key = "auto_step") {
                 // Ohne Schrittsensor wirkt ein eingeschalteter, aber gesperrter Schalter irreführend.
                 val sensorAvailable = current.system.stepSensorAvailable
                 val autoStepOn = current.autoStepEnabled && sensorAvailable
-                // Als Int übergeben, damit die Slot-Lambdas nur bei geändertem Text neu entstehen.
+                // Als fertiger Text: Die Slot-Lambdas entstehen so nur bei geändertem Text neu.
                 val statusText = autoStepStatus(current)
                 ToggleChip(
                     checked = autoStepOn,
                     onCheckedChange = onAutoStepChange,
                     label = { Text(stringResource(R.string.home_auto_step_label), maxLines = 1) },
-                    secondaryLabel = { Text(stringResource(statusText), maxLines = 2) },
+                    secondaryLabel = { Text(statusText, maxLines = 2) },
                     toggleControl = { Switch(checked = autoStepOn, enabled = sensorAvailable) },
                     enabled = sensorAvailable,
                     modifier = Modifier.fillMaxWidth(),
@@ -387,12 +405,14 @@ private fun ChipIcon(iconRes: Int) {
     )
 }
 
-@StringRes
-private fun autoStepStatus(state: HomeUiState): Int = when {
-    !state.system.stepSensorAvailable -> R.string.home_auto_step_no_sensor
-    !state.system.activityRecognitionGranted -> R.string.home_auto_step_no_permission
-    state.autoStepEnabled && state.stepTrackingActive -> R.string.home_auto_step_active
-    else -> R.string.home_auto_step_idle
+@Composable
+private fun autoStepStatus(state: HomeUiState): String = when {
+    !state.system.stepSensorAvailable -> stringResource(R.string.home_auto_step_no_sensor)
+    !state.system.activityRecognitionGranted -> stringResource(R.string.home_auto_step_no_permission)
+    state.autoStepEnabled && state.stepTrackingActive ->
+        pluralStringResource(R.plurals.home_auto_step_active, state.stepThreshold, state.stepThreshold)
+
+    else -> pluralStringResource(R.plurals.home_auto_step_idle, state.stepThreshold, state.stepThreshold)
 }
 
 @Preview(device = WEAR_SMALL_ROUND, showSystemUi = true)
@@ -421,6 +441,7 @@ private fun HomeScreenPreview() {
                 onOpenStats = {},
                 onIntervalStep = {},
                 onOpenSchedule = {},
+                onOpenReminderSettings = {},
                 onAutoStepChange = {},
                 onRequestPermissions = {},
                 onOpenExactAlarmSettings = {},

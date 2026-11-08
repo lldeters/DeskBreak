@@ -1,6 +1,7 @@
 package dev.stepcron.wear.service
 
 import dev.stepcron.wear.data.settings.ReminderSettings
+import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.PlannedAlarm
 import java.time.ZoneId
 
@@ -17,10 +18,14 @@ interface Alarms {
 
 /** Die Erinnerung, die man sieht und spürt. */
 interface ReminderAlerts {
-    /** Zeigt die Erinnerung zum Zeitpunkt [reminderAtMillis] (bestimmt auch die vorgeschlagene Übung). */
-    fun showReminder(reminderAtMillis: Long)
+    /**
+     * Zeigt die Erinnerung zum Zeitpunkt [reminderAtMillis] (bestimmt auch die vorgeschlagene Übung); die
+     * Snooze-Aktion nennt [snoozeMinutes].
+     */
+    fun showReminder(reminderAtMillis: Long, snoozeMinutes: Int)
 
-    fun vibrateReminder()
+    /** Vibriert in der Stärke [level] ([VibrationLevel.OFF]: gar nicht). */
+    fun vibrateReminder(level: VibrationLevel)
 
     fun cancelReminder()
 }

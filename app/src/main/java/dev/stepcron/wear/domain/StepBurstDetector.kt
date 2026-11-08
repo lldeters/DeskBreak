@@ -1,7 +1,8 @@
 package dev.stepcron.wear.domain
 
 /**
- * Erkennt eigenständige Gehpausen: mindestens [threshold] Schritte innerhalb von [windowNanos].
+ * Erkennt eigenständige Gehpausen: mindestens [threshold] Schritte innerhalb von [windowNanos]. Die Schwelle
+ * lässt sich im Betrieb ändern (Einstellung), bereits gezählte Schritte bleiben dabei erhalten.
  *
  * Zeitstempel sind `SensorEvent.timestamp`-Werte (Nanosekunden, monoton). Da die Sensoren gebatcht
  * liefern, zählt der Zeitpunkt des Schritts – nicht der Zeitpunkt der Zustellung.
@@ -9,10 +10,15 @@ package dev.stepcron.wear.domain
  * im Sekundentakt Ereignisse auslöst.
  */
 class StepBurstDetector(
-    private val threshold: Int = DEFAULT_THRESHOLD,
+    threshold: Int = DEFAULT_THRESHOLD,
     private val windowNanos: Long = DEFAULT_WINDOW_NANOS,
     private val cooldownNanos: Long = DEFAULT_COOLDOWN_NANOS,
 ) {
+    var threshold: Int = threshold.coerceAtLeast(1)
+        set(value) {
+            field = value.coerceAtLeast(1)
+        }
+
     private val stepTimes = ArrayDeque<Long>()
     private var lastCounterTotal = -1L
     private var lastCounterTimestamp = 0L

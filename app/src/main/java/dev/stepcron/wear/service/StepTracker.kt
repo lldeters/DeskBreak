@@ -25,6 +25,13 @@ class StepTracker(
 
     val isRunning: Boolean get() = registeredSensor != null
 
+    /** Schritte innerhalb von 2 Minuten, ab denen eine Gehpause erkannt wird. */
+    var threshold: Int
+        get() = detector.threshold
+        set(value) {
+            detector.threshold = value
+        }
+
     /** @return `false`, wenn kein Schrittsensor vorhanden ist oder die Registrierung scheitert. */
     fun start(): Boolean {
         if (registeredSensor != null) return true

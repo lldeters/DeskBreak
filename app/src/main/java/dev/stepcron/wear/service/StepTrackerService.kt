@@ -20,6 +20,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.ZoneId
 
@@ -96,8 +98,11 @@ class StepTrackerService : Service() {
         val tracker = StepTracker(sensorManager) { onWalkDetected() }
         if (!tracker.start()) return false
         stepTracker = tracker
+        val settingsRepository = appContainer.settingsRepository
+        scope.launch { settingsRepository.updateState { it.copy(stepTrackingActive = true) } }
+        // Schwelle aus den Einstellungen – sofort und bei jeder Änderung, solange der Dienst läuft.
         scope.launch {
-            appContainer.settingsRepository.updateState { it.copy(stepTrackingActive = true) }
+            settingsRepository.settings.map { it.stepThreshold }.distinctUntilChanged().collect { tracker.threshold = it }
         }
         return true
     }

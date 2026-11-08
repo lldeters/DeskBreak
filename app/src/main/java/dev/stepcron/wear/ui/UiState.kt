@@ -3,6 +3,7 @@ package dev.stepcron.wear.ui
 import dev.stepcron.wear.data.db.MovementEvent
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
+import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.DailyCounts
 import dev.stepcron.wear.domain.DaySchedule
@@ -68,6 +69,9 @@ data class HomeUiState(
     /** Einstellung des heutigen Wochentags (an/frei und Zeitfenster). */
     val today: DaySchedule = WeeklySchedule.DEFAULT.days.first(),
     val autoStepEnabled: Boolean = true,
+    val snoozeMinutes: Int = ReminderSettings.DEFAULT_SNOOZE_MINUTES,
+    val stepThreshold: Int = ReminderSettings.DEFAULT_STEP_THRESHOLD,
+    val vibration: VibrationLevel = VibrationLevel.STRONG,
     val permissionsRequested: Boolean = false,
     val status: HomeStatus = HomeStatus.Disabled,
     val reminderPending: Boolean = false,
@@ -94,6 +98,9 @@ data class HomeUiState(
             schedule = settings.schedule,
             today = settings.schedule[nowMillis.toLocalDate(zone).dayOfWeek],
             autoStepEnabled = settings.autoStepEnabled,
+            snoozeMinutes = settings.snoozeMinutes,
+            stepThreshold = settings.stepThreshold,
+            vibration = settings.vibration,
             permissionsRequested = settings.permissionsRequested,
             status = homeStatus(settings, state, nowMillis, zone),
             reminderPending = settings.enabled && state.pendingReminderAt > 0L,

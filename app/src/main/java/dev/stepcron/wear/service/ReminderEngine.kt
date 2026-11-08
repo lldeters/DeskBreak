@@ -5,6 +5,7 @@ import dev.stepcron.wear.data.MovementLog
 import dev.stepcron.wear.data.db.MovementEventType
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.SettingsRepository
+import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.PlannedAlarm
 import dev.stepcron.wear.domain.ReminderPlanner
@@ -103,8 +104,8 @@ class ReminderEngine(
         }
 
         // 3) Vibrationsmuster und 4) High-Priority-Notification.
-        alerts.vibrateReminder()
-        alerts.showReminder(now)
+        alerts.vibrateReminder(settings.vibration)
+        alerts.showReminder(now, settings.snoozeMinutes)
         settingsRepository.updateState { it.copy(pendingReminderAt = now) }
 
         // Schritterkennung sicherstellen (exakte Alarme dürfen Foreground-Services starten).
@@ -168,7 +169,7 @@ class ReminderEngine(
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
     }
 
-    /** „+10 Min Snooze": Snooze loggen und den nächsten Alarm einmalig auf jetzt + 10 Minuten legen. */
+    /** Snooze: loggen und den nächsten Alarm einmalig auf jetzt + Snooze-Dauer (Einstellung) legen. */
     suspend fun onReminderSnoozed(): Unit = locked {
         alerts.cancelReminder()
         val now = clock()
@@ -181,7 +182,7 @@ class ReminderEngine(
 
         val zone = zoneProvider()
         if (settings.schedule.contains(now, zone)) {
-            val snoozeAt = now + SNOOZE_MILLIS
+            val snoozeAt = now + settings.snoozeMillis
             val plan = ReminderPlanner.planInWindow(snoozeAt, now, settings.schedule, zone)
             val snoozeUntil = if (plan?.kind == AlarmKind.REMINDER) snoozeAt else 0L
             settingsRepository.updateState { it.copy(snoozeUntil = snoozeUntil) }
@@ -354,6 +355,20 @@ class ReminderEngine(
         resyncLocked(now, settings)
     }
 
+    /** Snooze-Dauer ab der nächsten Erinnerung; ein laufender Snooze bleibt, wie er ist. */
+    suspend fun setSnoozeMinutes(minutes: Int): Unit = locked {
+        settingsRepository.updateSettings { it.copy(snoozeMinutes = minutes) }
+    }
+
+    suspend fun setVibration(level: VibrationLevel): Unit = locked {
+        settingsRepository.updateSettings { it.copy(vibration = level) }
+    }
+
+    /** Schritt-Schwelle der Schritterkennung; der laufende Dienst übernimmt sie sofort. */
+    suspend fun setStepThreshold(steps: Int): Unit = locked {
+        settingsRepository.updateSettings { it.copy(stepThreshold = steps) }
+    }
+
     suspend fun setAutoStepEnabled(enabled: Boolean): Unit = locked {
         val settings = settingsRepository.updateSettings { it.copy(autoStepEnabled = enabled) }
         syncStepTrackerLocked(clock(), settings)
@@ -470,8 +485,6 @@ class ReminderEngine(
 
     companion object {
         private const val TAG = "ReminderEngine"
-
-        const val SNOOZE_MILLIS = 10 * 60_000L
 
         /** Mehrfaches Tippen auf „Jetzt bewegt" innerhalb dieser Zeit wird nur einmal gezählt. */
         const val MANUAL_DEBOUNCE_MILLIS = 60_000L

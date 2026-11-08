@@ -60,6 +60,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val AUTO_STEP_ENABLED = booleanPreferencesKey("auto_step_enabled")
         val PERMISSIONS_REQUESTED = booleanPreferencesKey("permissions_requested")
         val PAUSED_UNTIL = longPreferencesKey("paused_until")
+        val SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
+        val STEP_THRESHOLD = intPreferencesKey("step_threshold")
+        val VIBRATION = stringPreferencesKey("vibration_level")
 
         /** Wochenplan im Format von [ScheduleCodec]. Ist der Schlüssel gesetzt, gilt der Plan als übernommen. */
         val WEEKLY_SCHEDULE = stringPreferencesKey("weekly_schedule_v1")
@@ -85,6 +88,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         autoStepEnabled = this[Keys.AUTO_STEP_ENABLED] ?: true,
         permissionsRequested = this[Keys.PERMISSIONS_REQUESTED] ?: false,
         pausedUntil = this[Keys.PAUSED_UNTIL] ?: 0L,
+        snoozeMinutes = this[Keys.SNOOZE_MINUTES] ?: ReminderSettings.DEFAULT_SNOOZE_MINUTES,
+        stepThreshold = this[Keys.STEP_THRESHOLD] ?: ReminderSettings.DEFAULT_STEP_THRESHOLD,
+        vibration = VibrationLevel.fromName(this[Keys.VIBRATION]) ?: VibrationLevel.STRONG,
     ).sanitized()
 
     private fun MutablePreferences.writeSettings(settings: ReminderSettings) {
@@ -97,6 +103,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         this[Keys.AUTO_STEP_ENABLED] = settings.autoStepEnabled
         this[Keys.PERMISSIONS_REQUESTED] = settings.permissionsRequested
         this[Keys.PAUSED_UNTIL] = settings.pausedUntil
+        this[Keys.SNOOZE_MINUTES] = settings.snoozeMinutes
+        this[Keys.STEP_THRESHOLD] = settings.stepThreshold
+        this[Keys.VIBRATION] = settings.vibration.name
     }
 
     /**

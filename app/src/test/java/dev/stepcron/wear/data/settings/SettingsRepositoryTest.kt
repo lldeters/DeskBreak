@@ -125,6 +125,24 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun `reminder style settings round trip and default for older installs`() = runBlocking {
+        val defaults = repository.currentSettings()
+        assertEquals(10, defaults.snoozeMinutes)
+        assertEquals(30, defaults.stepThreshold)
+        assertEquals(VibrationLevel.STRONG, defaults.vibration)
+
+        repository.updateSettings { it.copy(snoozeMinutes = 20, stepThreshold = 50, vibration = VibrationLevel.OFF) }
+        val stored = repository.currentSettings()
+        assertEquals(20, stored.snoozeMinutes)
+        assertEquals(50, stored.stepThreshold)
+        assertEquals(VibrationLevel.OFF, stored.vibration)
+
+        // Unbekannte Stufe (z. B. aus einer neueren Version) fällt auf „Stark" zurück.
+        dataStore.edit { it[stringPreferencesKey("vibration_level")] = "LOUD" }
+        assertEquals(VibrationLevel.STRONG, repository.currentSettings().vibration)
+    }
+
+    @Test
     fun `custom schedule round trips`() = runBlocking {
         val custom = WeeklySchedule.DEFAULT
             .with(DayOfWeek.FRIDAY) { it.copy(window = ActiveWindow(8 * 60, 13 * 60 + 30)) }

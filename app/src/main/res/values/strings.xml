@@ -45,8 +45,17 @@
     <string name="home_schedule_label">Zeitplan</string>
     <string name="home_schedule_shortcut_secondary">Tag einschalten</string>
     <string name="home_auto_step_label">Auto-Schritte</string>
-    <string name="home_auto_step_active">30 Schritte in 2 Min · aktiv</string>
-    <string name="home_auto_step_idle">30 Schritte in 2 Min</string>
+    <plurals name="home_auto_step_active">
+        <item quantity="one">%d Schritt in 2 Min · aktiv</item>
+        <item quantity="other">%d Schritte in 2 Min · aktiv</item>
+    </plurals>
+    <plurals name="home_auto_step_idle">
+        <item quantity="one">%d Schritt in 2 Min</item>
+        <item quantity="other">%d Schritte in 2 Min</item>
+    </plurals>
+    <string name="home_reminder_settings_label">Erinnerung</string>
+    <!-- %1$d = Snooze-Minuten, %2$s = Vibrationsstufe -->
+    <string name="home_reminder_settings_secondary">Snooze %1$d min · %2$s</string>
     <string name="home_auto_step_no_sensor">Kein Schrittsensor</string>
     <string name="home_auto_step_no_permission">Berechtigung fehlt</string>
     <string name="home_permissions_label">Berechtigungen</string>
@@ -56,6 +65,23 @@
 
     <string name="cd_interval_decrease">Intervall verringern</string>
     <string name="cd_interval_increase">Intervall erhöhen</string>
+
+    <!-- Erinnerung: Snooze, Vibration, Schritt-Schwelle -->
+    <string name="reminder_settings_title">Erinnerung</string>
+    <string name="reminder_settings_snooze">Snooze</string>
+    <string name="reminder_settings_snooze_value">%1$d min</string>
+    <string name="reminder_settings_vibration">Vibration</string>
+    <string name="reminder_settings_vibration_hint">Antippen zum Wechseln und Testen</string>
+    <string name="vibration_off">Aus</string>
+    <string name="vibration_light">Sanft</string>
+    <string name="vibration_medium">Mittel</string>
+    <string name="vibration_strong">Stark</string>
+    <string name="reminder_settings_steps">Auto-Schritte in 2 Min</string>
+    <string name="reminder_settings_steps_value">%1$d</string>
+    <string name="cd_snooze_decrease">Snooze kürzer</string>
+    <string name="cd_snooze_increase">Snooze länger</string>
+    <string name="cd_steps_decrease">Weniger Schritte</string>
+    <string name="cd_steps_increase">Mehr Schritte</string>
 
     <!-- Pause und Urlaub -->
     <string name="pause_title">Pausieren</string>
@@ -231,8 +257,9 @@
     <string name="notification_reminder_text_idea">Zeit aufzustehen! Idee: %1$s</string>
     <string name="action_exercise">1-Min-Übung</string>
     <string name="action_done">Erledigt</string>
-    <string name="action_snooze">+10 Min Snooze</string>
+    <!-- %1$d = Snooze-Dauer in Minuten -->
+    <string name="action_snooze">+%1$d min Snooze</string>
     <string name="notification_tracking_title">Schritterkennung aktiv</string>
-    <string name="notification_tracking_text">30 Schritte setzen den Timer zurück.</string>
+    <string name="notification_tracking_text">Gehen setzt den Timer automatisch zurück.</string>
     <string name="ongoing_status">Schritterkennung aktiv</string>
 </resources>

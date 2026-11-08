@@ -11,6 +11,7 @@ import dev.stepcron.wear.data.db.MovementEventType.SNOOZED
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
 import dev.stepcron.wear.data.settings.SettingsRepository
+import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.ActiveWindow
 import dev.stepcron.wear.domain.AlarmKind.CYCLE_START
 import dev.stepcron.wear.domain.AlarmKind.REMINDER
@@ -158,6 +159,20 @@ class ReminderEngineTest {
         fireNextAlarm()
         assertEquals(PlannedAlarm(at("10:41"), REMINDER), alarms.planned)
         assertEquals(0L, state().snoozeUntil)
+    }
+
+    @Test
+    fun `snooze duration and vibration follow the settings`() = runBlocking {
+        engine.setEnabled(true)
+        engine.setSnoozeMinutes(20)
+        engine.setVibration(VibrationLevel.LIGHT)
+        fireNextAlarm() // 09:45
+
+        assertEquals(listOf(VibrationLevel.LIGHT), alerts.vibrationLevels)
+        assertEquals(20, alerts.shownSnoozeMinutes)
+        now = at("09:46")
+        engine.onReminderSnoozed()
+        assertEquals(PlannedAlarm(at("10:06"), REMINDER), alarms.planned)
     }
 
     @Test
@@ -712,14 +727,17 @@ class ReminderEngineTest {
     private class FakeAlerts : ReminderAlerts {
         /** Zeitpunkt der gerade sichtbaren Erinnerung, `null` wenn keine angezeigt wird. */
         var shownFor: Long? = null
-        var vibrations = 0
+        var shownSnoozeMinutes: Int? = null
+        val vibrationLevels = mutableListOf<VibrationLevel>()
+        val vibrations: Int get() = vibrationLevels.size
 
-        override fun showReminder(reminderAtMillis: Long) {
+        override fun showReminder(reminderAtMillis: Long, snoozeMinutes: Int) {
             shownFor = reminderAtMillis
+            shownSnoozeMinutes = snoozeMinutes
         }
 
-        override fun vibrateReminder() {
-            vibrations++
+        override fun vibrateReminder(level: VibrationLevel) {
+            vibrationLevels += level
         }
 
         override fun cancelReminder() {

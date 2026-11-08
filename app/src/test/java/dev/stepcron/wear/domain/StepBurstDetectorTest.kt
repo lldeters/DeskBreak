@@ -63,4 +63,24 @@ class StepBurstDetectorTest {
         assertFalse(detector.onCounter(10 * second, 12))
         assertTrue(detector.onCounter(40 * second, 50))
     }
+
+    @Test
+    fun `a changed threshold applies to the next steps`() {
+        val detector = StepBurstDetector()
+        var t = 0L
+        repeat(19) {
+            assertFalse(detector.onStep(t))
+            t += second / 2
+        }
+        detector.threshold = 20
+        assertTrue(detector.onStep(t))
+
+        // Höhere Schwelle: 30 Schritte reichen nach der Abkühlzeit nicht mehr.
+        detector.threshold = 50
+        t += 61 * second
+        repeat(30) {
+            assertFalse(detector.onStep(t))
+            t += second / 2
+        }
+    }
 }

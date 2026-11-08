@@ -43,6 +43,8 @@ import dev.stepcron.wear.ui.exercise.ExerciseScreen
 import dev.stepcron.wear.ui.home.HomeScreen
 import dev.stepcron.wear.ui.pause.PauseScreen
 import dev.stepcron.wear.ui.pause.VacationScreen
+import dev.stepcron.wear.ui.settings.ReminderSettingsScreen
+import dev.stepcron.wear.ui.settings.ReminderSettingsUi
 import dev.stepcron.wear.ui.schedule.DayScheduleScreen
 import dev.stepcron.wear.ui.schedule.ScheduleScreen
 import dev.stepcron.wear.ui.schedule.TimeOptions
@@ -63,6 +65,7 @@ private object Routes {
     const val DAY = "schedule/{$ARG_DAY}"
     const val DAY_START = "schedule/{$ARG_DAY}/start"
     const val DAY_END = "schedule/{$ARG_DAY}/end"
+    const val REMINDER_SETTINGS = "reminder_settings"
     const val PAUSE = "pause"
     const val VACATION = "pause/vacation"
     const val ARG_EXERCISE = "index"
@@ -170,6 +173,7 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     onOpenStats = { navController.navigate(Routes.STATS) },
                     onIntervalStep = viewModel::changeInterval,
                     onOpenSchedule = openSchedule,
+                    onOpenReminderSettings = { navController.navigate(Routes.REMINDER_SETTINGS) },
                     onAutoStepChange = { enabled ->
                         viewModel.setAutoStepEnabled(enabled)
                         if (enabled) requestMissingPermissions()
@@ -212,6 +216,26 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     exercise = exercises[Math.floorMod(index, exercises.size)],
                     onCompleted = viewModel::completeExercise,
                     onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.REMINDER_SETTINGS) {
+                val settings by remember(homeState) {
+                    derivedStateOf {
+                        homeState.value.takeUnless { it.loading }?.let {
+                            ReminderSettingsUi(
+                                snoozeMinutes = it.snoozeMinutes,
+                                vibration = it.vibration,
+                                stepThreshold = it.stepThreshold,
+                                stepDetectionAvailable = it.autoStepEnabled && it.system.stepSensorAvailable,
+                            )
+                        }
+                    }
+                }
+                ReminderSettingsScreen(
+                    settings = settings,
+                    onSnoozeStep = viewModel::changeSnooze,
+                    onNextVibration = viewModel::nextVibration,
+                    onStepThresholdStep = viewModel::changeStepThreshold,
                 )
             }
             composable(Routes.PAUSE) {

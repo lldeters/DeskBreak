@@ -12,10 +12,12 @@ import dev.stepcron.wear.data.DemoDataSeeder
 import dev.stepcron.wear.data.MovementRepository
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.SettingsRepository
+import dev.stepcron.wear.data.settings.stepFrom
 import dev.stepcron.wear.domain.ActiveWindow
 import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.domain.toLocalDate
 import dev.stepcron.wear.service.AlarmScheduler
+import dev.stepcron.wear.service.ReminderAlerts
 import dev.stepcron.wear.service.ReminderEngine
 import dev.stepcron.wear.service.StepTracker
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +49,8 @@ class ReminderViewModel(
     private val engine: ReminderEngine,
     private val demoDataSeeder: DemoDataSeeder,
     private val alarmScheduler: AlarmScheduler,
+    /** Für die Probevibration beim Wechsel der Stärke. */
+    private val alerts: ReminderAlerts,
 ) : ViewModel() {
 
     private val zone: ZoneId get() = ZoneId.systemDefault()
@@ -179,6 +183,29 @@ class ReminderViewModel(
         viewModelScope.launch { engine.onManualReset() }
     }
 
+    fun changeSnooze(steps: Int) {
+        viewModelScope.launch {
+            val current = settingsRepository.currentSettings().snoozeMinutes
+            engine.setSnoozeMinutes(ReminderSettings.SNOOZE_OPTIONS.stepFrom(current, steps))
+        }
+    }
+
+    fun changeStepThreshold(steps: Int) {
+        viewModelScope.launch {
+            val current = settingsRepository.currentSettings().stepThreshold
+            engine.setStepThreshold(ReminderSettings.STEP_THRESHOLD_OPTIONS.stepFrom(current, steps))
+        }
+    }
+
+    /** Nächste Vibrationsstufe – und gleich zur Probe vibrieren. */
+    fun nextVibration() {
+        viewModelScope.launch {
+            val level = settingsRepository.currentSettings().vibration.next()
+            engine.setVibration(level)
+            alerts.vibrateReminder(level)
+        }
+    }
+
     /** Schnellpause bzw. Urlaub bis [untilMillis]. */
     fun pauseUntil(untilMillis: Long) {
         viewModelScope.launch { engine.pauseUntil(untilMillis) }
@@ -225,6 +252,7 @@ class ReminderViewModel(
                     engine = container.engine,
                     demoDataSeeder = container.demoDataSeeder,
                     alarmScheduler = container.alarmScheduler,
+                    alerts = container.notifier,
                 )
             }
         }

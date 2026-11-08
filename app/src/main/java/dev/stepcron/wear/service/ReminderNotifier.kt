@@ -16,6 +16,7 @@ import androidx.core.app.NotificationManagerCompat
 import dev.stepcron.wear.MainActivity
 import dev.stepcron.wear.Permissions
 import dev.stepcron.wear.R
+import dev.stepcron.wear.data.settings.VibrationLevel
 import dev.stepcron.wear.domain.ExercisePicker
 
 /** Notifications (Erinnerung + Schritterkennung) und das Vibrationsmuster. */
@@ -52,7 +53,7 @@ class ReminderNotifier(private val context: Context) : ReminderAlerts {
      * Zeigt die High-Priority-Erinnerung mit einer Bewegungsidee und den Aktionen „Erledigt",
      * „+10 Min Snooze" und „1-Min-Übung" (öffnet den Timer in der App).
      */
-    override fun showReminder(reminderAtMillis: Long) {
+    override fun showReminder(reminderAtMillis: Long, snoozeMinutes: Int) {
         if (!Permissions.canPostNotifications(context)) {
             Log.w(TAG, "Notifications nicht erlaubt – Erinnerung nur per Vibration")
             return
@@ -80,7 +81,7 @@ class ReminderNotifier(private val context: Context) : ReminderAlerts {
             )
             .addAction(
                 R.drawable.ic_snooze,
-                context.getString(R.string.action_snooze),
+                context.getString(R.string.action_snooze, snoozeMinutes),
                 actionPendingIntent(ReminderReceiver.ACTION_SNOOZE, REQUEST_CODE_SNOOZE),
             )
             .addAction(
@@ -125,14 +126,24 @@ class ReminderNotifier(private val context: Context) : ReminderAlerts {
         )
     }
 
-    /** Deutliches, mehrstufiges Muster: 2× lang, 3× kurz, 1× lang (≈ 3,7 s). */
-    override fun vibrateReminder() {
+    /**
+     * Stark: deutliches, mehrstufiges Muster (2× lang, 3× kurz, 1× lang, ≈ 3,7 s); mittel: dasselbe Muster
+     * schwächer; sanft: zwei kurze, schwache Impulse. Ohne Amplitudensteuerung zählt nur das Muster.
+     */
+    override fun vibrateReminder(level: VibrationLevel) {
+        if (level == VibrationLevel.OFF) return
         val vibrator = vibrator() ?: return
         if (!vibrator.hasVibrator()) return
+        val timings = if (level == VibrationLevel.LIGHT) LIGHT_TIMINGS else VIBRATION_TIMINGS
         val effect = if (vibrator.hasAmplitudeControl()) {
-            VibrationEffect.createWaveform(VIBRATION_TIMINGS, VIBRATION_AMPLITUDES, NO_REPEAT)
+            val amplitudes = when (level) {
+                VibrationLevel.LIGHT -> LIGHT_AMPLITUDES
+                VibrationLevel.MEDIUM -> MEDIUM_AMPLITUDES
+                else -> VIBRATION_AMPLITUDES
+            }
+            VibrationEffect.createWaveform(timings, amplitudes, NO_REPEAT)
         } else {
-            VibrationEffect.createWaveform(VIBRATION_TIMINGS, NO_REPEAT)
+            VibrationEffect.createWaveform(timings, NO_REPEAT)
         }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -202,5 +213,8 @@ class ReminderNotifier(private val context: Context) : ReminderAlerts {
         // Abwechselnd Pause/Vibration (beginnend mit Pause), Werte in Millisekunden.
         private val VIBRATION_TIMINGS = longArrayOf(0, 500, 250, 500, 400, 150, 120, 150, 120, 150, 400, 800)
         private val VIBRATION_AMPLITUDES = intArrayOf(0, 255, 0, 255, 0, 200, 0, 200, 0, 200, 0, 255)
+        private val MEDIUM_AMPLITUDES = intArrayOf(0, 150, 0, 150, 0, 120, 0, 120, 0, 120, 0, 150)
+        private val LIGHT_TIMINGS = longArrayOf(0, 200, 250, 200)
+        private val LIGHT_AMPLITUDES = intArrayOf(0, 90, 0, 90)
     }
 }

@@ -15,8 +15,15 @@ data class ReminderSettings(
     val permissionsRequested: Boolean = false,
     /** Erinnerungen ruhen bis zu diesem Zeitpunkt (Schnellpause oder Urlaub); 0 = keine Pause. */
     val pausedUntil: Long = 0L,
+    /** Dauer von „Snooze" (eine der [SNOOZE_OPTIONS]). */
+    val snoozeMinutes: Int = DEFAULT_SNOOZE_MINUTES,
+    /** So viele Schritte innerhalb von 2 Minuten gelten als Bewegungspause (eine der [STEP_THRESHOLD_OPTIONS]). */
+    val stepThreshold: Int = DEFAULT_STEP_THRESHOLD,
+    val vibration: VibrationLevel = VibrationLevel.STRONG,
 ) {
     val intervalMillis: Long get() = intervalMinutes * 60_000L
+
+    val snoozeMillis: Long get() = snoozeMinutes * 60_000L
 
     /** Ruhen die Erinnerungen gerade wegen einer Pause? */
     fun isPausedAt(nowMillis: Long): Boolean = pausedUntil > nowMillis
@@ -25,11 +32,18 @@ data class ReminderSettings(
     fun wantsStepTracking(nowMillis: Long, zone: ZoneId): Boolean =
         enabled && autoStepEnabled && !isPausedAt(nowMillis) && schedule.contains(nowMillis, zone)
 
-    /** Bringt das Intervall in den gültigen Bereich (5–120 in 5er-Schritten); der Wochenplan ist immer gültig. */
+    /**
+     * Bringt das Intervall in den gültigen Bereich (5–120 in 5er-Schritten) und Snooze-Dauer und Schritt-Schwelle
+     * auf die nächste wählbare Option; der Wochenplan ist immer gültig.
+     */
     fun sanitized(): ReminderSettings {
         val clamped = intervalMinutes.coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
         val interval = ((clamped + INTERVAL_STEP_MINUTES / 2) / INTERVAL_STEP_MINUTES) * INTERVAL_STEP_MINUTES
-        return copy(intervalMinutes = interval)
+        return copy(
+            intervalMinutes = interval,
+            snoozeMinutes = SNOOZE_OPTIONS.nearest(snoozeMinutes),
+            stepThreshold = STEP_THRESHOLD_OPTIONS.nearest(stepThreshold),
+        )
     }
 
     companion object {
@@ -37,8 +51,36 @@ data class ReminderSettings(
         const val MAX_INTERVAL_MINUTES = 120
         const val INTERVAL_STEP_MINUTES = 5
         const val DEFAULT_INTERVAL_MINUTES = 45
+
+        val SNOOZE_OPTIONS: List<Int> = listOf(5, 10, 15, 20, 30)
+        const val DEFAULT_SNOOZE_MINUTES = 10
+
+        val STEP_THRESHOLD_OPTIONS: List<Int> = listOf(20, 30, 50, 75, 100)
+        const val DEFAULT_STEP_THRESHOLD = 30
     }
 }
+
+/** Wie stark die Erinnerung vibriert. */
+enum class VibrationLevel {
+    /** Nur die Notification, ohne Vibration. */
+    OFF,
+    LIGHT,
+    MEDIUM,
+    STRONG;
+
+    /** Die nächste Stufe, nach [STRONG] wieder [OFF] (zum Durchtippen). */
+    fun next(): VibrationLevel = entries[(ordinal + 1) % entries.size]
+
+    companion object {
+        fun fromName(name: String?): VibrationLevel? = entries.firstOrNull { it.name == name }
+    }
+}
+
+/** Nächstgelegene Option (bei Gleichstand die kleinere). */
+fun List<Int>.nearest(value: Int): Int = minBy { kotlin.math.abs(it - value) }
+
+/** Die Option [steps] Schritte neben der zu [current] nächstgelegenen, begrenzt auf die Liste. */
+fun List<Int>.stepFrom(current: Int, steps: Int): Int = this[(indexOf(nearest(current)) + steps).coerceIn(indices)]
 
 /** Laufzeitzustand von Timer und Schritterkennung (persistiert, damit er Neustarts übersteht). */
 data class ReminderState(
