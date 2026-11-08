@@ -266,7 +266,8 @@ class ReminderEngine(
         val settings = settingsRepository.updateSettings { it.copy(enabled = enabled, pausedUntil = 0L) }
         if (enabled) {
             settingsRepository.updateState {
-                it.copy(cycleStartAt = now, snoozeUntil = 0L, pendingReminderAt = 0L)
+                // Den Zyklus startet der Abgleich: im Fenster jetzt, sonst am nächsten Fensterbeginn.
+                it.copy(cycleStartAt = 0L, snoozeUntil = 0L, pendingReminderAt = 0L)
             }
             resyncLocked(now, settings)
         } else {
@@ -326,15 +327,8 @@ class ReminderEngine(
                 settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
             }
 
-            ScheduleChange.NONE -> {
-                // Lief das Fenster schon vorher, läuft der Zyklus darin weiter – auch wenn der heutige Beginn jetzt
-                // nach dessen Start liegt. Sonst gingen ein Snooze und der Takt verloren.
-                val previousStart = before.startOfDay(now, zone)
-                if (previousStart != null && before.contains(now, zone)) {
-                    resyncLocked(now, settings, cycleRunningSince = previousStart)
-                    return@locked
-                }
-            }
+            // Ein heute laufender Zyklus läuft weiter, auch wenn der Beginn jetzt nach seinem Start liegt (siehe resync).
+            ScheduleChange.NONE -> Unit
         }
         resyncLocked(now, settings)
     }
@@ -347,21 +341,16 @@ class ReminderEngine(
         val now = clock()
         val settings = settingsRepository.updateSettings { it.copy(pausedUntil = untilMillis.coerceAtLeast(0L)) }
         alerts.cancelReminder()
-        settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L) }
-        if (!settings.isPausedAt(now)) startFreshLocked(now, settings) else resyncLocked(now, settings)
+        // Ohne laufenden Zyklus beginnt nach der Pause in jedem Fall ein frischer (Alarm oder Abgleich).
+        settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L, cycleStartAt = 0L) }
+        resyncLocked(now, settings)
     }
 
     /** Pause vorzeitig beenden: Im Fenster beginnt jetzt ein frischer Zyklus. */
     suspend fun resume(): Unit = locked {
         val now = clock()
         val settings = settingsRepository.updateSettings { it.copy(pausedUntil = 0L) }
-        startFreshLocked(now, settings)
-    }
-
-    private suspend fun startFreshLocked(now: Long, settings: ReminderSettings) {
-        if (settings.schedule.contains(now, zoneProvider())) {
-            settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
-        }
+        settingsRepository.updateState { it.copy(cycleStartAt = 0L, snoozeUntil = 0L) }
         resyncLocked(now, settings)
     }
 
@@ -398,12 +387,15 @@ class ReminderEngine(
     }
 
     /**
-     * Plant aus dem gespeicherten Zustand neu. Liegt jetzt im heutigen Fenster, ohne dass seit dessen Beginn
-     * (oder seit [cycleRunningSince], falls früher) ein Zyklus läuft, startet jetzt ein frischer. Eine offene
-     * Erinnerung von davor gilt dann wie beim regulären Fensterbeginn als verpasst – z. B. nach einem Neustart,
-     * der den Fensterbeginn verschlafen hat.
+     * Plant aus dem gespeicherten Zustand neu. Liegt jetzt im heutigen Fenster und läuft heute noch kein Zyklus,
+     * startet jetzt ein frischer; eine offene Erinnerung von einem früheren Tag gilt dann wie beim regulären
+     * Fensterbeginn als verpasst – z. B. nach einem Neustart, der den Fensterbeginn verschlafen hat.
+     *
+     * „Läuft heute" statt „seit dem heutigen Fensterbeginn": Wird der Beginn hinter den Zyklusstart verschoben,
+     * während das Fenster schon lief, bleiben Zyklus und Snooze erhalten. Einen Zyklusbeginn außerhalb eines
+     * Fensters gibt es nicht (Einschalten und Pause setzen ihn auf 0).
      */
-    private suspend fun resyncLocked(now: Long, settings: ReminderSettings, cycleRunningSince: Long? = null) {
+    private suspend fun resyncLocked(now: Long, settings: ReminderSettings) {
         if (!settings.enabled) {
             cancelScheduleLocked()
             syncStepTrackerLocked(now, settings)
@@ -415,15 +407,14 @@ class ReminderEngine(
             syncStepTrackerLocked(now, settings)
             return
         }
-        val periodStart = settings.schedule.startOfDay(now, zone)
-        if (periodStart != null && settings.schedule.contains(now, zone)) {
+        if (settings.schedule.contains(now, zone)) {
+            val today = now.toLocalDate(zone)
             val state = settingsRepository.currentState()
-            val runningSince = minOf(periodStart, cycleRunningSince ?: periodStart)
-            if (state.pendingReminderAt in 1 until runningSince) {
+            if (state.pendingReminderAt > 0L && state.pendingReminderAt.toLocalDate(zone) < today) {
                 missPendingReminderLocked(state.pendingReminderAt, settings)
             }
-            if (state.cycleStartAt !in runningSince..now) {
-                // Kein laufender Zyklus in der heutigen aktiven Zeit → jetzt starten.
+            val cycleRunsToday = state.cycleStartAt in 1..now && state.cycleStartAt.toLocalDate(zone) == today
+            if (!cycleRunsToday) {
                 settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
             }
         }

@@ -401,6 +401,47 @@ class ReminderEngineTest {
         assertEquals(PlannedAlarm(at("10:09"), REMINDER), alarms.planned)
         assertEquals(at("09:58"), state().cycleStartAt)
         assertEquals(at("10:09"), state().snoozeUntil)
+
+        // Auch ein späterer Abgleich (App-Start, Zeitänderung) behält beides.
+        now = at("10:06")
+        engine.resync()
+        assertEquals(PlannedAlarm(at("10:09"), REMINDER), alarms.planned)
+        assertEquals(at("09:58"), state().cycleStartAt)
+    }
+
+    @Test
+    fun `a resync during the window keeps today's cycle but replaces one from yesterday`() = runBlocking {
+        engine.setEnabled(true)
+        now = at("09:30")
+        engine.resync()
+        assertEquals(PlannedAlarm(at("09:45"), REMINDER), alarms.planned)
+
+        // Der Fensterbeginn am Dienstag ging verloren (z. B. ungenauer Alarm): frischer Zyklus beim Öffnen.
+        now = at("08:20", TUESDAY)
+        engine.resync()
+        assertEquals(at("08:20", TUESDAY), state().cycleStartAt)
+        assertEquals(PlannedAlarm(at("09:05", TUESDAY), REMINDER), alarms.planned)
+    }
+
+    @Test
+    fun `enabling before the window starts the first cycle at the window start`() = runBlocking {
+        now = at("07:00")
+        engine.setEnabled(true)
+        assertEquals(PlannedAlarm(at("08:00"), CYCLE_START), alarms.planned)
+
+        // Öffnet man die App kurz nach Fensterbeginn, bevor der Alarm kam, ist die erste Erinnerung nicht überfällig.
+        now = at("08:02")
+        engine.resync()
+        assertEquals(PlannedAlarm(at("08:47"), REMINDER), alarms.planned)
+    }
+
+    @Test
+    fun `after a pause that ended unnoticed the next resync starts a fresh cycle`() = runBlocking {
+        engine.setEnabled(true)
+        engine.pauseUntil(at("11:00"))
+        now = at("11:00:30") // Der Alarm zum Pausenende kam noch nicht.
+        engine.resync()
+        assertEquals(PlannedAlarm(at("11:45:30"), REMINDER), alarms.planned)
     }
 
     @Test
