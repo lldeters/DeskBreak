@@ -1,5 +1,7 @@
 package dev.stepcron.wear.ui
 
+import android.content.Intent
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,12 +10,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.app.ActivityCompat
+import androidx.core.util.Consumer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
@@ -28,12 +35,16 @@ import dev.stepcron.wear.BuildConfig
 import dev.stepcron.wear.Permissions
 import dev.stepcron.wear.R
 import dev.stepcron.wear.domain.WeeklySchedule
+import dev.stepcron.wear.service.ReminderNotifier
+import dev.stepcron.wear.ui.exercise.ExerciseScreen
 import dev.stepcron.wear.ui.home.HomeScreen
 import dev.stepcron.wear.ui.schedule.DayScheduleScreen
 import dev.stepcron.wear.ui.schedule.ScheduleScreen
 import dev.stepcron.wear.ui.schedule.TimeOptions
 import dev.stepcron.wear.ui.schedule.TimePickerScreen
 import dev.stepcron.wear.ui.stats.StatsScreen
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
 
@@ -45,10 +56,13 @@ private object Routes {
     const val DAY = "schedule/{$ARG_DAY}"
     const val DAY_START = "schedule/{$ARG_DAY}/start"
     const val DAY_END = "schedule/{$ARG_DAY}/end"
+    const val ARG_EXERCISE = "index"
+    const val EXERCISE = "exercise/{$ARG_EXERCISE}"
 
     fun day(day: DayOfWeek) = "schedule/${day.value}"
     fun dayStart(day: DayOfWeek) = "schedule/${day.value}/start"
     fun dayEnd(day: DayOfWeek) = "schedule/${day.value}/end"
+    fun exercise(index: Int) = "exercise/$index"
 
     val dayArguments = listOf(navArgument(ARG_DAY) { type = NavType.IntType })
 
@@ -84,6 +98,30 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
     fun requestMissingPermissions() {
         val missing = Permissions.missingRuntimePermissions(context)
         if (missing.isNotEmpty()) permissionLauncher.launch(missing)
+    }
+
+    // Aktion „1-Min-Übung" der Erinnerung: Beim Kaltstart steht sie im Start-Intent, läuft die App schon,
+    // kommt sie per onNewIntent (singleTop). Bewusst kein Deep Link der Navigation: Der baut bei Intents mit
+    // FLAG_ACTIVITY_NEW_TASK – so startet das System Notification-Aktionen – die Activity neu auf.
+    val activity = context.findActivity() as? ComponentActivity
+    var launchIntentHandled by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(activity, navController) {
+        if (activity == null) return@LaunchedEffect
+        fun openExercise(intent: Intent?) {
+            val index = ReminderNotifier.exerciseIndexOf(intent) ?: return
+            navController.navigate(Routes.exercise(index)) { popUpTo(Routes.HOME) }
+        }
+        navController.currentBackStackEntryFlow.first() // Graph steht
+        // Nur einmal: Nach Konfigurationswechsel oder Prozessende liefert die Activity denselben Start-Intent.
+        if (!launchIntentHandled) {
+            launchIntentHandled = true
+            openExercise(activity.intent)
+        }
+        callbackFlow {
+            val listener = Consumer<Intent> { trySend(it) }
+            activity.addOnNewIntentListener(listener)
+            awaitClose { activity.removeOnNewIntentListener(listener) }
+        }.collect { openExercise(it) }
     }
 
     // Erster Start: Notifications & Activity Recognition einmalig automatisch anfragen.
@@ -139,6 +177,18 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     showDebugTools = BuildConfig.DEBUG,
                     onSeedDemoData = viewModel::seedDemoData,
                     onClearHistory = viewModel::clearHistory,
+                )
+            }
+            composable(
+                route = Routes.EXERCISE,
+                arguments = listOf(navArgument(Routes.ARG_EXERCISE) { type = NavType.IntType }),
+            ) { entry ->
+                val exercises = stringArrayResource(R.array.exercises)
+                val index = entry.arguments?.getInt(Routes.ARG_EXERCISE) ?: 0
+                ExerciseScreen(
+                    exercise = exercises[Math.floorMod(index, exercises.size)],
+                    onCompleted = viewModel::completeExercise,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(Routes.SCHEDULE) {

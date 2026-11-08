@@ -16,6 +16,7 @@ import androidx.core.app.NotificationManagerCompat
 import dev.stepcron.wear.MainActivity
 import dev.stepcron.wear.Permissions
 import dev.stepcron.wear.R
+import dev.stepcron.wear.domain.ExercisePicker
 
 /** Notifications (Erinnerung + Schritterkennung) und das Vibrationsmuster. */
 class ReminderNotifier(private val context: Context) {
@@ -47,13 +48,18 @@ class ReminderNotifier(private val context: Context) {
         notificationManager.createNotificationChannelsCompat(listOf(reminderChannel, trackingChannel))
     }
 
-    /** Zeigt die High-Priority-Erinnerung mit den Aktionen „Erledigt" und „+10 Min Snooze". */
-    fun showReminder() {
+    /**
+     * Zeigt die High-Priority-Erinnerung mit einer Bewegungsidee und den Aktionen „Erledigt",
+     * „+10 Min Snooze" und „1-Min-Übung" (öffnet den Timer in der App).
+     */
+    fun showReminder(reminderAtMillis: Long = System.currentTimeMillis()) {
         if (!Permissions.canPostNotifications(context)) {
             Log.w(TAG, "Notifications nicht erlaubt – Erinnerung nur per Vibration")
             return
         }
-        val text = context.getString(R.string.notification_reminder_text)
+        val exercises = context.resources.getStringArray(R.array.exercises)
+        val exerciseIndex = ExercisePicker.indexFor(reminderAtMillis, exercises.size)
+        val text = context.getString(R.string.notification_reminder_text_idea, exercises[exerciseIndex])
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDER)
             .setSmallIcon(R.drawable.ic_walk)
             .setContentTitle(context.getString(R.string.notification_reminder_title))
@@ -76,6 +82,11 @@ class ReminderNotifier(private val context: Context) {
                 R.drawable.ic_snooze,
                 context.getString(R.string.action_snooze),
                 actionPendingIntent(ReminderReceiver.ACTION_SNOOZE, REQUEST_CODE_SNOOZE),
+            )
+            .addAction(
+                R.drawable.ic_walk,
+                context.getString(R.string.action_exercise),
+                exercisePendingIntent(exerciseIndex),
             )
             .build()
         try {
@@ -146,6 +157,19 @@ class ReminderNotifier(private val context: Context) {
             context.getSystemService(Vibrator::class.java)
         }
 
+    /** Öffnet die App direkt im 1-Minuten-Timer der Übung (siehe [exerciseIndexOf] und DeskBreakNavHost). */
+    private fun exercisePendingIntent(exerciseIndex: Int): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java)
+            .putExtra(EXTRA_EXERCISE_INDEX, exerciseIndex)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(
+            context,
+            REQUEST_CODE_EXERCISE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
     private fun actionPendingIntent(action: String, requestCode: Int): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java).setAction(action)
         return PendingIntent.getBroadcast(
@@ -166,7 +190,14 @@ class ReminderNotifier(private val context: Context) {
         private const val REQUEST_CODE_OPEN_APP = 200
         private const val REQUEST_CODE_DONE = 201
         private const val REQUEST_CODE_SNOOZE = 202
+        private const val REQUEST_CODE_EXERCISE = 203
+
+        private const val EXTRA_EXERCISE_INDEX = "dev.stepcron.wear.extra.EXERCISE_INDEX"
         private const val NO_REPEAT = -1
+
+        /** Übung, die der Intent öffnen soll (Aktion „1-Min-Übung" der Erinnerung), sonst `null`. */
+        fun exerciseIndexOf(intent: Intent?): Int? =
+            intent?.takeIf { it.hasExtra(EXTRA_EXERCISE_INDEX) }?.getIntExtra(EXTRA_EXERCISE_INDEX, 0)
 
         // Abwechselnd Pause/Vibration (beginnend mit Pause), Werte in Millisekunden.
         private val VIBRATION_TIMINGS = longArrayOf(0, 500, 250, 500, 400, 150, 120, 150, 120, 150, 400, 800)

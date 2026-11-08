@@ -148,12 +148,14 @@ class ReminderEngine(
     // ---------------------------------------------------------------------------------------------
 
     /** „Erledigt": Notification schließen und Erfolg loggen. Der Takt (jetzt + X) läuft weiter. */
-    suspend fun onReminderDone(): Unit = locked {
+    suspend fun onReminderDone(): Unit = locked { completeReminderLocked() }
+
+    private suspend fun completeReminderLocked() {
         notifier.cancelReminder()
         val now = clock()
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()
-        if (state.pendingReminderAt == 0L) return@locked // bereits erledigt, z. B. per Schritterkennung
+        if (state.pendingReminderAt == 0L) return // bereits erledigt, z. B. per Schritterkennung
         movementRepository.log(MovementEventType.COMPLETED_REMINDER, now, settings.intervalMinutes)
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
     }
@@ -187,7 +189,14 @@ class ReminderEngine(
     // ---------------------------------------------------------------------------------------------
 
     /** „Jetzt bewegt (Timer Reset)": Intervall sofort neu starten und positives Ereignis loggen. */
-    suspend fun onManualReset(): Unit = locked {
+    suspend fun onManualReset(): Unit = locked { manualResetLocked() }
+
+    /** 1-Minuten-Übung beendet: beantwortet eine offene Erinnerung, sonst zählt sie wie „Jetzt bewegt". */
+    suspend fun onExerciseCompleted(): Unit = locked {
+        if (settingsRepository.currentState().pendingReminderAt > 0L) completeReminderLocked() else manualResetLocked()
+    }
+
+    private suspend fun manualResetLocked() {
         val now = clock()
         val settings = settingsRepository.currentSettings()
         val state = settingsRepository.currentState()

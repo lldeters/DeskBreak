@@ -175,6 +175,10 @@ class ReminderViewModel(
         viewModelScope.launch { engine.onManualReset() }
     }
 
+    fun completeExercise() {
+        viewModelScope.launch { engine.onExerciseCompleted() }
+    }
+
     fun seedDemoData() {
         // Default: Kann der erste Datenbankzugriff sein (Room-Aufbau) und erzeugt Daten im Speicher.
         viewModelScope.launch(Dispatchers.Default) {

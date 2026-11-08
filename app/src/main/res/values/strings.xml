@@ -161,13 +161,42 @@
     <!-- ^1 = verbleibende Zeit, vom System formatiert (z. B. „23 Min.") -->
     <string name="complication_long_countdown">Pause in ^1</string>
 
+    <!-- Bewegungsideen (kurz, passen in eine Notification-Zeile) -->
+    <string-array name="exercises">
+        <item>10 Kniebeugen</item>
+        <item>Schultern 10× rückwärts kreisen</item>
+        <item>15× auf die Zehenspitzen</item>
+        <item>Arme hoch und lang strecken</item>
+        <item>Nacken sanft zu beiden Seiten dehnen</item>
+        <item>Eine Runde durchs Büro gehen</item>
+        <item>Hüfte 10× kreisen</item>
+        <item>Oberkörper 10× sanft drehen</item>
+        <item>Brust öffnen: Hände hinterm Rücken</item>
+        <item>Waden an der Wand dehnen</item>
+        <item>Treppe rauf und runter</item>
+        <item>30 Sekunden auf der Stelle gehen</item>
+    </string-array>
+
+    <!-- 1-Minuten-Übung -->
+    <string name="exercise_finish">Fertig</string>
+    <string name="exercise_done">Geschafft ✓</string>
+    <string name="exercise_done_hint">Als Bewegungspause gezählt</string>
+    <string name="exercise_back">Zurück</string>
+    <!-- %1$s = Übung, %2$d = verbleibende Sekunden -->
+    <plurals name="cd_exercise_timer">
+        <item quantity="one">%1$s, noch %2$d Sekunde</item>
+        <item quantity="other">%1$s, noch %2$d Sekunden</item>
+    </plurals>
+
     <!-- Notifications -->
     <string name="channel_reminder_name">Bewegungs-Erinnerungen</string>
     <string name="channel_reminder_description">Erinnert dich daran, aufzustehen und ein paar Schritte zu gehen.</string>
     <string name="channel_tracking_name">Schritterkennung</string>
     <string name="channel_tracking_description">Hält die automatische Schritterkennung während der aktiven Zeit am Laufen.</string>
     <string name="notification_reminder_title">Bewegungspause</string>
-    <string name="notification_reminder_text">Zeit aufzustehen! Geh ein paar Schritte.</string>
+    <!-- %1$s = Bewegungsidee, z. B. „10 Kniebeugen" -->
+    <string name="notification_reminder_text_idea">Zeit aufzustehen! Idee: %1$s</string>
+    <string name="action_exercise">1-Min-Übung</string>
     <string name="action_done">Erledigt</string>
     <string name="action_snooze">+10 Min Snooze</string>
     <string name="notification_tracking_title">Schritterkennung aktiv</string>
