@@ -42,7 +42,8 @@ class DemoDataSeeder(
         now: Long,
         random: Random,
     ): List<MovementEvent> {
-        val window = settings.window
+        // Freie Tage bekommen keine Ereignisse.
+        val window = settings.schedule.windowOn(date) ?: return emptyList()
         val interval = settings.intervalMillis
         val windowEnd = window.endOn(date, zone)
         // „Tagesform": am Wochenende weniger diszipliniert, unter der Woche schwankend.

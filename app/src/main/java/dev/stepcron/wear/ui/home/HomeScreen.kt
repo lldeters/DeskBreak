@@ -24,6 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import dev.stepcron.wear.ui.WEAR_SMALL_ROUND
 import androidx.compose.ui.unit.dp
@@ -43,14 +44,18 @@ import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
 import dev.stepcron.wear.R
+import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.ui.HomeStatus
 import dev.stepcron.wear.ui.HomeUiState
 import dev.stepcron.wear.ui.SystemStatus
 import dev.stepcron.wear.ui.components.IntervalProgressBar
 import dev.stepcron.wear.ui.components.StepperRow
 import dev.stepcron.wear.ui.formatClock
+import dev.stepcron.wear.ui.rememberScheduleTexts
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.ZoneId
 
 /** Hauptbildschirm: Status, Aktiv-Schalter, Timer-Reset, Statistik und Einstellungen. */
 @Composable
@@ -60,8 +65,7 @@ fun HomeScreen(
     onManualReset: () -> Unit,
     onOpenStats: () -> Unit,
     onIntervalStep: (Int) -> Unit,
-    onStartHourStep: (Int) -> Unit,
-    onEndHourStep: (Int) -> Unit,
+    onOpenSchedule: () -> Unit,
     onAutoStepChange: (Boolean) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
@@ -80,9 +84,11 @@ fun HomeScreen(
     // Zustand (z. B. alle 15 s durch den Countdown) derselbe, die Liste wird nicht neu aufgebaut und
     // nur die Items, die `current` lesen, aktualisieren sich.
     val current by rememberUpdatedState(state)
-    // Diese beiden Werte bestimmen, welche Items es überhaupt gibt – deshalb direkt als Wert.
+    // Diese Werte bestimmen, welche Items es überhaupt gibt – deshalb direkt als Wert.
     val showPermissionsChip = state.needsPermissions
     val showExactAlarmChip = !state.system.exactAlarmsAllowed
+    // Ohne aktiven Tag direkt unter dem Status zum Zeitplan führen (der reguläre Eintrag liegt weiter unten).
+    val showScheduleShortcut = state.status == HomeStatus.NoActiveDays
 
     // Die Uhrzeit kommt aus dem gemeinsamen Scaffold in DeskBreakNavHost. Bewusst ohne Vignette: Sie
     // dunkelt nur einen schmalen Randstreifen ab, kostet aber zwei bildschirmgroße Bitmaps, die beim
@@ -96,6 +102,18 @@ fun HomeScreen(
             autoCentering = AutoCenteringParams(itemIndex = 0),
         ) {
             item(key = "status") { StatusHeader(current) }
+
+            if (showScheduleShortcut) {
+                item(key = "schedule_shortcut") {
+                    Chip(
+                        onClick = onOpenSchedule,
+                        label = { Text(stringResource(R.string.home_schedule_label), maxLines = 1) },
+                        secondaryLabel = { Text(stringResource(R.string.home_schedule_shortcut_secondary), maxLines = 1) },
+                        colors = ChipDefaults.primaryChipColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
 
             if (showPermissionsChip) {
                 item(key = "permissions") {
@@ -172,28 +190,19 @@ fun HomeScreen(
                     increaseDescription = stringResource(R.string.cd_interval_increase),
                 )
             }
-            item(key = "start_hour") {
-                StepperRow(
-                    label = stringResource(R.string.home_start_label),
-                    value = stringResource(R.string.home_hour_value, current.startHour),
-                    onDecrease = { onStartHourStep(-1) },
-                    onIncrease = { onStartHourStep(1) },
-                    decreaseEnabled = current.canDecreaseStart,
-                    increaseEnabled = current.canIncreaseStart,
-                    decreaseDescription = stringResource(R.string.cd_start_decrease),
-                    increaseDescription = stringResource(R.string.cd_start_increase),
-                )
-            }
-            item(key = "end_hour") {
-                StepperRow(
-                    label = stringResource(R.string.home_end_label),
-                    value = stringResource(R.string.home_hour_value, current.endHour),
-                    onDecrease = { onEndHourStep(-1) },
-                    onIncrease = { onEndHourStep(1) },
-                    decreaseEnabled = current.canDecreaseEnd,
-                    increaseEnabled = current.canIncreaseEnd,
-                    decreaseDescription = stringResource(R.string.cd_end_decrease),
-                    increaseDescription = stringResource(R.string.cd_end_increase),
+            item(key = "schedule") {
+                // Ohne Icon, damit die Zusammenfassung („Mo–Fr · 08–17 Uhr") auf kleine runde Displays passt.
+                val schedule = current.schedule.takeUnless { current.loading }
+                Chip(
+                    onClick = onOpenSchedule,
+                    label = { Text(stringResource(R.string.home_schedule_label), maxLines = 1) },
+                    secondaryLabel = if (schedule != null) {
+                        { ScheduleSummary(schedule) }
+                    } else {
+                        null
+                    },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
@@ -251,16 +260,18 @@ private fun StatusHeader(state: HomeUiState) {
                 Caption(stringResource(R.string.home_status_disabled_hint))
             }
 
+            HomeStatus.NoActiveDays -> {
+                Headline(stringResource(R.string.home_status_no_active_days))
+                Caption(stringResource(R.string.home_status_no_active_days_hint))
+            }
+
             HomeStatus.Planning -> Headline(stringResource(R.string.home_status_planning))
 
             is HomeStatus.Paused -> {
-                Headline(stringResource(R.string.home_status_paused))
-                val resumeText = if (status.resumesTomorrow) {
-                    R.string.home_status_paused_resume_tomorrow
-                } else {
-                    R.string.home_status_paused_resume_today
-                }
-                Caption(stringResource(resumeText, formatClock(status.resumeAtMillis)))
+                Headline(
+                    stringResource(if (status.freeToday) R.string.home_status_free_today else R.string.home_status_paused),
+                )
+                Caption(resumeText(status))
             }
 
             is HomeStatus.Scheduled -> {
@@ -303,6 +314,27 @@ private fun StatusHeader(state: HomeUiState) {
             )
         }
     }
+}
+
+/** „Weiter um 08:00" / „Weiter morgen um 08:00" / „Weiter am Montag um 08:00" / „Weiter nächsten Montag um …". */
+@Composable
+private fun resumeText(status: HomeStatus.Paused): String {
+    val time = formatClock(status.resumeAtMillis)
+    val weekday = rememberScheduleTexts()
+        .longName(Instant.ofEpochMilli(status.resumeAtMillis).atZone(ZoneId.systemDefault()).dayOfWeek)
+    return when (status.daysUntilResume) {
+        0 -> stringResource(R.string.home_status_paused_resume_today, time)
+        1 -> stringResource(R.string.home_status_paused_resume_tomorrow, time)
+        in 2 until WeeklySchedule.DAYS_PER_WEEK -> stringResource(R.string.home_status_paused_resume_later, weekday, time)
+        else -> stringResource(R.string.home_status_paused_resume_next_week, weekday, time)
+    }
+}
+
+@Composable
+private fun ScheduleSummary(schedule: WeeklySchedule) {
+    val texts = rememberScheduleTexts()
+    val summary = remember(texts, schedule) { texts.summary(schedule) }
+    Text(summary, maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -365,8 +397,7 @@ private fun HomeScreenPreview() {
                 onManualReset = {},
                 onOpenStats = {},
                 onIntervalStep = {},
-                onStartHourStep = {},
-                onEndHourStep = {},
+                onOpenSchedule = {},
                 onAutoStepChange = {},
                 onRequestPermissions = {},
                 onOpenExactAlarmSettings = {},

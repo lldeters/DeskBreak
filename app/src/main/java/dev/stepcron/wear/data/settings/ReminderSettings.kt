@@ -1,28 +1,25 @@
 package dev.stepcron.wear.data.settings
 
-import dev.stepcron.wear.domain.ActiveWindow
 import dev.stepcron.wear.domain.AlarmKind
+import dev.stepcron.wear.domain.WeeklySchedule
 
 /** Vom Nutzer einstellbare Werte (persistiert im DataStore). */
 data class ReminderSettings(
     val enabled: Boolean = false,
     val intervalMinutes: Int = DEFAULT_INTERVAL_MINUTES,
-    val activeStartHour: Int = DEFAULT_START_HOUR,
-    val activeEndHour: Int = DEFAULT_END_HOUR,
+    /** An welchen Wochentagen von wann bis wann erinnert wird. */
+    val schedule: WeeklySchedule = WeeklySchedule.DEFAULT,
     val autoStepEnabled: Boolean = true,
     /** Wurden die Laufzeit-Berechtigungen beim ersten Start schon angefragt? */
     val permissionsRequested: Boolean = false,
 ) {
-    val window: ActiveWindow get() = ActiveWindow(activeStartHour, activeEndHour)
     val intervalMillis: Long get() = intervalMinutes * 60_000L
 
-    /** Bringt alle Werte in gültige Bereiche (Intervall 5–120 in 5er-Schritten, Start < Ende). */
+    /** Bringt das Intervall in den gültigen Bereich (5–120 in 5er-Schritten); der Wochenplan ist immer gültig. */
     fun sanitized(): ReminderSettings {
         val clamped = intervalMinutes.coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
         val interval = ((clamped + INTERVAL_STEP_MINUTES / 2) / INTERVAL_STEP_MINUTES) * INTERVAL_STEP_MINUTES
-        val start = activeStartHour.coerceIn(0, 23)
-        val end = activeEndHour.coerceIn(start + 1, 24)
-        return copy(intervalMinutes = interval, activeStartHour = start, activeEndHour = end)
+        return copy(intervalMinutes = interval)
     }
 
     companion object {
@@ -30,8 +27,6 @@ data class ReminderSettings(
         const val MAX_INTERVAL_MINUTES = 120
         const val INTERVAL_STEP_MINUTES = 5
         const val DEFAULT_INTERVAL_MINUTES = 45
-        const val DEFAULT_START_HOUR = 8
-        const val DEFAULT_END_HOUR = 17
     }
 }
 

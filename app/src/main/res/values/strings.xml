@@ -8,8 +8,14 @@
     <string name="home_status_disabled_hint">Schalter antippen zum Starten</string>
     <string name="home_status_planning">Wird geplant …</string>
     <string name="home_status_paused">Pausiert (Ruhezeit)</string>
+    <string name="home_status_free_today">Heute frei</string>
     <string name="home_status_paused_resume_today">Weiter um %1$s</string>
     <string name="home_status_paused_resume_tomorrow">Weiter morgen um %1$s</string>
+    <!-- %1$s = Wochentag (z. B. „Montag"), %2$s = Uhrzeit -->
+    <string name="home_status_paused_resume_later">Weiter am %1$s um %2$s</string>
+    <string name="home_status_paused_resume_next_week">Weiter nächsten %1$s um %2$s</string>
+    <string name="home_status_no_active_days">Kein Tag aktiv</string>
+    <string name="home_status_no_active_days_hint">Im Zeitplan einen Tag einschalten</string>
     <string name="home_status_next_reminder">Nächste Erinnerung</string>
     <string name="home_status_snoozed_until">Snooze bis</string>
     <string name="home_status_remaining">in %1$d min</string>
@@ -29,9 +35,8 @@
     <string name="home_settings_header">Einstellungen</string>
     <string name="home_interval_label">Intervall</string>
     <string name="home_interval_value">%1$d min</string>
-    <string name="home_start_label">Aktiv ab</string>
-    <string name="home_end_label">Aktiv bis</string>
-    <string name="home_hour_value">%1$02d:00</string>
+    <string name="home_schedule_label">Zeitplan</string>
+    <string name="home_schedule_shortcut_secondary">Tag einschalten</string>
     <string name="home_auto_step_label">Auto-Schritte</string>
     <string name="home_auto_step_active">30 Schritte in 2 Min · aktiv</string>
     <string name="home_auto_step_idle">30 Schritte in 2 Min</string>
@@ -44,10 +49,35 @@
 
     <string name="cd_interval_decrease">Intervall verringern</string>
     <string name="cd_interval_increase">Intervall erhöhen</string>
-    <string name="cd_start_decrease">Startzeit früher</string>
-    <string name="cd_start_increase">Startzeit später</string>
-    <string name="cd_end_decrease">Endzeit früher</string>
-    <string name="cd_end_increase">Endzeit später</string>
+
+    <!-- Zeitplan -->
+    <string name="schedule_title">Zeitplan</string>
+    <string name="schedule_hint">Tag antippen: Uhrzeiten</string>
+    <string name="schedule_day_off">Frei</string>
+    <!-- %1$s = Wochentag lang -->
+    <string name="cd_day_toggle">Erinnerungen am %1$s</string>
+    <string name="schedule_summary_daily">Täglich</string>
+    <string name="schedule_summary_none">Kein Tag aktiv</string>
+    <string name="schedule_summary_varied">unterschiedlich</string>
+    <!-- %1$s = Tage (z. B. „Mo–Fr"), %2$s = Uhrzeit (z. B. „08–17 Uhr") -->
+    <string name="schedule_summary_format">%1$s · %2$s</string>
+    <!-- Fenster aus vollen Stunden: %1$s = „08", %2$s = „17" -->
+    <string name="schedule_window_hours">%1$s–%2$s Uhr</string>
+    <!-- Fenster mit Minuten: %1$s = „08:30", %2$s = „17:15" -->
+    <string name="schedule_window_times">%1$s–%2$s</string>
+    <string name="day_schedule_toggle_label">Erinnerungstag</string>
+    <string name="day_schedule_toggle_on">An</string>
+    <string name="day_schedule_toggle_off">Aus</string>
+    <string name="schedule_start_label">Aktiv ab</string>
+    <string name="schedule_end_label">Aktiv bis</string>
+    <string name="day_schedule_copy_label">Für alle Tage</string>
+    <string name="day_schedule_copy_secondary">Zeiten übernehmen</string>
+    <string name="day_schedule_copy_confirm">Nochmal tippen zum Übernehmen</string>
+    <string name="day_schedule_copy_done">Übernommen ✓</string>
+    <string name="day_schedule_copy_same">Alle Tage gleich ✓</string>
+    <string name="time_picker_confirm">Übernehmen</string>
+    <!-- %1$s = „Aktiv ab"/„Aktiv bis", %2$s = Uhrzeit -->
+    <string name="cd_time_picker">%1$s %2$s</string>
 
     <!-- Auswertung -->
     <string name="stats_title">Auswertung</string>
@@ -57,10 +87,12 @@
     <!-- „verpasst" ist im Deutschen unveränderlich, daher kein Plural nötig. -->
     <string name="stats_score_detail" tools:ignore="PluralsCandidate">regelmäßig · heute %1$s, %2$d verpasst</string>
     <string name="stats_score_detail_empty">regelmäßig · heute noch nichts fällig</string>
+    <string name="stats_score_detail_off">regelmäßig · heute frei</string>
     <string name="stats_streak_value">Serie: %1$d</string>
     <string name="stats_streak_detail">erfolgreiche Intervalle in Folge</string>
     <string name="stats_today_title">Heute</string>
-    <string name="stats_today_subtitle">%1$02d–%2$02d Uhr</string>
+    <string name="stats_today_off_subtitle">frei</string>
+    <string name="stats_today_off_hint">Heute ist kein Erinnerungstag.</string>
     <string name="stats_week_title">7 Tage</string>
     <string name="stats_week_subtitle">Ø %1$s · %2$s</string>
     <string name="stats_week_hint">Säule: Quote · Zahl: Pausen</string>
@@ -95,6 +127,15 @@
         <item>Fr</item>
         <item>Sa</item>
         <item>So</item>
+    </string-array>
+    <string-array name="weekday_long">
+        <item>Montag</item>
+        <item>Dienstag</item>
+        <item>Mittwoch</item>
+        <item>Donnerstag</item>
+        <item>Freitag</item>
+        <item>Samstag</item>
+        <item>Sonntag</item>
     </string-array>
 
     <!-- Notifications -->

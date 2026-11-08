@@ -151,7 +151,7 @@ class StepTrackerService : Service() {
         fun shouldRun(context: Context, settings: ReminderSettings, nowMillis: Long, zone: ZoneId): Boolean =
             settings.enabled &&
                 settings.autoStepEnabled &&
-                settings.window.contains(nowMillis, zone) &&
+                settings.schedule.contains(nowMillis, zone) &&
                 Permissions.hasActivityRecognition(context) &&
                 StepTracker.isAvailable(context)
 

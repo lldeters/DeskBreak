@@ -62,8 +62,8 @@ object StatsCalculator {
     )
 
     /**
-     * Ein Slot pro Stunde des aktiven Fensters. Priorität: Bewegung (grün) > verpasst (rot) >
-     * Snooze (gelb) > nichts (grau).
+     * Ein Slot pro (angebrochener) Stunde des Zeitfensters von heute. Priorität: Bewegung (grün) >
+     * verpasst (rot) > Snooze (gelb) > nichts (grau).
      */
     fun hourSlots(
         todayEvents: List<MovementEvent>,

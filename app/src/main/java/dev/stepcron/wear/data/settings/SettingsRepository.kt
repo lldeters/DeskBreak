@@ -12,7 +12,9 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.stepcron.wear.domain.ActiveWindow
 import dev.stepcron.wear.domain.AlarmKind
+import dev.stepcron.wear.domain.WeeklySchedule
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -55,10 +57,15 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     private object Keys {
         val ENABLED = booleanPreferencesKey("enabled")
         val INTERVAL_MINUTES = intPreferencesKey("interval_minutes")
-        val ACTIVE_START_HOUR = intPreferencesKey("active_start_hour")
-        val ACTIVE_END_HOUR = intPreferencesKey("active_end_hour")
         val AUTO_STEP_ENABLED = booleanPreferencesKey("auto_step_enabled")
         val PERMISSIONS_REQUESTED = booleanPreferencesKey("permissions_requested")
+
+        /** Wochenplan im Format von [ScheduleCodec]. Ist der Schlüssel gesetzt, gilt der Plan als übernommen. */
+        val WEEKLY_SCHEDULE = stringPreferencesKey("weekly_schedule_v1")
+
+        /** Vor dem Wochenplan: ein Fenster in vollen Stunden für alle Tage. Wird nur noch zum Übernehmen gelesen. */
+        val LEGACY_START_HOUR = intPreferencesKey("active_start_hour")
+        val LEGACY_END_HOUR = intPreferencesKey("active_end_hour")
 
         val NEXT_ALARM_AT = longPreferencesKey("next_alarm_at")
         val NEXT_ALARM_KIND = stringPreferencesKey("next_alarm_kind")
@@ -73,8 +80,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     private fun Preferences.toSettings(): ReminderSettings = ReminderSettings(
         enabled = this[Keys.ENABLED] ?: false,
         intervalMinutes = this[Keys.INTERVAL_MINUTES] ?: ReminderSettings.DEFAULT_INTERVAL_MINUTES,
-        activeStartHour = this[Keys.ACTIVE_START_HOUR] ?: ReminderSettings.DEFAULT_START_HOUR,
-        activeEndHour = this[Keys.ACTIVE_END_HOUR] ?: ReminderSettings.DEFAULT_END_HOUR,
+        schedule = toSchedule(),
         autoStepEnabled = this[Keys.AUTO_STEP_ENABLED] ?: true,
         permissionsRequested = this[Keys.PERMISSIONS_REQUESTED] ?: false,
     ).sanitized()
@@ -82,10 +88,29 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     private fun MutablePreferences.writeSettings(settings: ReminderSettings) {
         this[Keys.ENABLED] = settings.enabled
         this[Keys.INTERVAL_MINUTES] = settings.intervalMinutes
-        this[Keys.ACTIVE_START_HOUR] = settings.activeStartHour
-        this[Keys.ACTIVE_END_HOUR] = settings.activeEndHour
+        this[Keys.WEEKLY_SCHEDULE] = ScheduleCodec.encode(settings.schedule)
+        // Mit dem ersten Schreiben ist der alte Einheitszeitraum in den Wochenplan übernommen.
+        remove(Keys.LEGACY_START_HOUR)
+        remove(Keys.LEGACY_END_HOUR)
         this[Keys.AUTO_STEP_ENABLED] = settings.autoStepEnabled
         this[Keys.PERMISSIONS_REQUESTED] = settings.permissionsRequested
+    }
+
+    /**
+     * Wochenplan: gespeicherter Plan; sonst (Installation von vor dem Wochenplan) das alte Fenster für alle
+     * Tage, damit sich nach dem Update nichts ändert; sonst (neue Installation) [WeeklySchedule.DEFAULT].
+     */
+    private fun Preferences.toSchedule(): WeeklySchedule =
+        this[Keys.WEEKLY_SCHEDULE]?.let(ScheduleCodec::decode) ?: legacySchedule() ?: WeeklySchedule.DEFAULT
+
+    private fun Preferences.legacySchedule(): WeeklySchedule? {
+        val startHour = this[Keys.LEGACY_START_HOUR]
+        val endHour = this[Keys.LEGACY_END_HOUR]
+        if (startHour == null && endHour == null) return null
+        // Bereinigung wie in der alten Version: Start 0–23, Ende nach dem Start, höchstens 24.
+        val start = (startHour ?: LEGACY_DEFAULT_START_HOUR).coerceIn(0, 23)
+        val end = (endHour ?: LEGACY_DEFAULT_END_HOUR).coerceIn(start + 1, 24)
+        return WeeklySchedule.everyDay(ActiveWindow.ofHours(start, end))
     }
 
     private fun Preferences.toState(): ReminderState = ReminderState(
@@ -113,5 +138,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     private companion object {
         const val TAG = "SettingsRepository"
+        const val LEGACY_DEFAULT_START_HOUR = 8
+        const val LEGACY_DEFAULT_END_HOUR = 17
     }
 }

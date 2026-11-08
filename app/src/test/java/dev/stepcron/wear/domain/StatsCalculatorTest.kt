@@ -14,7 +14,7 @@ import java.time.ZoneId
 class StatsCalculatorTest {
 
     private val zone = ZoneId.of("Europe/Berlin")
-    private val window = ActiveWindow(8, 17)
+    private val window = ActiveWindow.ofHours(8, 17)
 
     private fun at(time: String): Long =
         LocalDateTime.parse("2026-11-09T$time").atZone(zone).toInstant().toEpochMilli()
@@ -69,6 +69,14 @@ class StatsCalculatorTest {
         assertTrue(slots.getValue(12).isCurrent)
         assertFalse(slots.getValue(12).isFuture)
         assertTrue(slots.getValue(13).isFuture)
+    }
+
+    @Test
+    fun `hour slots cover started hours of a window with minutes`() {
+        val events = listOf(event("17:05", MovementEventType.MANUAL_RESET))
+        val slots = StatsCalculator.hourSlots(events, ActiveWindow(8 * 60 + 30, 17 * 60 + 15), at("12:30"), zone)
+        assertEquals((8..17).toList(), slots.map { it.hour })
+        assertEquals(SlotStatus.DONE, slots.last().status)
     }
 
     @Test

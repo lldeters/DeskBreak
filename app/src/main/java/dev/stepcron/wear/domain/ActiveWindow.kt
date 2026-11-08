@@ -1,32 +1,34 @@
 package dev.stepcron.wear.domain
 
+import androidx.compose.runtime.Immutable
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * Tägliches aktives Zeitfenster `[startHour, endHour)` in lokaler Zeit.
- * `endHour = 24` steht für Mitternacht am Folgetag. Außerhalb des Fensters gilt Ruhezeit.
+ * Aktives Zeitfenster eines Tages `[startMinute, endMinute)` in lokaler Zeit, in Minuten seit Mitternacht.
+ * `endMinute = 1440` steht für Mitternacht am Folgetag. Außerhalb des Fensters gilt Ruhezeit.
  */
-data class ActiveWindow(val startHour: Int, val endHour: Int) {
+@Immutable
+data class ActiveWindow(val startMinute: Int, val endMinute: Int) {
 
     init {
-        require(startHour in 0..23) { "startHour muss zwischen 0 und 23 liegen: $startHour" }
-        require(endHour in 1..24) { "endHour muss zwischen 1 und 24 liegen: $endHour" }
-        require(startHour < endHour) { "startHour ($startHour) muss vor endHour ($endHour) liegen" }
+        require(startMinute in 0 until MINUTES_PER_DAY) { "startMinute muss zwischen 0 und 1439 liegen: $startMinute" }
+        require(endMinute in 1..MINUTES_PER_DAY) { "endMinute muss zwischen 1 und 1440 liegen: $endMinute" }
+        require(startMinute < endMinute) { "startMinute ($startMinute) muss vor endMinute ($endMinute) liegen" }
     }
 
-    /** Die vollen Stunden des Fensters, z. B. 8..16 für 08:00–17:00. */
-    val hours: IntRange get() = startHour until endHour
+    /** Die angebrochenen vollen Stunden des Fensters, z. B. 8..16 für 08:00–17:00 und 8..17 für 08:30–17:15. */
+    val hours: IntRange get() = (startMinute / 60) until (endMinute + 59) / 60
 
     fun startOn(date: LocalDate, zone: ZoneId): Long =
-        date.atTime(startHour, 0).atZone(zone).toInstant().toEpochMilli()
+        date.atTime(startMinute / 60, startMinute % 60).atZone(zone).toInstant().toEpochMilli()
 
     fun endOn(date: LocalDate, zone: ZoneId): Long =
-        if (endHour == 24) {
+        if (endMinute == MINUTES_PER_DAY) {
             date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         } else {
-            date.atTime(endHour, 0).atZone(zone).toInstant().toEpochMilli()
+            date.atTime(endMinute / 60, endMinute % 60).atZone(zone).toInstant().toEpochMilli()
         }
 
     fun contains(epochMillis: Long, zone: ZoneId): Boolean {
@@ -40,11 +42,19 @@ data class ActiveWindow(val startHour: Int, val endHour: Int) {
     /** Ende des Fensters an dem Kalendertag, in den [epochMillis] fällt. */
     fun endOfDay(epochMillis: Long, zone: ZoneId): Long = endOn(epochMillis.toLocalDate(zone), zone)
 
-    /** Nächster Fensterbeginn: heute, falls noch vor Beginn, sonst am Folgetag. */
-    fun nextStart(epochMillis: Long, zone: ZoneId): Long {
-        val date = epochMillis.toLocalDate(zone)
-        val todayStart = startOn(date, zone)
-        return if (epochMillis < todayStart) todayStart else startOn(date.plusDays(1), zone)
+    companion object {
+        const val MINUTES_PER_DAY = 24 * 60
+
+        /** Kürzestes Fenster, das beim Bereinigen gespeicherter Werte entsteht (= Schrittweite der Zeitauswahl). */
+        const val MIN_LENGTH_MINUTES = 15
+
+        fun ofHours(startHour: Int, endHour: Int): ActiveWindow = ActiveWindow(startHour * 60, endHour * 60)
+
+        /** Bringt gespeicherte Rohwerte in einen gültigen Bereich, statt beim Lesen eine Ausnahme auszulösen. */
+        fun sanitized(startMinute: Int, endMinute: Int): ActiveWindow {
+            val start = startMinute.coerceIn(0, MINUTES_PER_DAY - MIN_LENGTH_MINUTES)
+            return ActiveWindow(start, endMinute.coerceIn(start + MIN_LENGTH_MINUTES, MINUTES_PER_DAY))
+        }
     }
 }
 

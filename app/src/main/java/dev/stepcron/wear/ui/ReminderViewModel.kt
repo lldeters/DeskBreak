@@ -12,6 +12,8 @@ import dev.stepcron.wear.data.DemoDataSeeder
 import dev.stepcron.wear.data.MovementRepository
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.SettingsRepository
+import dev.stepcron.wear.domain.ActiveWindow
+import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.domain.toLocalDate
 import dev.stepcron.wear.service.AlarmScheduler
 import dev.stepcron.wear.service.ReminderEngine
@@ -33,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -130,20 +133,38 @@ class ReminderViewModel(
         }
     }
 
-    fun changeStartHour(delta: Int) {
-        viewModelScope.launch {
-            val settings = settingsRepository.currentSettings()
-            val start = (settings.activeStartHour + delta).coerceIn(0, settings.activeEndHour - 1)
-            engine.setActiveHours(start, settings.activeEndHour)
+    fun setDayEnabled(day: DayOfWeek, enabled: Boolean) {
+        updateSchedule { schedule -> schedule.with(day) { it.copy(enabled = enabled) } }
+    }
+
+    /** Neuer Beginn; bleibt vor dem Ende des Tages, ohne das Ende zu verschieben. */
+    fun setDayStart(day: DayOfWeek, minuteOfDay: Int) {
+        updateSchedule { schedule ->
+            schedule.with(day) { entry ->
+                val start = minuteOfDay.coerceIn(0, entry.window.endMinute - 1)
+                entry.copy(window = entry.window.copy(startMinute = start))
+            }
         }
     }
 
-    fun changeEndHour(delta: Int) {
-        viewModelScope.launch {
-            val settings = settingsRepository.currentSettings()
-            val end = (settings.activeEndHour + delta).coerceIn(settings.activeStartHour + 1, 24)
-            engine.setActiveHours(settings.activeStartHour, end)
+    /** Neues Ende; bleibt nach dem Beginn des Tages, ohne den Beginn zu verschieben. */
+    fun setDayEnd(day: DayOfWeek, minuteOfDay: Int) {
+        updateSchedule { schedule ->
+            schedule.with(day) { entry ->
+                val end = minuteOfDay.coerceIn(entry.window.startMinute + 1, ActiveWindow.MINUTES_PER_DAY)
+                entry.copy(window = entry.window.copy(endMinute = end))
+            }
         }
+    }
+
+    /** Übernimmt die Uhrzeiten von [day] für alle Tage; welche Tage an oder frei sind, bleibt gleich. */
+    fun copyDayToAll(day: DayOfWeek) {
+        updateSchedule { schedule -> schedule.withAllWindows(schedule[day].window) }
+    }
+
+    /** Die Änderung läuft atomar im DataStore auf dem aktuell gespeicherten Plan (keine verlorenen Tipps). */
+    private fun updateSchedule(transform: (WeeklySchedule) -> WeeklySchedule) {
+        viewModelScope.launch { engine.updateSchedule(transform) }
     }
 
     fun setAutoStepEnabled(enabled: Boolean) {

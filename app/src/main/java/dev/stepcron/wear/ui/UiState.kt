@@ -5,12 +5,15 @@ import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.DailyCounts
+import dev.stepcron.wear.domain.DaySchedule
 import dev.stepcron.wear.domain.DayStat
 import dev.stepcron.wear.domain.HourSlot
 import dev.stepcron.wear.domain.StatsCalculator
+import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.domain.toLocalDate
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /** Berechtigungen & Geräte-Fähigkeiten, die die UI anzeigen muss. */
 data class SystemStatus(
@@ -23,8 +26,21 @@ data class SystemStatus(
 /** Was der Status-Header auf dem Hauptbildschirm zeigt. */
 sealed interface HomeStatus {
     data object Disabled : HomeStatus
+
+    /** Erinnerungen sind an, aber im Zeitplan ist kein Tag aktiv. */
+    data object NoActiveDays : HomeStatus
     data object Planning : HomeStatus
-    data class Paused(val resumeAtMillis: Long, val resumesTomorrow: Boolean) : HomeStatus
+
+    /**
+     * Außerhalb der aktiven Zeit.
+     * @property daysUntilResume Kalendertage bis zum nächsten Fensterbeginn (0 = heute, 1 = morgen, …).
+     * @property freeToday Heute ist laut Zeitplan frei.
+     */
+    data class Paused(
+        val resumeAtMillis: Long,
+        val daysUntilResume: Int,
+        val freeToday: Boolean,
+    ) : HomeStatus
     data class Scheduled(
         val atMillis: Long,
         val remainingMinutes: Long,
@@ -38,8 +54,9 @@ data class HomeUiState(
     val loading: Boolean = true,
     val enabled: Boolean = false,
     val intervalMinutes: Int = ReminderSettings.DEFAULT_INTERVAL_MINUTES,
-    val startHour: Int = ReminderSettings.DEFAULT_START_HOUR,
-    val endHour: Int = ReminderSettings.DEFAULT_END_HOUR,
+    val schedule: WeeklySchedule = WeeklySchedule.DEFAULT,
+    /** Einstellung des heutigen Wochentags (an/frei und Zeitfenster). */
+    val today: DaySchedule = WeeklySchedule.DEFAULT.days.first(),
     val autoStepEnabled: Boolean = true,
     val permissionsRequested: Boolean = false,
     val status: HomeStatus = HomeStatus.Disabled,
@@ -49,10 +66,6 @@ data class HomeUiState(
 ) {
     val canDecreaseInterval: Boolean get() = intervalMinutes > ReminderSettings.MIN_INTERVAL_MINUTES
     val canIncreaseInterval: Boolean get() = intervalMinutes < ReminderSettings.MAX_INTERVAL_MINUTES
-    val canDecreaseStart: Boolean get() = startHour > 0
-    val canIncreaseStart: Boolean get() = startHour < endHour - 1
-    val canDecreaseEnd: Boolean get() = endHour > startHour + 1
-    val canIncreaseEnd: Boolean get() = endHour < 24
 
     val needsPermissions: Boolean
         get() = !system.notificationsGranted || (autoStepEnabled && !system.activityRecognitionGranted)
@@ -68,8 +81,8 @@ data class HomeUiState(
             loading = false,
             enabled = settings.enabled,
             intervalMinutes = settings.intervalMinutes,
-            startHour = settings.activeStartHour,
-            endHour = settings.activeEndHour,
+            schedule = settings.schedule,
+            today = settings.schedule[nowMillis.toLocalDate(zone).dayOfWeek],
             autoStepEnabled = settings.autoStepEnabled,
             permissionsRequested = settings.permissionsRequested,
             status = homeStatus(settings, state, nowMillis, zone),
@@ -85,18 +98,20 @@ data class HomeUiState(
             zone: ZoneId,
         ): HomeStatus {
             if (!settings.enabled) return HomeStatus.Disabled
-            val window = settings.window
+            val schedule = settings.schedule
             val kind = state.nextAlarmKind
             return when {
-                kind == AlarmKind.CYCLE_START || !window.contains(nowMillis, zone) -> {
-                    val resumeAt = if (kind == AlarmKind.CYCLE_START && state.nextAlarmAt > nowMillis) {
-                        state.nextAlarmAt
-                    } else {
-                        window.nextStart(nowMillis, zone)
-                    }
+                !schedule.hasActiveDay -> HomeStatus.NoActiveDays
+
+                !schedule.contains(nowMillis, zone) -> {
+                    // Aus dem Zeitplan statt aus dem gespeicherten Alarm: Nach einer Änderung ist der Plan sofort
+                    // aktuell, der Alarm erst nach dem Abgleich.
+                    val resumeAt = schedule.nextStart(nowMillis, zone) ?: return HomeStatus.NoActiveDays
+                    val today = nowMillis.toLocalDate(zone)
                     HomeStatus.Paused(
                         resumeAtMillis = resumeAt,
-                        resumesTomorrow = resumeAt.toLocalDate(zone) != nowMillis.toLocalDate(zone),
+                        daysUntilResume = ChronoUnit.DAYS.between(today, resumeAt.toLocalDate(zone)).toInt(),
+                        freeToday = schedule.windowOn(today) == null,
                     )
                 }
 
@@ -126,8 +141,6 @@ data class StatsUiState(
     val todaySnoozes: Int = 0,
     val todayMissed: Int = 0,
     val streak: Int = 0,
-    val startHour: Int = ReminderSettings.DEFAULT_START_HOUR,
-    val endHour: Int = ReminderSettings.DEFAULT_END_HOUR,
     val hourSlots: List<HourSlot> = emptyList(),
     val week: List<DayStat> = emptyList(),
     val weekPercent: Int? = null,
@@ -154,9 +167,8 @@ data class StatsUiState(
                 todaySnoozes = summary.snoozes,
                 todayMissed = summary.missed,
                 streak = streak,
-                startHour = settings.activeStartHour,
-                endHour = settings.activeEndHour,
-                hourSlots = StatsCalculator.hourSlots(todayEvents, settings.window, nowMillis, zone),
+                // Auch an einem freien Tag: dessen gespeichertes Fenster, damit trotzdem erfasste Pausen erscheinen.
+                hourSlots = StatsCalculator.hourSlots(todayEvents, settings.schedule[today.dayOfWeek].window, nowMillis, zone),
                 week = week,
                 weekPercent = StatsCalculator.regularityPercent(weekMovements, weekMissed),
                 weekMovements = weekMovements,

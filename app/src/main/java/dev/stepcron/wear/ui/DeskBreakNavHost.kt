@@ -5,12 +5,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.TimeText
@@ -19,13 +26,35 @@ import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import dev.stepcron.wear.BuildConfig
 import dev.stepcron.wear.Permissions
+import dev.stepcron.wear.R
+import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.ui.home.HomeScreen
+import dev.stepcron.wear.ui.schedule.DayScheduleScreen
+import dev.stepcron.wear.ui.schedule.ScheduleScreen
+import dev.stepcron.wear.ui.schedule.TimeOptions
+import dev.stepcron.wear.ui.schedule.TimePickerScreen
 import dev.stepcron.wear.ui.stats.StatsScreen
 import kotlinx.coroutines.flow.first
+import java.time.DayOfWeek
 
 private object Routes {
     const val HOME = "home"
     const val STATS = "stats"
+    const val SCHEDULE = "schedule"
+    const val ARG_DAY = "day"
+    const val DAY = "schedule/{$ARG_DAY}"
+    const val DAY_START = "schedule/{$ARG_DAY}/start"
+    const val DAY_END = "schedule/{$ARG_DAY}/end"
+
+    fun day(day: DayOfWeek) = "schedule/${day.value}"
+    fun dayStart(day: DayOfWeek) = "schedule/${day.value}/start"
+    fun dayEnd(day: DayOfWeek) = "schedule/${day.value}/end"
+
+    val dayArguments = listOf(navArgument(ARG_DAY) { type = NavType.IntType })
+
+    /** Wochentag aus der Route (ISO 1–7) oder `null` bei einem ungültigen Wert. */
+    fun dayOf(entry: NavBackStackEntry): DayOfWeek? =
+        entry.arguments?.getInt(ARG_DAY)?.takeIf { it in 1..7 }?.let(DayOfWeek::of)
 }
 
 /**
@@ -46,6 +75,8 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
     // Oberhalb des NavHosts, damit die Home-Liste beim Zurückwischen von der Statistik schon
     // initialisiert ist: Ein neuer Listenzustand blendet seine Items erst nach 2–3 Frames ein.
     val homeListState = rememberScalingLazyListState(initialCenterItemIndex = 0)
+    // Ebenso für den Zeitplan, zu dem man von jedem Wochentag zurückwischt.
+    val scheduleListState = rememberScalingLazyListState(initialCenterItemIndex = 0)
 
     // Nach dem Dialog folgt immer ON_RESUME: MainActivity.onResume liest die Berechtigungen neu.
     val permissionLauncher = rememberLauncherForActivityResult(RequestPermissionsContract) { }
@@ -77,8 +108,7 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     onManualReset = viewModel::manualReset,
                     onOpenStats = { navController.navigate(Routes.STATS) },
                     onIntervalStep = viewModel::changeInterval,
-                    onStartHourStep = viewModel::changeStartHour,
-                    onEndHourStep = viewModel::changeEndHour,
+                    onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
                     onAutoStepChange = { enabled ->
                         viewModel.setAutoStepEnabled(enabled)
                         if (enabled) requestMissingPermissions()
@@ -100,13 +130,72 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
             }
             composable(Routes.STATS) {
                 val statsState by viewModel.statsUiState.collectAsStateWithLifecycle()
+                // Aus dem schon geladenen Home-Zustand: Die Karte „Heute" hat so ab dem ersten Frame das
+                // richtige Layout, auch während die Statistik noch lädt.
+                val today by remember { derivedStateOf { homeState.value.today } }
                 StatsScreen(
                     state = statsState,
+                    today = today,
                     showDebugTools = BuildConfig.DEBUG,
                     onSeedDemoData = viewModel::seedDemoData,
                     onClearHistory = viewModel::clearHistory,
                 )
             }
+            composable(Routes.SCHEDULE) {
+                val schedule by rememberLoadedSchedule(homeState)
+                ScheduleScreen(
+                    schedule = schedule,
+                    listState = scheduleListState,
+                    onDayEnabledChange = viewModel::setDayEnabled,
+                    onOpenDay = { day -> navController.navigate(Routes.day(day)) },
+                )
+            }
+            composable(Routes.DAY, arguments = Routes.dayArguments) { entry ->
+                val day = Routes.dayOf(entry) ?: return@composable
+                val schedule by rememberLoadedSchedule(homeState)
+                DayScheduleScreen(
+                    day = day,
+                    schedule = schedule,
+                    onEnabledChange = { enabled -> viewModel.setDayEnabled(day, enabled) },
+                    onEditStart = { navController.navigate(Routes.dayStart(day)) },
+                    onEditEnd = { navController.navigate(Routes.dayEnd(day)) },
+                    onCopyToAll = { viewModel.copyDayToAll(day) },
+                )
+            }
+            composable(Routes.DAY_START, arguments = Routes.dayArguments) { entry ->
+                val day = Routes.dayOf(entry) ?: return@composable
+                val window = rememberLoadedSchedule(homeState).value?.get(day)?.window ?: return@composable
+                TimePickerScreen(
+                    title = stringResource(R.string.schedule_start_label),
+                    options = remember(window) { TimeOptions.startOptions(window) },
+                    initialMinute = window.startMinute,
+                    onConfirm = { minute ->
+                        viewModel.setDayStart(day, minute)
+                        navController.popBackStack()
+                    },
+                )
+            }
+            composable(Routes.DAY_END, arguments = Routes.dayArguments) { entry ->
+                val day = Routes.dayOf(entry) ?: return@composable
+                val window = rememberLoadedSchedule(homeState).value?.get(day)?.window ?: return@composable
+                TimePickerScreen(
+                    title = stringResource(R.string.schedule_end_label),
+                    options = remember(window) { TimeOptions.endOptions(window) },
+                    initialMinute = window.endMinute,
+                    onConfirm = { minute ->
+                        viewModel.setDayEnd(day, minute)
+                        navController.popBackStack()
+                    },
+                )
+            }
         }
     }
 }
+
+/**
+ * Wochenplan aus dem Home-Zustand, `null` solange die Einstellungen laden. Über derivedStateOf: Countdown-Ticks
+ * und andere Zustandsänderungen lösen hier keine Recomposition aus, nur ein geänderter Plan.
+ */
+@Composable
+private fun rememberLoadedSchedule(homeState: State<HomeUiState>): State<WeeklySchedule?> =
+    remember(homeState) { derivedStateOf { homeState.value.takeUnless { it.loading }?.schedule } }

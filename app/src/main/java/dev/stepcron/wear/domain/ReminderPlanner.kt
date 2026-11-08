@@ -20,18 +20,45 @@ enum class AlarmKind {
 
 data class PlannedAlarm(val triggerAtMillis: Long, val kind: AlarmKind)
 
+/** Wie sich eine Änderung des Wochenplans auf das gerade laufende Fenster auswirkt. */
+enum class ScheduleChange {
+    /** Kein Übergang: weiter wie bisher. */
+    NONE,
+
+    /** Der heutige Tag wurde mitten im Fenster frei gestellt. */
+    TODAY_OFF,
+
+    /** Das heutige Fenster wurde so verschoben, dass es jetzt vorbei ist bzw. noch nicht begonnen hat. */
+    WINDOW_LEFT,
+
+    /** Jetzt liegt (wieder) im heutigen Fenster, vorher nicht. */
+    WINDOW_ENTERED,
+}
+
 /** Reine Planungslogik (ohne Android-Abhängigkeiten, daher unit-testbar). */
 object ReminderPlanner {
 
     /** Mindestvorlauf, falls eine Erinnerung eigentlich schon überfällig wäre. */
     const val MIN_LEAD_MILLIS = 60_000L
 
+    /** Eine Erinnerung, die kurz vor dem Fensterende kam, bleibt mindestens so lange beantwortbar. */
+    const val WINDOW_END_GRACE_MILLIS = 15 * 60_000L
+
     /**
-     * Plant innerhalb des aktiven Fensters: eine Erinnerung zu [desiredAtMillis], sofern sie vor dem
-     * Fensterende liegt – ansonsten das Fensterende selbst.
+     * Plant innerhalb des heutigen Fensters: eine Erinnerung zu [desiredAtMillis], sofern sie vor dem
+     * Fensterende liegt – ansonsten das Fensterende selbst. Aufrufer prüfen vorher, dass jetzt im Fenster
+     * liegt; andernfalls wird der nächste Fensterbeginn geplant.
      */
-    fun planInWindow(desiredAtMillis: Long, nowMillis: Long, window: ActiveWindow, zone: ZoneId): PlannedAlarm {
-        val windowEnd = window.endOfDay(nowMillis, zone)
+    fun planInWindow(
+        desiredAtMillis: Long,
+        nowMillis: Long,
+        schedule: WeeklySchedule,
+        zone: ZoneId,
+    ): PlannedAlarm? {
+        val windowEnd = schedule.endOfDay(nowMillis, zone)
+        if (windowEnd == null || !schedule.contains(nowMillis, zone)) {
+            return planOutsideWindow(nowMillis, schedule, zone, pendingReminderAt = 0L)
+        }
         return if (desiredAtMillis < windowEnd) {
             PlannedAlarm(desiredAtMillis, AlarmKind.REMINDER)
         } else {
@@ -39,9 +66,30 @@ object ReminderPlanner {
         }
     }
 
-    /** Außerhalb der aktiven Zeit: direkt den nächsten Fensterbeginn planen. */
-    fun planOutsideWindow(nowMillis: Long, window: ActiveWindow, zone: ZoneId): PlannedAlarm =
-        PlannedAlarm(window.nextStart(nowMillis, zone), AlarmKind.CYCLE_START)
+    /**
+     * Außerhalb der aktiven Zeit: den nächsten Fensterbeginn planen, oder nichts (`null`), wenn an keinem
+     * Tag erinnert wird.
+     *
+     * Eine noch offene Erinnerung bleibt bis zum nächsten Morgen beantwortbar und wird erst beim nächsten
+     * Fensterbeginn als verpasst gewertet. Liegt der nächste aktive Tag später (freie Tage dazwischen) oder
+     * gibt es keinen, wird sie stattdessen nach [WINDOW_END_GRACE_MILLIS] abgeschlossen ([AlarmKind.WINDOW_END]),
+     * damit sie nicht über freie Tage offen bleibt.
+     */
+    fun planOutsideWindow(
+        nowMillis: Long,
+        schedule: WeeklySchedule,
+        zone: ZoneId,
+        pendingReminderAt: Long,
+    ): PlannedAlarm? {
+        val nextStart = schedule.nextStart(nowMillis, zone)
+        if (pendingReminderAt > 0L) {
+            val lastAnswerableDay = pendingReminderAt.toLocalDate(zone).plusDays(1)
+            if (nextStart == null || nextStart.toLocalDate(zone) > lastAnswerableDay) {
+                return PlannedAlarm(maxOf(pendingReminderAt + WINDOW_END_GRACE_MILLIS, nowMillis), AlarmKind.WINDOW_END)
+            }
+        }
+        return nextStart?.let { PlannedAlarm(it, AlarmKind.CYCLE_START) }
+    }
 
     /**
      * Vollständige Neuplanung aus dem gespeicherten Zustand: Snooze hat Vorrang, sonst
@@ -54,16 +102,36 @@ object ReminderPlanner {
         cycleStartMillis: Long,
         snoozeUntilMillis: Long,
         intervalMillis: Long,
-        window: ActiveWindow,
+        schedule: WeeklySchedule,
         zone: ZoneId,
-    ): PlannedAlarm {
-        if (!window.contains(nowMillis, zone)) return planOutsideWindow(nowMillis, window, zone)
+        pendingReminderAt: Long,
+    ): PlannedAlarm? {
+        if (!schedule.contains(nowMillis, zone)) {
+            return planOutsideWindow(nowMillis, schedule, zone, pendingReminderAt)
+        }
         val due = cycleStartMillis + intervalMillis
         val desired = when {
             snoozeUntilMillis > nowMillis -> snoozeUntilMillis
             due > nowMillis -> due
             else -> nowMillis + MIN_LEAD_MILLIS
         }
-        return planInWindow(desired, nowMillis, window, zone)
+        return planInWindow(desired, nowMillis, schedule, zone)
+    }
+
+    /** Ordnet eine Änderung des Wochenplans von [before] zu [after] zum Zeitpunkt [nowMillis] ein. */
+    fun scheduleChange(
+        before: WeeklySchedule,
+        after: WeeklySchedule,
+        nowMillis: Long,
+        zone: ZoneId,
+    ): ScheduleChange {
+        val wasInside = before.contains(nowMillis, zone)
+        val isInside = after.contains(nowMillis, zone)
+        return when {
+            wasInside && !isInside ->
+                if (after.windowAt(nowMillis, zone) == null) ScheduleChange.TODAY_OFF else ScheduleChange.WINDOW_LEFT
+            !wasInside && isInside -> ScheduleChange.WINDOW_ENTERED
+            else -> ScheduleChange.NONE
+        }
     }
 }

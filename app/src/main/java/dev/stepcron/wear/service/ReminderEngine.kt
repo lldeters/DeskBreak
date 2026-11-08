@@ -9,6 +9,8 @@ import dev.stepcron.wear.data.settings.SettingsRepository
 import dev.stepcron.wear.domain.AlarmKind
 import dev.stepcron.wear.domain.PlannedAlarm
 import dev.stepcron.wear.domain.ReminderPlanner
+import dev.stepcron.wear.domain.ScheduleChange
+import dev.stepcron.wear.domain.WeeklySchedule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -66,17 +68,19 @@ class ReminderEngine(
 
     private suspend fun handleReminderLocked(now: Long, settings: ReminderSettings) {
         val zone = zoneProvider()
-        if (!settings.window.contains(now, zone)) {
-            // Ruhezeit (z. B. weil das Fenster geändert wurde): direkt den nächsten Fensterbeginn planen.
-            scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.window, zone))
+        val previous = settingsRepository.currentState()
+        if (!settings.schedule.contains(now, zone)) {
+            // Ruhezeit (z. B. weil der Zeitplan geändert wurde): direkt den nächsten Fensterbeginn planen.
+            scheduleLocked(
+                ReminderPlanner.planOutsideWindow(now, settings.schedule, zone, previous.pendingReminderAt),
+            )
             syncStepTrackerLocked(now, settings)
             return
         }
-        val previous = settingsRepository.currentState()
 
         // 1) Sofort den nächsten Alarm planen: jetzt + X Minuten (bzw. Fensterende).
         settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
-        scheduleLocked(ReminderPlanner.planInWindow(now + settings.intervalMillis, now, settings.window, zone))
+        scheduleLocked(ReminderPlanner.planInWindow(now + settings.intervalMillis, now, settings.schedule, zone))
 
         // 2) War die vorherige Erinnerung noch unbestätigt, gilt sie als verpasst.
         if (previous.pendingReminderAt > 0L) {
@@ -94,13 +98,13 @@ class ReminderEngine(
 
     private suspend fun handleCycleStartLocked(now: Long, settings: ReminderSettings) {
         val zone = zoneProvider()
-        if (!settings.window.contains(now, zone)) {
-            scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.window, zone))
+        val state = settingsRepository.currentState()
+        if (!settings.schedule.contains(now, zone)) {
+            scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.schedule, zone, state.pendingReminderAt))
             syncStepTrackerLocked(now, settings)
             return
         }
         // Erinnerung vom Vortag, die nie beantwortet wurde, endgültig als verpasst werten.
-        val state = settingsRepository.currentState()
         if (state.pendingReminderAt > 0L) {
             movementRepository.log(MovementEventType.MISSED, state.pendingReminderAt, settings.intervalMinutes)
             notifier.cancelReminder()
@@ -112,19 +116,22 @@ class ReminderEngine(
 
     private suspend fun handleWindowEndLocked(now: Long, settings: ReminderSettings) {
         val zone = zoneProvider()
-        if (settings.window.contains(now, zone)) {
+        if (settings.schedule.contains(now, zone)) {
             // Fenster wurde inzwischen verlängert: regulär weiterplanen.
             resyncLocked(now, settings)
             return
         }
-        val state = settingsRepository.currentState()
-        if (state.pendingReminderAt > 0L && now - state.pendingReminderAt >= WINDOW_END_GRACE_MILLIS) {
-            movementRepository.log(MovementEventType.MISSED, state.pendingReminderAt, settings.intervalMinutes)
+        var pendingReminderAt = settingsRepository.currentState().pendingReminderAt
+        if (pendingReminderAt > 0L && now - pendingReminderAt >= ReminderPlanner.WINDOW_END_GRACE_MILLIS) {
+            movementRepository.log(MovementEventType.MISSED, pendingReminderAt, settings.intervalMinutes)
             notifier.cancelReminder()
             settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
+            pendingReminderAt = 0L
         }
         settingsRepository.updateState { it.copy(snoozeUntil = 0L) }
-        scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.window, zone))
+        // Eine jüngere offene Erinnerung bleibt bis zum nächsten Morgen beantwortbar – folgen freie Tage,
+        // plant der Planer stattdessen ihren Abschluss nach der Kulanzzeit.
+        scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.schedule, zone, pendingReminderAt))
         syncStepTrackerLocked(now, settings)
     }
 
@@ -155,14 +162,15 @@ class ReminderEngine(
         if (!settings.enabled) return@locked
 
         val zone = zoneProvider()
-        if (settings.window.contains(now, zone)) {
+        if (settings.schedule.contains(now, zone)) {
             val snoozeAt = now + SNOOZE_MILLIS
-            val plan = ReminderPlanner.planInWindow(snoozeAt, now, settings.window, zone)
-            val snoozeUntil = if (plan.kind == AlarmKind.REMINDER) snoozeAt else 0L
+            val plan = ReminderPlanner.planInWindow(snoozeAt, now, settings.schedule, zone)
+            val snoozeUntil = if (plan?.kind == AlarmKind.REMINDER) snoozeAt else 0L
             settingsRepository.updateState { it.copy(snoozeUntil = snoozeUntil) }
             scheduleLocked(plan)
         } else {
-            scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.window, zone))
+            // Die Erinnerung ist mit dem Snooze beantwortet; offen ist nichts mehr.
+            scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.schedule, zone, pendingReminderAt = 0L))
         }
     }
 
@@ -182,7 +190,7 @@ class ReminderEngine(
             movementRepository.log(MovementEventType.MANUAL_RESET, now, settings.intervalMinutes)
         }
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
-        if (settings.enabled && settings.window.contains(now, zoneProvider())) {
+        if (settings.enabled && settings.schedule.contains(now, zoneProvider())) {
             startCycleLocked(now, settings)
         }
     }
@@ -195,7 +203,7 @@ class ReminderEngine(
     suspend fun onWalkDetected(): Unit = locked {
         val now = clock()
         val settings = settingsRepository.currentSettings()
-        if (!settings.enabled || !settings.autoStepEnabled || !settings.window.contains(now, zoneProvider())) {
+        if (!settings.enabled || !settings.autoStepEnabled || !settings.schedule.contains(now, zoneProvider())) {
             return@locked
         }
         val state = settingsRepository.currentState()
@@ -252,11 +260,41 @@ class ReminderEngine(
         resyncLocked(clock(), settings)
     }
 
-    suspend fun setActiveHours(startHour: Int, endHour: Int): Unit = locked {
-        val settings = settingsRepository.updateSettings {
-            it.copy(activeStartHour = startHour, activeEndHour = endHour)
+    /**
+     * Ändert den Wochenplan atomar ([transform] läuft im Lese-Ändere-Schreibe-Schritt des DataStores) und
+     * gleicht den Timer ab. Endet oder beginnt das heutige Fenster dadurch jetzt, wird das wie ein
+     * Fensterende bzw. -beginn behandelt.
+     */
+    suspend fun updateSchedule(transform: (WeeklySchedule) -> WeeklySchedule): Unit = locked {
+        val now = clock()
+        val zone = zoneProvider()
+        // Konsistent, weil alle Änderungen am Wochenplan durch diesen Mutex laufen.
+        val before = settingsRepository.currentSettings().schedule
+        val settings = settingsRepository.updateSettings { it.copy(schedule = transform(it.schedule)) }
+        if (settings.enabled) {
+            when (ReminderPlanner.scheduleChange(before, settings.schedule, now, zone)) {
+                ScheduleChange.TODAY_OFF -> {
+                    // Heute frei gestellt: offene Erinnerung schließen, ohne sie als verpasst zu werten
+                    // (wie beim Ausschalten der Erinnerungen).
+                    notifier.cancelReminder()
+                    settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L) }
+                }
+
+                ScheduleChange.WINDOW_LEFT -> {
+                    // Das heutige Fenster ist jetzt vorbei: wie am Feierabend abschließen.
+                    handleWindowEndLocked(now, settings)
+                    return@locked
+                }
+
+                ScheduleChange.WINDOW_ENTERED -> {
+                    // Das Fenster beginnt jetzt: frischer Zyklus statt einer sofort überfälligen Erinnerung.
+                    settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
+                }
+
+                ScheduleChange.NONE -> Unit
+            }
         }
-        resyncLocked(clock(), settings)
+        resyncLocked(now, settings)
     }
 
     suspend fun setAutoStepEnabled(enabled: Boolean): Unit = locked {
@@ -284,7 +322,7 @@ class ReminderEngine(
             syncStepTrackerLocked(now, settings)
         } else {
             // Der Alarm wäre während der Ausschaltzeit fällig gewesen → frischen Zyklus beginnen.
-            if (settings.window.contains(now, zoneProvider())) {
+            if (settings.schedule.contains(now, zoneProvider())) {
                 settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
             }
             resyncLocked(now, settings)
@@ -298,9 +336,9 @@ class ReminderEngine(
             return
         }
         val zone = zoneProvider()
-        if (settings.window.contains(now, zone)) {
+        val periodStart = settings.schedule.startOfDay(now, zone)
+        if (periodStart != null && settings.schedule.contains(now, zone)) {
             val state = settingsRepository.currentState()
-            val periodStart = settings.window.startOfDay(now, zone)
             if (state.cycleStartAt !in periodStart..now) {
                 // Kein laufender Zyklus in der heutigen aktiven Zeit → jetzt starten.
                 settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
@@ -313,8 +351,9 @@ class ReminderEngine(
                 cycleStartMillis = state.cycleStartAt,
                 snoozeUntilMillis = state.snoozeUntil,
                 intervalMillis = settings.intervalMillis,
-                window = settings.window,
+                schedule = settings.schedule,
                 zone = zone,
+                pendingReminderAt = state.pendingReminderAt,
             ),
         )
         syncStepTrackerLocked(now, settings)
@@ -323,11 +362,16 @@ class ReminderEngine(
     private suspend fun startCycleLocked(now: Long, settings: ReminderSettings) {
         settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
         scheduleLocked(
-            ReminderPlanner.planInWindow(now + settings.intervalMillis, now, settings.window, zoneProvider()),
+            ReminderPlanner.planInWindow(now + settings.intervalMillis, now, settings.schedule, zoneProvider()),
         )
     }
 
-    private suspend fun scheduleLocked(alarm: PlannedAlarm) {
+    /** Plant [alarm]; `null` heißt: an keinem Tag wird erinnert, also nichts planen. */
+    private suspend fun scheduleLocked(alarm: PlannedAlarm?) {
+        if (alarm == null) {
+            cancelScheduleLocked()
+            return
+        }
         val exact = alarmScheduler.schedule(alarm)
         if (!exact) Log.i(TAG, "Alarm ${alarm.kind} nur ungenau geplant")
         settingsRepository.updateState {
@@ -354,9 +398,6 @@ class ReminderEngine(
         private const val TAG = "ReminderEngine"
 
         const val SNOOZE_MILLIS = 10 * 60_000L
-
-        /** Erinnerungen, die kurz vor Feierabend kamen, bleiben bis zum nächsten Morgen beantwortbar. */
-        const val WINDOW_END_GRACE_MILLIS = 15 * 60_000L
 
         /** Mehrfaches Tippen auf „Jetzt bewegt" innerhalb dieser Zeit wird nur einmal gezählt. */
         const val MANUAL_DEBOUNCE_MILLIS = 60_000L

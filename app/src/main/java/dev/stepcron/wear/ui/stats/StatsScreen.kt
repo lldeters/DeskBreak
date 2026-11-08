@@ -34,11 +34,14 @@ import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import dev.stepcron.wear.R
+import dev.stepcron.wear.domain.DaySchedule
 import dev.stepcron.wear.domain.DayStat
 import dev.stepcron.wear.domain.HourSlot
 import dev.stepcron.wear.domain.SlotStatus
+import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.ui.StatsUiState
 import dev.stepcron.wear.ui.breaksText
+import dev.stepcron.wear.ui.rememberScheduleTexts
 import dev.stepcron.wear.ui.charts.DayTimelineChart
 import dev.stepcron.wear.ui.charts.WeeklyTrendChart
 import dev.stepcron.wear.ui.components.ChartCard
@@ -54,6 +57,8 @@ import java.time.LocalDate
 @Composable
 fun StatsScreen(
     state: StatsUiState,
+    /** Heutiger Eintrag des Zeitplans (an/frei, Zeitfenster). */
+    today: DaySchedule,
     showDebugTools: Boolean,
     onSeedDemoData: () -> Unit,
     onClearHistory: () -> Unit,
@@ -63,6 +68,7 @@ fun StatsScreen(
     // Ein Messer für beide Diagramme auf Bildschirmebene: Sein Cache (rund 25 Beschriftungen) bleibt
     // erhalten, wenn eine Diagrammkarte beim Scrollen aus der Liste fällt und wieder hineinkommt.
     val chartTextMeasurer = rememberTextMeasurer(cacheSize = CHART_TEXT_CACHE_SIZE)
+    val texts = rememberScheduleTexts()
     var seeded by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     LaunchedEffect(seeded) {
@@ -100,6 +106,7 @@ fun StatsScreen(
             item {
                 val percent = state.todayPercent
                 val hasDueIntervals = state.todayMovements + state.todayMissed > 0
+                val emptyDetail = if (today.enabled) R.string.stats_score_detail_empty else R.string.stats_score_detail_off
                 SummaryChip(
                     iconRes = R.drawable.ic_check,
                     title = if (percent != null) {
@@ -114,7 +121,7 @@ fun StatsScreen(
                             state.todayMissed,
                         )
                     } else {
-                        stringResource(R.string.stats_score_detail_empty)
+                        stringResource(emptyDetail)
                     },
                     accent = scoreColor(percent),
                 )
@@ -130,23 +137,42 @@ fun StatsScreen(
 
             // 1) Heutige Regelmäßigkeit
             item {
+                // An einem freien Tag ohne Ereignisse statt der leeren Timeline ein Hinweis; wurden trotzdem
+                // Pausen erfasst, erscheinen sie wie gewohnt.
+                val hasEvents = state.todayMovements + state.todaySnoozes + state.todayMissed > 0
+                val showOffDay = !today.enabled && !hasEvents
                 ChartCard(
                     title = stringResource(R.string.stats_today_title),
-                    subtitle = stringResource(R.string.stats_today_subtitle, state.startHour, state.endHour),
+                    subtitle = if (showOffDay) {
+                        stringResource(R.string.stats_today_off_subtitle)
+                    } else {
+                        texts.window(today.window)
+                    },
                 ) {
-                    DayTimelineChart(
-                        slots = state.hourSlots,
-                        startHour = state.startHour,
-                        textMeasurer = chartTextMeasurer,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    ChartLegend(
-                        items = listOf(
-                            DeskBreakColors.Done to stringResource(R.string.legend_done),
-                            DeskBreakColors.Snoozed to stringResource(R.string.legend_snoozed),
-                            DeskBreakColors.Missed to stringResource(R.string.legend_missed),
-                        ),
-                    )
+                    if (showOffDay) {
+                        Text(
+                            text = stringResource(R.string.stats_today_off_hint),
+                            style = MaterialTheme.typography.caption2,
+                            color = MaterialTheme.colors.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        DayTimelineChart(
+                            slots = state.hourSlots,
+                            // Beschriftung passend zu den Slots (volle Stunden, ab der Startstunde).
+                            startHour = state.hourSlots.firstOrNull()?.hour ?: (today.window.startMinute / 60),
+                            textMeasurer = chartTextMeasurer,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        ChartLegend(
+                            items = listOf(
+                                DeskBreakColors.Done to stringResource(R.string.legend_done),
+                                DeskBreakColors.Snoozed to stringResource(R.string.legend_snoozed),
+                                DeskBreakColors.Missed to stringResource(R.string.legend_missed),
+                            ),
+                        )
+                    }
                 }
             }
 
@@ -275,6 +301,7 @@ private fun StatsScreenPreview() {
                     weekPercent = 80,
                     weekMovements = 41,
                 ),
+                today = WeeklySchedule.DEFAULT.days.first(),
                 showDebugTools = true,
                 onSeedDemoData = {},
                 onClearHistory = {},
