@@ -19,6 +19,11 @@ datastore = "1.1.7"
 coroutines = "1.9.0"
 # Compose zieht nur 1.3.1 mit, das ab API 35 (Wear OS 5.1 und neuer) kein Baseline-Profil installiert.
 profileInstaller = "1.4.1"
+# Kachel und Komplikation: neueste Versionen mit minCompileSdk 34.
+wearTiles = "1.5.0"
+wearProtolayout = "1.3.0"
+wearComplications = "1.3.0"
+concurrentFutures = "1.2.0"
 junit = "4.13.2"
 
 [libraries]
@@ -48,6 +53,12 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileInstaller" }
+androidx-wear-tiles = { group = "androidx.wear.tiles", name = "tiles", version.ref = "wearTiles" }
+androidx-wear-protolayout = { group = "androidx.wear.protolayout", name = "protolayout", version.ref = "wearProtolayout" }
+androidx-wear-protolayout-material = { group = "androidx.wear.protolayout", name = "protolayout-material", version.ref = "wearProtolayout" }
+androidx-wear-protolayout-expression = { group = "androidx.wear.protolayout", name = "protolayout-expression", version.ref = "wearProtolayout" }
+androidx-wear-complications-data-source-ktx = { group = "androidx.wear.watchface", name = "watchface-complications-data-source-ktx", version.ref = "wearComplications" }
+androidx-concurrent-futures-ktx = { group = "androidx.concurrent", name = "concurrent-futures-ktx", version.ref = "concurrentFutures" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

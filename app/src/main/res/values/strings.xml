@@ -138,6 +138,29 @@
         <item>Sonntag</item>
     </string-array>
 
+    <!-- Kachel und Komplikation -->
+    <string name="tile_label">DeskBreak</string>
+    <string name="tile_reset">Jetzt bewegt</string>
+    <string name="tile_open">Öffnen</string>
+    <string name="surface_minutes">%1$d min</string>
+    <string name="surface_now">Gleich</string>
+    <string name="surface_next_at">Pause um %1$s</string>
+    <string name="surface_snoozed_until">Snooze bis %1$s</string>
+    <string name="surface_pending">Erinnerung offen</string>
+    <string name="surface_reset_done">Zurückgesetzt ✓</string>
+    <string name="surface_free">Frei</string>
+    <string name="surface_rest">Ruhezeit</string>
+    <string name="surface_done">Geschafft</string>
+    <string name="surface_off">Aus</string>
+    <string name="surface_off_caption">Erinnerungen aus</string>
+    <string name="surface_no_days">Kein Tag</string>
+    <string name="surface_no_days_caption">Zeitplan anpassen</string>
+    <string name="surface_planning">…</string>
+    <string name="complication_label">Nächste Bewegungspause</string>
+    <string name="complication_title">Pause</string>
+    <!-- ^1 = verbleibende Zeit, vom System formatiert (z. B. „23 Min.") -->
+    <string name="complication_long_countdown">Pause in ^1</string>
+
     <!-- Notifications -->
     <string name="channel_reminder_name">Bewegungs-Erinnerungen</string>
     <string name="channel_reminder_description">Erinnert dich daran, aufzustehen und ein paar Schritte zu gehen.</string>

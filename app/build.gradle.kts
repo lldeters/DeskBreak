@@ -76,6 +76,14 @@ dependencies {
     implementation(libs.wear.compose.navigation)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.wear.ongoing)
+
+    // Kachel und Komplikation
+    implementation(libs.androidx.wear.tiles)
+    implementation(libs.androidx.wear.protolayout)
+    implementation(libs.androidx.wear.protolayout.material)
+    implementation(libs.androidx.wear.protolayout.expression)
+    implementation(libs.androidx.wear.complications.data.source.ktx)
+    implementation(libs.androidx.concurrent.futures.ktx)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Persistenz

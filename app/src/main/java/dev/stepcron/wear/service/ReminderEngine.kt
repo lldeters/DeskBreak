@@ -39,12 +39,20 @@ class ReminderEngine(
     private val clock: () -> Long = System::currentTimeMillis,
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** Nach jedem Einstiegspunkt aufgerufen, z. B. um Kachel und Komplikation zu aktualisieren. */
+    private val onStateChanged: () -> Unit = {},
 ) {
     private val mutex = Mutex()
 
-    /** Serialisiert einen Einstiegspunkt über [mutex] und führt ihn abseits des Main-Threads aus. */
+    /**
+     * Serialisiert einen Einstiegspunkt über [mutex] und führt ihn abseits des Main-Threads aus.
+     * Danach werden Anzeigen außerhalb der App (Kachel, Komplikation) benachrichtigt.
+     */
     private suspend fun locked(block: suspend () -> Unit) {
-        withContext(dispatcher) { mutex.withLock { block() } }
+        withContext(dispatcher) {
+            mutex.withLock { block() }
+            onStateChanged()
+        }
     }
 
     // ---------------------------------------------------------------------------------------------

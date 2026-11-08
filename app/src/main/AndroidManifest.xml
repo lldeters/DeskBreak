@@ -78,6 +78,40 @@
             android:exported="false"
             android:foregroundServiceType="health" />
 
+        <!-- Kachel: Countdown, Status und „Jetzt bewegt" ohne die App zu öffnen -->
+        <service
+            android:name=".surface.DeskBreakTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_walk"
+            android:label="@string/tile_label"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview" />
+        </service>
+
+        <!-- Komplikation fürs Zifferblatt. Der Countdown läuft auf dem Zifferblatt selbst weiter;
+             alle 5 Minuten wird zusätzlich aktualisiert (für den Fortschrittsring auf älteren Systemen). -->
+        <service
+            android:name=".surface.DeskBreakComplicationService"
+            android:exported="true"
+            android:icon="@drawable/ic_walk"
+            android:label="@string/complication_label"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,LONG_TEXT,RANGED_VALUE" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="300" />
+        </service>
+
         <!-- Die App zeigt keine Emojis: EmojiCompat nicht beim Start laden. Spart das Nachladen der
              Emoji-Schrift und den Frame, in dem danach alle sichtbaren Texte neu vermessen werden.
              Die übrigen Initializer (u. a. ProfileInstaller) bleiben aktiv. -->
