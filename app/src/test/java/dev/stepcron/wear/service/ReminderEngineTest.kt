@@ -385,6 +385,74 @@ class ReminderEngineTest {
     }
 
     @Test
+    fun `moving today's start past the running cycle keeps the cycle and an active snooze`() = runBlocking {
+        now = at("09:13")
+        engine.setEnabled(true)
+        fireNextAlarm() // 09:58
+        now = at("09:59")
+        engine.onReminderSnoozed()
+        assertEquals(PlannedAlarm(at("10:09"), REMINDER), alarms.planned)
+
+        // Der neue Beginn 10:00 liegt nach dem Zyklusstart 09:58, aber das Fenster lief vorher schon.
+        now = at("10:05")
+        engine.updateSchedule { schedule ->
+            schedule.with(DayOfWeek.MONDAY) { it.copy(window = ActiveWindow(10 * 60, 17 * 60)) }
+        }
+        assertEquals(PlannedAlarm(at("10:09"), REMINDER), alarms.planned)
+        assertEquals(at("09:58"), state().cycleStartAt)
+        assertEquals(at("10:09"), state().snoozeUntil)
+    }
+
+    @Test
+    fun `switching today off after the window closes today's open reminder without counting it`() = runBlocking {
+        now = at("16:05")
+        engine.setEnabled(true)
+        fireNextAlarm() // 16:50
+        fireNextAlarm() // 17:00, die Erinnerung bleibt bis morgen offen
+        now = at("17:01")
+        engine.updateSchedule { schedule -> schedule.with(DayOfWeek.MONDAY) { it.copy(enabled = false) } }
+
+        assertNull(alerts.shownFor)
+        assertEquals(0L, state().pendingReminderAt)
+        assertEquals(PlannedAlarm(at("08:00", TUESDAY), CYCLE_START), alarms.planned)
+        fireNextAlarm()
+        assertTrue(log.events.isEmpty())
+    }
+
+    @Test
+    fun `switching today off before the window lets yesterday's open reminder expire`() = runBlocking {
+        now = at("16:05")
+        engine.setEnabled(true)
+        fireNextAlarm() // Mo 16:50
+        fireNextAlarm() // Mo 17:00
+        now = at("07:00", TUESDAY)
+        engine.updateSchedule { schedule -> schedule.with(DayOfWeek.TUESDAY) { it.copy(enabled = false) } }
+
+        // Bis Mittwoch früh bliebe sie zu lange offen: sofort abschließen und als verpasst werten.
+        assertEquals(PlannedAlarm(at("07:00", TUESDAY), WINDOW_END), alarms.planned)
+        fireNextAlarm()
+        assertEquals(listOf(MISSED to at("16:50")), log.events)
+        assertEquals(PlannedAlarm(at("08:00", "2026-11-11"), CYCLE_START), alarms.planned)
+    }
+
+    @Test
+    fun `starting today's window earlier counts yesterday's open reminder as missed`() = runBlocking {
+        now = at("16:05")
+        engine.setEnabled(true)
+        fireNextAlarm() // Mo 16:50
+        fireNextAlarm() // Mo 17:00
+        now = at("07:30", TUESDAY)
+        engine.updateSchedule { schedule ->
+            schedule.with(DayOfWeek.TUESDAY) { it.copy(window = ActiveWindow.ofHours(7, 17)) }
+        }
+
+        assertEquals(listOf(MISSED to at("16:50")), log.events)
+        assertNull(alerts.shownFor)
+        assertEquals(0L, state().pendingReminderAt)
+        assertEquals(PlannedAlarm(at("08:15", TUESDAY), REMINDER), alarms.planned)
+    }
+
+    @Test
     fun `changing the interval replans the running cycle`() = runBlocking {
         engine.setEnabled(true)
         now = at("09:10")

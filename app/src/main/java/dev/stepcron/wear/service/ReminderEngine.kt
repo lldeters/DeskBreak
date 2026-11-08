@@ -10,6 +10,7 @@ import dev.stepcron.wear.domain.PlannedAlarm
 import dev.stepcron.wear.domain.ReminderPlanner
 import dev.stepcron.wear.domain.ScheduleChange
 import dev.stepcron.wear.domain.WeeklySchedule
+import dev.stepcron.wear.domain.toLocalDate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -21,9 +22,11 @@ import java.time.ZoneId
  * Zentrale Zustandsmaschine des Bewegungs-Timers.
  *
  * Alle Einstiegspunkte (Alarm, Notification-Aktionen, Schritterkennung, UI, Boot) laufen hier
- * zusammen und werden über einen [Mutex] serialisiert. Es ist immer genau ein Alarm geplant:
+ * zusammen und werden über einen [Mutex] serialisiert. Es ist höchstens ein Alarm geplant (keiner, wenn an
+ * keinem Tag erinnert wird und keine Erinnerung offen ist):
  * - [AlarmKind.REMINDER]: Erinnerung innerhalb der aktiven Zeit
- * - [AlarmKind.WINDOW_END]: Ende der aktiven Zeit (Schritterkennung stoppen)
+ * - [AlarmKind.WINDOW_END]: Ende der aktiven Zeit (Schritterkennung stoppen) – oder, wenn freie Tage folgen,
+ *   der Abschluss einer offenen Erinnerung nach der Kulanzzeit
  * - [AlarmKind.CYCLE_START]: Beginn der nächsten aktiven Zeit (Zyklus startet neu)
  *
  * Alle Einstiegspunkte dürfen vom Main-Thread aufgerufen werden: Die Arbeit (Binder-Aufrufe an
@@ -112,11 +115,7 @@ class ReminderEngine(
             return
         }
         // Erinnerung vom Vortag, die nie beantwortet wurde, endgültig als verpasst werten.
-        if (state.pendingReminderAt > 0L) {
-            movementLog.log(MovementEventType.MISSED, state.pendingReminderAt, settings.intervalMinutes)
-            alerts.cancelReminder()
-            settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
-        }
+        if (state.pendingReminderAt > 0L) missPendingReminderLocked(state.pendingReminderAt, settings)
         startCycleLocked(now, settings)
         syncStepTrackerLocked(now, settings)
     }
@@ -130,9 +129,7 @@ class ReminderEngine(
         }
         var pendingReminderAt = settingsRepository.currentState().pendingReminderAt
         if (pendingReminderAt > 0L && now - pendingReminderAt >= ReminderPlanner.WINDOW_END_GRACE_MILLIS) {
-            movementLog.log(MovementEventType.MISSED, pendingReminderAt, settings.intervalMinutes)
-            alerts.cancelReminder()
-            settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
+            missPendingReminderLocked(pendingReminderAt, settings)
             pendingReminderAt = 0L
         }
         settingsRepository.updateState { it.copy(snoozeUntil = 0L) }
@@ -140,6 +137,13 @@ class ReminderEngine(
         // plant der Planer stattdessen ihren Abschluss nach der Kulanzzeit.
         scheduleLocked(ReminderPlanner.planOutsideWindow(now, settings.schedule, zone, pendingReminderAt))
         syncStepTrackerLocked(now, settings)
+    }
+
+    /** Die offene Erinnerung von [pendingReminderAt] endgültig als verpasst werten und schließen. */
+    private suspend fun missPendingReminderLocked(pendingReminderAt: Long, settings: ReminderSettings) {
+        movementLog.log(MovementEventType.MISSED, pendingReminderAt, settings.intervalMinutes)
+        alerts.cancelReminder()
+        settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -285,27 +289,46 @@ class ReminderEngine(
         // Konsistent, weil alle Änderungen am Wochenplan durch diesen Mutex laufen.
         val before = settingsRepository.currentSettings().schedule
         val settings = settingsRepository.updateSettings { it.copy(schedule = transform(it.schedule)) }
-        if (settings.enabled) {
-            when (ReminderPlanner.scheduleChange(before, settings.schedule, now, zone)) {
-                ScheduleChange.TODAY_OFF -> {
-                    // Heute frei gestellt: offene Erinnerung schließen, ohne sie als verpasst zu werten
-                    // (wie beim Ausschalten der Erinnerungen).
+        if (!settings.enabled) {
+            resyncLocked(now, settings)
+            return@locked
+        }
+        val today = now.toLocalDate(zone)
+        val pendingReminderAt = settingsRepository.currentState().pendingReminderAt
+        when (ReminderPlanner.scheduleChange(before, settings.schedule, now, zone)) {
+            ScheduleChange.TODAY_OFF -> {
+                // Heute frei gestellt (auch nach Feierabend): Eine heutige offene Erinnerung schließen, ohne sie
+                // als verpasst zu werten – wie beim Ausschalten. Eine vom Vortag läuft regulär aus.
+                if (pendingReminderAt > 0L && pendingReminderAt.toLocalDate(zone) == today) {
                     alerts.cancelReminder()
-                    settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L) }
+                    settingsRepository.updateState { it.copy(pendingReminderAt = 0L) }
                 }
+                settingsRepository.updateState { it.copy(snoozeUntil = 0L) }
+            }
 
-                ScheduleChange.WINDOW_LEFT -> {
-                    // Das heutige Fenster ist jetzt vorbei: wie am Feierabend abschließen.
-                    handleWindowEndLocked(now, settings)
+            ScheduleChange.WINDOW_LEFT -> {
+                // Das heutige Fenster ist vorbei oder hat noch nicht begonnen: wie am Feierabend abschließen.
+                handleWindowEndLocked(now, settings)
+                return@locked
+            }
+
+            ScheduleChange.WINDOW_ENTERED -> {
+                // Das Fenster beginnt jetzt, also wie ein Fensterbeginn: Eine offene Erinnerung von einem früheren
+                // Tag gilt als verpasst, und statt einer sofort überfälligen Erinnerung startet ein frischer Zyklus.
+                if (pendingReminderAt > 0L && pendingReminderAt.toLocalDate(zone) < today) {
+                    missPendingReminderLocked(pendingReminderAt, settings)
+                }
+                settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
+            }
+
+            ScheduleChange.NONE -> {
+                // Lief das Fenster schon vorher, läuft der Zyklus darin weiter – auch wenn der heutige Beginn jetzt
+                // nach dessen Start liegt. Sonst gingen ein Snooze und der Takt verloren.
+                val previousStart = before.startOfDay(now, zone)
+                if (previousStart != null && before.contains(now, zone)) {
+                    resyncLocked(now, settings, cycleRunningSince = previousStart)
                     return@locked
                 }
-
-                ScheduleChange.WINDOW_ENTERED -> {
-                    // Das Fenster beginnt jetzt: frischer Zyklus statt einer sofort überfälligen Erinnerung.
-                    settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
-                }
-
-                ScheduleChange.NONE -> Unit
             }
         }
         resyncLocked(now, settings)
@@ -343,7 +366,11 @@ class ReminderEngine(
         }
     }
 
-    private suspend fun resyncLocked(now: Long, settings: ReminderSettings) {
+    /**
+     * Plant aus dem gespeicherten Zustand neu. Liegt jetzt im heutigen Fenster, ohne dass seit dessen Beginn
+     * (oder seit [cycleRunningSince], falls früher) ein Zyklus läuft, startet jetzt ein frischer.
+     */
+    private suspend fun resyncLocked(now: Long, settings: ReminderSettings, cycleRunningSince: Long? = null) {
         if (!settings.enabled) {
             cancelScheduleLocked()
             syncStepTrackerLocked(now, settings)
@@ -353,7 +380,8 @@ class ReminderEngine(
         val periodStart = settings.schedule.startOfDay(now, zone)
         if (periodStart != null && settings.schedule.contains(now, zone)) {
             val state = settingsRepository.currentState()
-            if (state.cycleStartAt !in periodStart..now) {
+            val runningSince = minOf(periodStart, cycleRunningSince ?: periodStart)
+            if (state.cycleStartAt !in runningSince..now) {
                 // Kein laufender Zyklus in der heutigen aktiven Zeit → jetzt starten.
                 settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
             }

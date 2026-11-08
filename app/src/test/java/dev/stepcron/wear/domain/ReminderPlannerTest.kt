@@ -163,7 +163,11 @@ class ReminderPlannerTest {
         assertEquals(ScheduleChange.WINDOW_LEFT, ReminderPlanner.scheduleChange(workdays, mondayMorningOnly, now, zone))
         assertEquals(ScheduleChange.WINDOW_ENTERED, ReminderPlanner.scheduleChange(mondayOff, workdays, now, zone))
         assertEquals(ScheduleChange.NONE, ReminderPlanner.scheduleChange(workdays, workdays.withAllWindows(ActiveWindow.ofHours(7, 18)), now, zone))
-        // Außerhalb des Fensters ändert ein freier Tag nichts am laufenden Fenster.
-        assertEquals(ScheduleChange.NONE, ReminderPlanner.scheduleChange(workdays, mondayOff, at("18:00"), zone))
+        // Heute frei zu stellen zählt auch vor und nach dem Fenster; andere Tage ändern am heutigen nichts.
+        assertEquals(ScheduleChange.TODAY_OFF, ReminderPlanner.scheduleChange(workdays, mondayOff, at("18:00"), zone))
+        assertEquals(ScheduleChange.TODAY_OFF, ReminderPlanner.scheduleChange(workdays, mondayOff, at("07:00"), zone))
+        val tuesdayOff = workdays.with(DayOfWeek.TUESDAY) { it.copy(enabled = false) }
+        assertEquals(ScheduleChange.NONE, ReminderPlanner.scheduleChange(workdays, tuesdayOff, at("18:00"), zone))
+        assertEquals(ScheduleChange.NONE, ReminderPlanner.scheduleChange(workdays, tuesdayOff, now, zone))
     }
 }

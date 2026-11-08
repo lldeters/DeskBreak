@@ -99,6 +99,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     /**
      * Wochenplan: gespeicherter Plan; sonst (Installation von vor dem Wochenplan) das alte Fenster für alle
      * Tage, damit sich nach dem Update nichts ändert; sonst (neue Installation) [WeeklySchedule.DEFAULT].
+     *
+     * Die alten Stunden-Schlüssel sind nur Quelle der Migration. Ein Downgrade auf eine Version ohne Wochenplan
+     * wird nicht unterstützt: Sie fände nur ihre Standardzeiten, und was sie speichert, ignoriert diese Version.
      */
     private fun Preferences.toSchedule(): WeeklySchedule =
         this[Keys.WEEKLY_SCHEDULE]?.let(ScheduleCodec::decode) ?: legacySchedule() ?: WeeklySchedule.DEFAULT

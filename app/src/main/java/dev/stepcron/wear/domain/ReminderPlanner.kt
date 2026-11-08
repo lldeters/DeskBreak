@@ -10,7 +10,10 @@ enum class AlarmKind {
     /** Beginn des aktiven Zeitfensters: Der Zyklus startet neu, noch ohne Erinnerung. */
     CYCLE_START,
 
-    /** Ende des aktiven Zeitfensters: Schritterkennung beenden und offene Erinnerung abschließen. */
+    /**
+     * Ende des aktiven Zeitfensters: Schritterkennung beenden und offene Erinnerung abschließen – bzw., wenn freie
+     * Tage folgen, der Abschluss einer offenen Erinnerung nach der Kulanzzeit.
+     */
     WINDOW_END;
 
     companion object {
@@ -25,7 +28,7 @@ enum class ScheduleChange {
     /** Kein Übergang: weiter wie bisher. */
     NONE,
 
-    /** Der heutige Tag wurde mitten im Fenster frei gestellt. */
+    /** Der heutige Tag wurde frei gestellt – im Fenster, davor oder danach. */
     TODAY_OFF,
 
     /** Das heutige Fenster wurde so verschoben, dass es jetzt vorbei ist bzw. noch nicht begonnen hat. */
@@ -127,9 +130,11 @@ object ReminderPlanner {
     ): ScheduleChange {
         val wasInside = before.contains(nowMillis, zone)
         val isInside = after.contains(nowMillis, zone)
+        val todayWasOn = before.windowAt(nowMillis, zone) != null
+        val todayIsOn = after.windowAt(nowMillis, zone) != null
         return when {
-            wasInside && !isInside ->
-                if (after.windowAt(nowMillis, zone) == null) ScheduleChange.TODAY_OFF else ScheduleChange.WINDOW_LEFT
+            todayWasOn && !todayIsOn -> ScheduleChange.TODAY_OFF
+            wasInside && !isInside -> ScheduleChange.WINDOW_LEFT
             !wasInside && isInside -> ScheduleChange.WINDOW_ENTERED
             else -> ScheduleChange.NONE
         }
