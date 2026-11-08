@@ -58,6 +58,13 @@ class ReminderPlannerTest {
     }
 
     @Test
+    fun `upcoming reminder keeps its exact time when replanned shortly before`() {
+        // Regression: Ein TIME_SET 30 s vor der Erinnerung darf sie nicht um eine Minute verschieben.
+        val plan = ReminderPlanner.planNext(at("10:44:30"), at("10:00"), 0L, interval, window, zone)
+        assertEquals(PlannedAlarm(at("10:45"), AlarmKind.REMINDER), plan)
+    }
+
+    @Test
     fun `active snooze wins over the cycle`() {
         val plan = ReminderPlanner.planNext(at("10:12"), at("09:15"), at("10:20"), interval, window, zone)
         assertEquals(PlannedAlarm(at("10:20"), AlarmKind.REMINDER), plan)

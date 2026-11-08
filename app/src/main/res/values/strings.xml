@@ -51,18 +51,19 @@
 
     <!-- Auswertung -->
     <string name="stats_title">Auswertung</string>
-    <string name="stats_score_value">%1$d %% regelmäßig</string>
-    <string name="stats_score_empty" formatted="false">– % regelmäßig</string>
+    <!-- Score-Karte: große Zahl als Titel, „regelmäßig" in der Unterzeile (passt auf runde Displays). -->
+    <string name="stats_score_value">%1$d %%</string>
+    <string name="stats_score_empty" formatted="false">– %</string>
     <!-- „verpasst" ist im Deutschen unveränderlich, daher kein Plural nötig. -->
-    <string name="stats_score_detail" tools:ignore="PluralsCandidate">Heute · %1$s · %2$d verpasst</string>
-    <string name="stats_score_detail_empty">Heute noch nichts fällig</string>
+    <string name="stats_score_detail" tools:ignore="PluralsCandidate">regelmäßig · heute %1$s, %2$d verpasst</string>
+    <string name="stats_score_detail_empty">regelmäßig · heute noch nichts fällig</string>
     <string name="stats_streak_value">Serie: %1$d</string>
     <string name="stats_streak_detail">erfolgreiche Intervalle in Folge</string>
     <string name="stats_today_title">Heute</string>
     <string name="stats_today_subtitle">%1$02d–%2$02d Uhr</string>
     <string name="stats_week_title">7 Tage</string>
     <string name="stats_week_subtitle">Ø %1$s · %2$s</string>
-    <string name="stats_week_hint" formatted="false">Säule = Quote in % · Zahl = Pausen</string>
+    <string name="stats_week_hint">Säule: Quote · Zahl: Pausen</string>
     <string name="percent_value">%1$d %%</string>
     <string name="chart_no_data">–</string>
     <string name="legend_done">Erledigt</string>

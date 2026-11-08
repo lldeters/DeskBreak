@@ -53,7 +53,7 @@ fun WeeklyTrendChart(days: List<DayStat>, modifier: Modifier = Modifier) {
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(104.dp)
+            .height(96.dp)
             .semantics { contentDescription = description },
     ) {
         if (days.isEmpty()) return@Canvas

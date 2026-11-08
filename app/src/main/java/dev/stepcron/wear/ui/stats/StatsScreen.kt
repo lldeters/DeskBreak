@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -156,7 +157,8 @@ fun StatsScreen(
                         breaksText(context, state.weekMovements),
                     ),
                 ) {
-                    WeeklyTrendChart(days = state.week)
+                    // Etwas Innenabstand, damit Mo/So am runden Rand nicht abgeschnitten werden.
+                    WeeklyTrendChart(days = state.week, modifier = Modifier.padding(horizontal = 6.dp))
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = stringResource(R.string.stats_week_hint),

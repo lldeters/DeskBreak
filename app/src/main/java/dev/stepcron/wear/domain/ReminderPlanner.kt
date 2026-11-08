@@ -45,7 +45,9 @@ object ReminderPlanner {
 
     /**
      * Vollständige Neuplanung aus dem gespeicherten Zustand: Snooze hat Vorrang, sonst
-     * Zyklusbeginn + Intervall (mindestens [MIN_LEAD_MILLIS] in der Zukunft).
+     * Zyklusbeginn + Intervall. Nur eine bereits überfällige Erinnerung wird auf
+     * „jetzt + [MIN_LEAD_MILLIS]" gelegt – eine noch anstehende behält ihre exakte Zeit, auch wenn
+     * kurz davor neu geplant wird (z. B. durch eine Netzwerk-Zeitsynchronisation mit TIME_SET).
      */
     fun planNext(
         nowMillis: Long,
@@ -56,10 +58,11 @@ object ReminderPlanner {
         zone: ZoneId,
     ): PlannedAlarm {
         if (!window.contains(nowMillis, zone)) return planOutsideWindow(nowMillis, window, zone)
-        val desired = if (snoozeUntilMillis > nowMillis) {
-            snoozeUntilMillis
-        } else {
-            maxOf(cycleStartMillis + intervalMillis, nowMillis + MIN_LEAD_MILLIS)
+        val due = cycleStartMillis + intervalMillis
+        val desired = when {
+            snoozeUntilMillis > nowMillis -> snoozeUntilMillis
+            due > nowMillis -> due
+            else -> nowMillis + MIN_LEAD_MILLIS
         }
         return planInWindow(desired, nowMillis, window, zone)
     }
