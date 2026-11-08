@@ -55,7 +55,8 @@ fun WeeklyTrendChart(
             ColumnLabels(
                 value = textMeasurer.measure(day.percent?.toString() ?: "–", valueStyle),
                 weekday = textMeasurer.measure(
-                    weekdayLabels.getOrElse(day.date.dayOfWeek.value - 1) { "" },
+                    // Zwei Buchstaben passen in jede Spalte („Mo", „Tu").
+                    weekdayLabels.getOrElse(day.date.dayOfWeek.value - 1) { "" }.take(2),
                     if (day.isToday) todayStyle else weekdayStyle,
                 ),
                 count = textMeasurer.measure(day.movements.toString(), countStyle),

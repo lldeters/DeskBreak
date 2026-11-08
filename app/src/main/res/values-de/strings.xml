@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Deutsch; die Standardsprache (values/) ist Englisch. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">DeskBreak</string>
+
+    <!-- Hauptbildschirm -->
+    <string name="home_title">DeskBreak</string>
+    <string name="home_status_disabled">Deaktiviert</string>
+    <string name="home_status_disabled_hint">Schalter antippen zum Starten</string>
+    <string name="home_status_planning">Wird geplant …</string>
+    <string name="home_status_paused">Ruhezeit</string>
+    <string name="home_status_user_paused">Pausiert</string>
+    <string name="home_status_free_today">Heute frei</string>
+    <string name="home_status_paused_resume_today">Weiter um %1$s</string>
+    <string name="home_status_paused_resume_tomorrow">Weiter morgen um %1$s</string>
+    <!-- %1$s = Wochentag (z. B. „Montag"), %2$s = Uhrzeit -->
+    <string name="home_status_paused_resume_later">Weiter am %1$s um %2$s</string>
+    <string name="home_status_paused_resume_next_week">Weiter nächsten %1$s um %2$s</string>
+    <!-- Sprache dieser Texte, für Datumsangaben mit java.time (z. B. Wochentag „Mo.") -->
+    <string name="resource_locale">de</string>
+    <!-- Kurzes Datum (DateTimeFormatter-Muster) → „Mo., 24.11." -->
+    <string name="date_short_pattern">EEE, d.M.</string>
+    <string name="home_status_no_active_days">Kein Tag aktiv</string>
+    <string name="home_status_no_active_days_hint">Im Zeitplan einen Tag einschalten</string>
+    <string name="home_status_next_reminder">Nächste Erinnerung</string>
+    <string name="home_status_snoozed_until">Snooze bis</string>
+    <string name="home_status_remaining">in %1$d min</string>
+    <string name="home_status_remaining_now">gleich</string>
+    <string name="home_status_day_done">Für heute geschafft</string>
+    <string name="home_status_day_done_hint">Ruhezeit ab %1$s</string>
+    <string name="home_reminder_pending">Erinnerung offen – beweg dich!</string>
+    <!-- %1$s = Grund, z. B. „Nicht stören" -->
+    <string name="home_reminder_skipped">Letzte ausgelassen: %1$s</string>
+
+    <string name="home_toggle_label">Erinnerungen</string>
+    <string name="home_toggle_on">Aktiv</string>
+    <string name="home_toggle_off">Aus</string>
+    <string name="home_reset_label">Jetzt bewegt</string>
+    <string name="home_reset_secondary">(Timer Reset)</string>
+    <string name="home_reset_done">Zurückgesetzt ✓</string>
+    <string name="home_pause_label">Pausieren</string>
+    <string name="home_pause_secondary">Meeting, Feierabend, Urlaub</string>
+    <string name="home_resume_label">Fortsetzen</string>
+    <string name="home_resume_secondary">Pause jetzt beenden</string>
+    <string name="home_stats_label">Auswertung &amp; Graphen</string>
+    <!-- Menge = Tagesziel; %1$d = heutige Pausen, %2$d = Ziel -->
+    <plurals name="home_goal_progress">
+        <item quantity="one">Heute %1$d von %2$d Pause</item>
+        <item quantity="other">Heute %1$d von %2$d Pausen</item>
+    </plurals>
+    <!-- Solange die Historie lädt: gleich lang wie home_goal_progress, damit nichts springt -->
+    <plurals name="home_goal_only">
+        <item quantity="one">Heute – von %d Pause</item>
+        <item quantity="other">Heute – von %d Pausen</item>
+    </plurals>
+    <string name="home_goal_label">Tagesziel</string>
+    <plurals name="home_goal_value">
+        <item quantity="one">%d Pause</item>
+        <item quantity="other">%d Pausen</item>
+    </plurals>
+    <string name="cd_goal_decrease">Tagesziel verringern</string>
+    <string name="cd_goal_increase">Tagesziel erhöhen</string>
+
+    <string name="home_settings_header">Einstellungen</string>
+    <string name="home_interval_label">Intervall</string>
+    <string name="home_interval_value">%1$d min</string>
+    <string name="home_schedule_label">Zeitplan</string>
+    <string name="home_schedule_shortcut_secondary">Tag einschalten</string>
+    <string name="home_auto_step_label">Auto-Schritte</string>
+    <plurals name="home_auto_step_active">
+        <item quantity="one">%d Schritt in 2 Min · aktiv</item>
+        <item quantity="other">%d Schritte in 2 Min · aktiv</item>
+    </plurals>
+    <plurals name="home_auto_step_idle">
+        <item quantity="one">%d Schritt in 2 Min</item>
+        <item quantity="other">%d Schritte in 2 Min</item>
+    </plurals>
+    <string name="home_reminder_settings_label">Erinnerung</string>
+    <!-- %1$d = Snooze-Minuten, %2$s = Vibrationsstufe -->
+    <string name="home_reminder_settings_secondary">Snooze %1$d min · %2$s</string>
+    <string name="home_auto_step_no_sensor">Kein Schrittsensor</string>
+    <string name="home_auto_step_no_permission">Berechtigung fehlt</string>
+    <string name="home_permissions_label">Berechtigungen</string>
+    <string name="home_permissions_secondary">Antippen zum Erteilen</string>
+    <string name="home_exact_alarm_label">Exakte Alarme</string>
+    <string name="home_exact_alarm_secondary">Erlauben für pünktliche Erinnerungen</string>
+
+    <string name="cd_interval_decrease">Intervall verringern</string>
+    <string name="cd_interval_increase">Intervall erhöhen</string>
+
+    <!-- Erinnerung: Snooze, Vibration, Schritt-Schwelle -->
+    <string name="reminder_settings_title">Erinnerung</string>
+    <string name="reminder_settings_snooze">Snooze</string>
+    <string name="reminder_settings_snooze_value">%1$d min</string>
+    <string name="reminder_settings_vibration">Vibration</string>
+    <string name="reminder_settings_vibration_hint">Antippen zum Wechseln und Testen</string>
+    <string name="vibration_off">Aus</string>
+    <string name="vibration_light">Sanft</string>
+    <string name="vibration_medium">Mittel</string>
+    <string name="vibration_strong">Stark</string>
+    <string name="reminder_settings_quiet">Ruhemodi beachten</string>
+    <string name="reminder_settings_quiet_secondary">Nicht stören, Schlafenszeit, Kino</string>
+    <string name="reminder_settings_worn">Nur am Handgelenk</string>
+    <string name="reminder_settings_worn_secondary">Nicht erinnern, wenn abgelegt</string>
+    <string name="skip_reason_dnd">Nicht stören</string>
+    <string name="skip_reason_bedtime">Schlafenszeit</string>
+    <string name="skip_reason_theater">Kinomodus</string>
+    <string name="skip_reason_not_worn">Uhr abgelegt</string>
+    <string name="reminder_settings_steps">Auto-Schritte in 2 Min</string>
+    <string name="reminder_settings_steps_value">%1$d</string>
+    <string name="cd_snooze_decrease">Snooze kürzer</string>
+    <string name="cd_snooze_increase">Snooze länger</string>
+    <string name="cd_steps_decrease">Weniger Schritte</string>
+    <string name="cd_steps_increase">Mehr Schritte</string>
+
+    <!-- Pause und Urlaub -->
+    <string name="pause_title">Pausieren</string>
+    <plurals name="pause_minutes">
+        <item quantity="one">%d Minute</item>
+        <item quantity="other">%d Minuten</item>
+    </plurals>
+    <plurals name="pause_hours">
+        <item quantity="one">%d Stunde</item>
+        <item quantity="other">%d Stunden</item>
+    </plurals>
+    <!-- %1$s = Uhrzeit -->
+    <string name="pause_until">bis %1$s</string>
+    <string name="pause_rest_of_day">Rest des Tages</string>
+    <string name="pause_vacation">Urlaub</string>
+    <string name="pause_vacation_secondary">Mehrere Tage</string>
+    <string name="vacation_title">Letzter Urlaubstag</string>
+    <string name="vacation_confirm">Urlaub starten</string>
+
+    <!-- Zeitplan -->
+    <string name="schedule_title">Zeitplan</string>
+    <string name="schedule_hint">Tag antippen: Uhrzeiten</string>
+    <string name="schedule_day_off">Frei</string>
+    <!-- %1$s = Wochentag lang -->
+    <string name="cd_day_toggle">Erinnerungen am %1$s</string>
+    <string name="schedule_summary_daily">Täglich</string>
+    <string name="schedule_summary_none">Kein Tag aktiv</string>
+    <string name="schedule_summary_varied">unterschiedlich</string>
+    <!-- %1$s = Tage (z. B. „Mo–Fr"), %2$s = Uhrzeit (z. B. „08–17 Uhr") -->
+    <string name="schedule_summary_format">%1$s · %2$s</string>
+    <!-- Fenster aus vollen Stunden: %1$s = „08", %2$s = „17" -->
+    <string name="schedule_window_hours">%1$s–%2$s Uhr</string>
+    <!-- Fenster mit Minuten: %1$s = „08:30", %2$s = „17:15" -->
+    <string name="schedule_window_times">%1$s–%2$s</string>
+    <string name="day_schedule_toggle_label">Erinnern</string>
+    <string name="day_schedule_toggle_on">An</string>
+    <string name="day_schedule_toggle_off">Aus</string>
+    <string name="schedule_start_label">Aktiv ab</string>
+    <string name="schedule_end_label">Aktiv bis</string>
+    <string name="day_schedule_copy_label">Für alle Tage</string>
+    <string name="day_schedule_copy_secondary">Zeiten übernehmen</string>
+    <string name="day_schedule_copy_confirm">Nochmal tippen zum Übernehmen</string>
+    <string name="day_schedule_copy_done">Übernommen ✓</string>
+    <string name="day_schedule_copy_same">Alle Tage gleich ✓</string>
+    <string name="time_picker_confirm">Übernehmen</string>
+    <!-- %1$s = „Aktiv ab"/„Aktiv bis", %2$s = Uhrzeit -->
+    <string name="cd_time_picker">%1$s %2$s</string>
+    <string name="cd_picker_earlier_time">15 Minuten früher</string>
+    <string name="cd_picker_later_time">15 Minuten später</string>
+    <string name="cd_picker_earlier_day">Einen Tag früher</string>
+    <string name="cd_picker_later_day">Einen Tag später</string>
+
+    <!-- Auswertung -->
+    <string name="stats_title">Auswertung</string>
+    <!-- Score-Karte: große Zahl als Titel, „regelmäßig" in der Unterzeile (passt auf runde Displays). -->
+    <string name="stats_score_value">%1$d %%</string>
+    <string name="stats_score_empty" formatted="false">– %</string>
+    <!-- „verpasst" ist im Deutschen unveränderlich, daher kein Plural nötig. -->
+    <string name="stats_score_detail" tools:ignore="PluralsCandidate">regelmäßig · heute %1$s, %2$d verpasst</string>
+    <string name="stats_score_detail_empty">regelmäßig · heute noch nichts fällig</string>
+    <string name="stats_score_detail_off">regelmäßig · heute frei</string>
+    <string name="stats_streak_value">Serie: %1$d</string>
+    <string name="stats_streak_detail">erfolgreiche Intervalle hintereinander</string>
+    <string name="stats_today_title">Heute</string>
+    <string name="stats_today_off_subtitle">frei</string>
+    <!-- Freier Tag, an dem trotzdem Pausen erfasst wurden: %1$s = gespeichertes Fenster -->
+    <string name="stats_today_off_window">frei · %1$s</string>
+    <string name="stats_today_off_hint">Heute ist kein Erinnerungstag.</string>
+    <string name="stats_week_title">7 Tage</string>
+    <string name="stats_week_subtitle">Ø %1$s · %2$s</string>
+    <string name="stats_week_hint">Säule: Quote · Zahl: Pausen</string>
+    <!-- %1$d = heutige Pausen, %2$d = Tagesziel -->
+    <string name="stats_goal_value">%1$d / %2$d</string>
+    <string name="stats_goal_reached">Tagesziel erreicht ✓</string>
+    <plurals name="stats_goal_remaining">
+        <item quantity="one">Tagesziel · noch %d Pause</item>
+        <item quantity="other">Tagesziel · noch %d Pausen</item>
+    </plurals>
+    <string name="stats_month_title">5 Wochen</string>
+    <!-- %1$d = Tage mit erreichtem Ziel, %2$d = Tage mit Daten -->
+    <string name="stats_month_subtitle">Ziel %1$d/%2$d</string>
+    <string name="stats_month_hint">Je grüner, desto näher am Tagesziel</string>
+    <!-- %1$d = Tage mit erreichtem Ziel, %2$d = Tage mit Daten, %3$d = Tagesziel -->
+    <string name="cd_month_heatmap" tools:ignore="PluralsCandidate">Letzte 5 Wochen: Tagesziel von %3$d Pausen an %1$d von %2$d Tagen erreicht</string>
+    <string name="stats_time_of_day_title">Tageszeit</string>
+    <string name="stats_time_of_day_empty">Noch zu wenige Daten (letzte 30 Tage)</string>
+    <string name="stats_time_of_day_best">Am besten</string>
+    <string name="stats_time_of_day_worst">Am schwächsten</string>
+    <!-- %1$d = Stunde, %2$d = folgende Stunde -->
+    <string name="stats_time_of_day_hours">%1$02d–%2$02d Uhr</string>
+    <string name="percent_value">%1$d %%</string>
+    <string name="chart_no_data">–</string>
+    <string name="legend_done">Erledigt</string>
+    <string name="legend_snoozed">Snooze</string>
+    <string name="legend_missed">Verpasst</string>
+    <plurals name="cd_day_timeline">
+        <item quantity="one">Heute: %1$d von %2$d Stunde mit Bewegungspause</item>
+        <item quantity="other">Heute: %1$d von %2$d Stunden mit Bewegungspause</item>
+    </plurals>
+    <string name="cd_week_trend">Regelmäßigkeit der letzten 7 Tage: %1$s</string>
+
+    <string name="stats_debug_header">Debug</string>
+    <string name="stats_seed_label">Demo-Daten erzeugen</string>
+    <string name="stats_seed_secondary">Ersetzt die letzten 7 Tage</string>
+    <string name="stats_seed_done">Demo-Daten erzeugt ✓</string>
+    <string name="stats_clear_label">Verlauf löschen</string>
+    <string name="stats_clear_confirm">Nochmal tippen zum Löschen</string>
+
+    <plurals name="breaks_count">
+        <item quantity="one">%d Pause</item>
+        <item quantity="other">%d Pausen</item>
+    </plurals>
+
+    <string-array name="weekday_short">
+        <item>Mo</item>
+        <item>Di</item>
+        <item>Mi</item>
+        <item>Do</item>
+        <item>Fr</item>
+        <item>Sa</item>
+        <item>So</item>
+    </string-array>
+    <string-array name="weekday_long">
+        <item>Montag</item>
+        <item>Dienstag</item>
+        <item>Mittwoch</item>
+        <item>Donnerstag</item>
+        <item>Freitag</item>
+        <item>Samstag</item>
+        <item>Sonntag</item>
+    </string-array>
+
+    <!-- Kachel und Komplikation -->
+    <string name="tile_label">DeskBreak</string>
+    <string name="tile_reset">Jetzt bewegt</string>
+    <string name="tile_open">Öffnen</string>
+    <string name="tile_resume">Fortsetzen</string>
+    <string name="surface_paused">Pause</string>
+    <string name="surface_minutes">%1$d min</string>
+    <string name="surface_now">Gleich</string>
+    <string name="surface_next_at">Pause um %1$s</string>
+    <string name="surface_snoozed_until">Snooze bis %1$s</string>
+    <string name="surface_pending">Erinnerung offen</string>
+    <string name="surface_reset_done">Zurückgesetzt ✓</string>
+    <string name="surface_free">Frei</string>
+    <string name="surface_rest">Ruhezeit</string>
+    <string name="surface_done">Geschafft</string>
+    <string name="surface_off">Aus</string>
+    <string name="surface_off_caption">Erinnerungen aus</string>
+    <string name="surface_no_days">Kein Tag</string>
+    <string name="surface_no_days_caption">Zeitplan anpassen</string>
+    <string name="surface_planning">…</string>
+    <string name="complication_label">Nächste Bewegungspause</string>
+    <string name="complication_title">Pause</string>
+    <!-- ^1 = verbleibende Zeit, vom System formatiert (z. B. „23 Min.") -->
+    <string name="complication_long_countdown">Pause in ^1</string>
+
+    <!-- Bewegungsideen (kurz, passen in eine Notification-Zeile) -->
+    <string-array name="exercises">
+        <item>10 Kniebeugen</item>
+        <item>Schultern 10× rückwärts kreisen</item>
+        <item>15× auf die Zehenspitzen</item>
+        <item>Arme hoch und lang strecken</item>
+        <item>Nacken sanft zu beiden Seiten dehnen</item>
+        <item>Eine Runde durchs Büro gehen</item>
+        <item>Hüfte 10× kreisen</item>
+        <item>Oberkörper 10× sanft drehen</item>
+        <item>Brust öffnen: Hände hinterm Rücken</item>
+        <item>Waden an der Wand dehnen</item>
+        <item>Treppe rauf und runter</item>
+        <item>30 Sekunden auf der Stelle gehen</item>
+    </string-array>
+
+    <!-- 1-Minuten-Übung -->
+    <string name="exercise_finish">Fertig</string>
+    <string name="exercise_done">Geschafft ✓</string>
+    <string name="exercise_done_hint">Als Bewegungspause gezählt</string>
+    <string name="exercise_back">Zurück</string>
+    <!-- %1$s = Übung, %2$d = verbleibende Sekunden -->
+    <plurals name="cd_exercise_timer">
+        <item quantity="one">%1$s, noch %2$d Sekunde</item>
+        <item quantity="other">%1$s, noch %2$d Sekunden</item>
+    </plurals>
+
+    <!-- Notifications -->
+    <string name="channel_reminder_name">Bewegungs-Erinnerungen</string>
+    <string name="channel_reminder_description">Erinnert dich daran, aufzustehen und ein paar Schritte zu gehen.</string>
+    <string name="channel_tracking_name">Schritterkennung</string>
+    <string name="channel_tracking_description">Hält die automatische Schritterkennung während der aktiven Zeit am Laufen.</string>
+    <string name="notification_reminder_title">Bewegungspause</string>
+    <!-- %1$s = Bewegungsidee, z. B. „10 Kniebeugen" -->
+    <string name="notification_reminder_text_idea">Zeit aufzustehen! Idee: %1$s</string>
+    <string name="action_exercise">1-Min-Übung</string>
+    <string name="action_done">Erledigt</string>
+    <!-- %1$d = Snooze-Dauer in Minuten -->
+    <string name="action_snooze">+%1$d min Snooze</string>
+    <string name="notification_tracking_title">Schritterkennung aktiv</string>
+    <string name="notification_tracking_text">Gehen setzt den Timer automatisch zurück.</string>
+    <string name="ongoing_status">Schritterkennung aktiv</string>
+</resources>

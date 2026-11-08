@@ -11,6 +11,8 @@ import dev.stepcron.wear.domain.toLocalDate
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Wann es weitergeht: „Weiter um 08:00", „Weiter morgen um 08:00", „Weiter am Montag um 08:00",
@@ -42,10 +44,13 @@ fun rememberResumeText(resumeAtMillis: Long, daysUntilResume: Int): String {
     }
 }
 
-/** Kurzes Datum mit Wochentag, z. B. „Mo, 24.11.". */
+/**
+ * Kurzes Datum mit Wochentag, z. B. „Mo., 24.11." bzw. „Mon, Nov 24" – in der Sprache der App-Texte, nicht der
+ * des Geräts: Auf einer Uhr ohne eigene Übersetzung sollen Wochentag und Monat zum englischen Text passen.
+ */
 fun shortDate(resources: Resources, date: LocalDate): String {
-    val day = resources.getStringArray(R.array.weekday_short).getOrElse(date.dayOfWeek.value - 1) { date.dayOfWeek.name }
-    return resources.getString(R.string.date_short, day, date.dayOfMonth, date.monthValue)
+    val locale = Locale.forLanguageTag(resources.getString(R.string.resource_locale))
+    return date.format(DateTimeFormatter.ofPattern(resources.getString(R.string.date_short_pattern), locale))
 }
 
 private fun dayName(resources: Resources, day: DayOfWeek): String =
