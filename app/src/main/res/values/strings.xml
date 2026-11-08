@@ -7,13 +7,16 @@
     <string name="home_status_disabled">Deaktiviert</string>
     <string name="home_status_disabled_hint">Schalter antippen zum Starten</string>
     <string name="home_status_planning">Wird geplant …</string>
-    <string name="home_status_paused">Pausiert (Ruhezeit)</string>
+    <string name="home_status_paused">Ruhezeit</string>
+    <string name="home_status_user_paused">Pausiert</string>
     <string name="home_status_free_today">Heute frei</string>
     <string name="home_status_paused_resume_today">Weiter um %1$s</string>
     <string name="home_status_paused_resume_tomorrow">Weiter morgen um %1$s</string>
     <!-- %1$s = Wochentag (z. B. „Montag"), %2$s = Uhrzeit -->
     <string name="home_status_paused_resume_later">Weiter am %1$s um %2$s</string>
     <string name="home_status_paused_resume_next_week">Weiter nächsten %1$s um %2$s</string>
+    <!-- Kurzes Datum: %1$s = Wochentag kurz (weekday_short), %2$d = Tag, %3$d = Monat → „Mo, 24.11." -->
+    <string name="date_short">%1$s, %2$d.%3$d.</string>
     <string name="home_status_no_active_days">Kein Tag aktiv</string>
     <string name="home_status_no_active_days_hint">Im Zeitplan einen Tag einschalten</string>
     <string name="home_status_next_reminder">Nächste Erinnerung</string>
@@ -30,6 +33,10 @@
     <string name="home_reset_label">Jetzt bewegt</string>
     <string name="home_reset_secondary">(Timer Reset)</string>
     <string name="home_reset_done">Zurückgesetzt ✓</string>
+    <string name="home_pause_label">Pausieren</string>
+    <string name="home_pause_secondary">Meeting, Feierabend, Urlaub</string>
+    <string name="home_resume_label">Fortsetzen</string>
+    <string name="home_resume_secondary">Pause jetzt beenden</string>
     <string name="home_stats_label">Auswertung &amp; Graphen</string>
 
     <string name="home_settings_header">Einstellungen</string>
@@ -49,6 +56,24 @@
 
     <string name="cd_interval_decrease">Intervall verringern</string>
     <string name="cd_interval_increase">Intervall erhöhen</string>
+
+    <!-- Pause und Urlaub -->
+    <string name="pause_title">Pausieren</string>
+    <plurals name="pause_minutes">
+        <item quantity="one">%d Minute</item>
+        <item quantity="other">%d Minuten</item>
+    </plurals>
+    <plurals name="pause_hours">
+        <item quantity="one">%d Stunde</item>
+        <item quantity="other">%d Stunden</item>
+    </plurals>
+    <!-- %1$s = Uhrzeit -->
+    <string name="pause_until">bis %1$s</string>
+    <string name="pause_rest_of_day">Rest des Tages</string>
+    <string name="pause_vacation">Urlaub</string>
+    <string name="pause_vacation_secondary">Mehrere Tage</string>
+    <string name="vacation_title">Letzter Urlaubstag</string>
+    <string name="vacation_confirm">Urlaub starten</string>
 
     <!-- Zeitplan -->
     <string name="schedule_title">Zeitplan</string>
@@ -142,6 +167,8 @@
     <string name="tile_label">DeskBreak</string>
     <string name="tile_reset">Jetzt bewegt</string>
     <string name="tile_open">Öffnen</string>
+    <string name="tile_resume">Fortsetzen</string>
+    <string name="surface_paused">Pause</string>
     <string name="surface_minutes">%1$d min</string>
     <string name="surface_now">Gleich</string>
     <string name="surface_next_at">Pause um %1$s</string>

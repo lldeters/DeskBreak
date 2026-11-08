@@ -26,11 +26,17 @@ sealed interface SurfaceModel {
     data object Planning : SurfaceModel
 
     /** Außerhalb der aktiven Zeit; weiter um [resumeAtMillis] (in [daysUntilResume] Tagen). */
-    data class Paused(
+    data class OffHours(
         val resumeAtMillis: Long,
         val daysUntilResume: Int,
         val freeToday: Boolean,
         override val reminderPending: Boolean,
+    ) : SurfaceModel
+
+    /** Vom Nutzer pausiert (Schnellpause oder Urlaub); weiter um [resumeAtMillis] (in [daysUntilResume] Tagen). */
+    data class PausedByUser(
+        val resumeAtMillis: Long,
+        val daysUntilResume: Int,
     ) : SurfaceModel
 
     /** Nächste Erinnerung um [reminderAtMillis]; das laufende Intervall begann um [cycleStartMillis]. */
@@ -56,7 +62,8 @@ sealed interface SurfaceModel {
                 HomeStatus.Disabled -> Off
                 HomeStatus.NoActiveDays -> NoActiveDays
                 HomeStatus.Planning -> Planning
-                is HomeStatus.Paused -> Paused(status.resumeAtMillis, status.daysUntilResume, status.freeToday, pending)
+                is HomeStatus.OffHours -> OffHours(status.resumeAtMillis, status.daysUntilResume, status.freeToday, pending)
+                is HomeStatus.PausedByUser -> PausedByUser(status.resumeAtMillis, status.daysUntilResume)
                 is HomeStatus.Scheduled -> Countdown(
                     reminderAtMillis = status.atMillis,
                     // Ein unplausibler Zyklusbeginn (0 oder nach der Erinnerung) zählt als „gerade begonnen".

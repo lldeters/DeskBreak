@@ -69,6 +69,10 @@ data class WeeklySchedule(
         return null
     }
 
+    /** Erster Moment ab [epochMillis] (einschließlich), an dem erinnert wird; `null` ohne aktiven Tag. */
+    fun nextActiveAt(epochMillis: Long, zone: ZoneId): Long? =
+        if (contains(epochMillis, zone)) epochMillis else nextStart(epochMillis, zone)
+
     companion object {
         const val DAYS_PER_WEEK = 7
 

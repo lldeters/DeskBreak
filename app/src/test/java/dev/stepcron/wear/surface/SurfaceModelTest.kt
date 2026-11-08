@@ -55,7 +55,7 @@ class SurfaceModelTest {
     @Test
     fun `free day is paused until the next work day`() {
         val state = ReminderState(nextAlarmAt = at("08:00", "2026-11-16"), nextAlarmKind = AlarmKind.CYCLE_START)
-        val model = SurfaceModel.create(enabled, state, at("10:00", "2026-11-14"), zone) as SurfaceModel.Paused
+        val model = SurfaceModel.create(enabled, state, at("10:00", "2026-11-14"), zone) as SurfaceModel.OffHours
         assertTrue(model.freeToday)
         assertEquals(at("08:00", "2026-11-16"), model.resumeAtMillis)
         assertEquals(2, model.daysUntilResume)
@@ -79,13 +79,29 @@ class SurfaceModelTest {
     }
 
     @Test
-    fun `a reset click is handled once even if the host repeats it`() {
-        val first = DeskBreakTileService.RESET_CLICK_PREFIX + "1000"
-        val second = DeskBreakTileService.RESET_CLICK_PREFIX + "2000"
-        assertTrue(DeskBreakTileService.consumeResetClick(first))
-        assertFalse(DeskBreakTileService.consumeResetClick(first))
-        assertTrue(DeskBreakTileService.consumeResetClick(second))
-        assertFalse(DeskBreakTileService.consumeResetClick(""))
-        assertFalse(DeskBreakTileService.consumeResetClick("open"))
+    fun `a tile click is handled once even if the host repeats it`() {
+        val reset = DeskBreakTileService.RESET_CLICK_PREFIX
+        val resume = DeskBreakTileService.RESUME_CLICK_PREFIX
+        assertTrue(DeskBreakTileService.consumeClick(reset + "1000", reset))
+        assertFalse(DeskBreakTileService.consumeClick(reset + "1000", reset))
+        assertTrue(DeskBreakTileService.consumeClick(reset + "2000", reset))
+        // Eine andere Aktion zählt nicht als „Jetzt bewegt", wird aber selbst genau einmal behandelt.
+        assertFalse(DeskBreakTileService.consumeClick(resume + "3000", reset))
+        assertTrue(DeskBreakTileService.consumeClick(resume + "3000", resume))
+        assertFalse(DeskBreakTileService.consumeClick(resume + "3000", resume))
+        assertFalse(DeskBreakTileService.consumeClick("", reset))
+        assertFalse(DeskBreakTileService.consumeClick("open", reset))
+    }
+
+    @Test
+    fun `a user pause wins over the off hours and names the first active moment after it`() {
+        // Pause bis Freitag 18:00 → weiter am Montag um 08:00.
+        val paused = enabled.copy(pausedUntil = at("18:00", "2026-11-13"))
+        val model = SurfaceModel.create(paused, ReminderState(), at("10:00"), zone) as SurfaceModel.PausedByUser
+        assertEquals(at("08:00", "2026-11-16"), model.resumeAtMillis)
+        assertEquals(7, model.daysUntilResume)
+        // Eine abgelaufene Pause spielt keine Rolle mehr.
+        val over = enabled.copy(pausedUntil = at("09:00"))
+        assertFalse(SurfaceModel.create(over, ReminderState(), at("10:00"), zone) is SurfaceModel.PausedByUser)
     }
 }

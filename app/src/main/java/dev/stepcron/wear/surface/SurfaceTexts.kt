@@ -2,9 +2,8 @@ package dev.stepcron.wear.surface
 
 import android.content.Context
 import dev.stepcron.wear.R
-import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.ui.formatClock
-import java.time.Instant
+import dev.stepcron.wear.ui.resumeText
 import java.time.ZoneId
 
 /** Texte für Kachel und Komplikation (aus den String-Ressourcen). */
@@ -21,8 +20,10 @@ internal class SurfaceTexts(private val context: Context, private val zone: Zone
             }
         }
 
-        is SurfaceModel.Paused ->
+        is SurfaceModel.OffHours ->
             context.getString(if (model.freeToday) R.string.surface_free else R.string.surface_rest)
+
+        is SurfaceModel.PausedByUser -> context.getString(R.string.surface_paused)
 
         is SurfaceModel.DayDone -> context.getString(R.string.surface_done)
         SurfaceModel.Off -> context.getString(R.string.surface_off)
@@ -39,26 +40,14 @@ internal class SurfaceTexts(private val context: Context, private val zone: Zone
                 formatClock(model.reminderAtMillis, zone),
             )
 
-            is SurfaceModel.Paused -> resumeText(model.resumeAtMillis, model.daysUntilResume)
+            is SurfaceModel.OffHours -> resumeText(context.resources, model.resumeAtMillis, model.daysUntilResume, zone)
+            is SurfaceModel.PausedByUser -> resumeText(context.resources, model.resumeAtMillis, model.daysUntilResume, zone)
             is SurfaceModel.DayDone ->
                 context.getString(R.string.home_status_day_done_hint, formatClock(model.windowEndMillis, zone))
 
             SurfaceModel.Off -> context.getString(R.string.surface_off_caption)
             SurfaceModel.NoActiveDays -> context.getString(R.string.surface_no_days_caption)
             SurfaceModel.Planning -> context.getString(R.string.home_status_planning)
-        }
-    }
-
-    /** „Weiter um 08:00" / „Weiter morgen um 08:00" / „Weiter am Montag um 08:00" / „Weiter nächsten Montag um …". */
-    fun resumeText(resumeAtMillis: Long, daysUntilResume: Int): String {
-        val time = formatClock(resumeAtMillis, zone)
-        val day = Instant.ofEpochMilli(resumeAtMillis).atZone(zone).dayOfWeek
-        val weekday = context.resources.getStringArray(R.array.weekday_long).getOrElse(day.value - 1) { day.name }
-        return when (daysUntilResume) {
-            0 -> context.getString(R.string.home_status_paused_resume_today, time)
-            1 -> context.getString(R.string.home_status_paused_resume_tomorrow, time)
-            in 2 until WeeklySchedule.DAYS_PER_WEEK -> context.getString(R.string.home_status_paused_resume_later, weekday, time)
-            else -> context.getString(R.string.home_status_paused_resume_next_week, weekday, time)
         }
     }
 }

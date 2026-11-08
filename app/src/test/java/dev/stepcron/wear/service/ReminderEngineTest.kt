@@ -486,6 +486,118 @@ class ReminderEngineTest {
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Pause und Urlaub
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    fun `a pause closes the open reminder without counting it and plans its end`() = runBlocking {
+        engine.setEnabled(true)
+        fireNextAlarm() // 09:45
+        now = at("09:50")
+        engine.pauseUntil(at("10:50"))
+
+        assertNull(alerts.shownFor)
+        assertEquals(0L, state().pendingReminderAt)
+        assertEquals(PlannedAlarm(at("10:50"), CYCLE_START), alarms.planned)
+        assertFalse(stepTracking.running)
+        assertTrue(log.events.isEmpty())
+    }
+
+    @Test
+    fun `the pause ends with a fresh cycle`() = runBlocking {
+        engine.setEnabled(true)
+        engine.pauseUntil(at("10:00"))
+        fireNextAlarm() // 10:00
+
+        assertEquals(PlannedAlarm(at("10:45"), REMINDER), alarms.planned)
+        assertEquals(at("10:00"), state().cycleStartAt)
+        assertTrue(stepTracking.running)
+        assertEquals(0L, repository.currentSettings().pausedUntil)
+    }
+
+    @Test
+    fun `a pause past the window resumes at the next window start`() = runBlocking {
+        now = at("16:00")
+        engine.setEnabled(true)
+        engine.pauseUntil(at("18:00"))
+        assertEquals(PlannedAlarm(at("08:00", TUESDAY), CYCLE_START), alarms.planned)
+
+        // Ein Urlaub bis einschließlich Montag geht am Dienstag weiter, über das Wochenende hinweg am nächsten Werktag.
+        now = at("10:00", FRIDAY)
+        engine.pauseUntil(at("00:00", "2026-11-17"))
+        assertEquals(PlannedAlarm(at("08:00", "2026-11-17"), CYCLE_START), alarms.planned)
+        fireNextAlarm()
+        assertEquals(PlannedAlarm(at("08:45", "2026-11-17"), REMINDER), alarms.planned)
+    }
+
+    @Test
+    fun `resuming early starts a fresh cycle now`() = runBlocking {
+        engine.setEnabled(true)
+        engine.pauseUntil(at("11:00"))
+        now = at("09:30")
+        engine.resume()
+
+        assertEquals(PlannedAlarm(at("10:15"), REMINDER), alarms.planned)
+        assertEquals(0L, repository.currentSettings().pausedUntil)
+        assertTrue(stepTracking.running)
+    }
+
+    @Test
+    fun `movement during a pause is logged but plans no reminder`() = runBlocking {
+        engine.setEnabled(true)
+        engine.pauseUntil(at("11:00"))
+        now = at("09:30")
+        engine.onWalkDetected()
+        engine.onManualReset()
+
+        assertEquals(listOf(MANUAL_RESET to at("09:30")), log.events)
+        assertEquals(PlannedAlarm(at("11:00"), CYCLE_START), alarms.planned)
+    }
+
+    @Test
+    fun `schedule edits and stray alarms during a pause keep the pause`() = runBlocking {
+        engine.setEnabled(true)
+        engine.pauseUntil(at("11:00"))
+        now = at("09:30")
+        engine.updateSchedule { schedule -> schedule.with(DayOfWeek.MONDAY) { it.copy(window = ActiveWindow.ofHours(9, 12)) } }
+        assertEquals(PlannedAlarm(at("11:00"), CYCLE_START), alarms.planned)
+
+        engine.onAlarmFired(REMINDER)
+        assertNull(alerts.shownFor)
+        assertEquals(PlannedAlarm(at("11:00"), CYCLE_START), alarms.planned)
+
+        engine.updateSchedule { schedule -> schedule.with(DayOfWeek.MONDAY) { it.copy(enabled = false) } }
+        assertEquals(PlannedAlarm(at("08:00", TUESDAY), CYCLE_START), alarms.planned)
+    }
+
+    @Test
+    fun `switching reminders off and on ends a pause`() = runBlocking {
+        engine.setEnabled(true)
+        engine.pauseUntil(at("12:00"))
+        engine.setEnabled(false)
+        engine.setEnabled(true)
+
+        assertEquals(0L, repository.currentSettings().pausedUntil)
+        assertEquals(PlannedAlarm(at("09:45"), REMINDER), alarms.planned)
+    }
+
+    @Test
+    fun `restoring after a reboot keeps the pause`() = runBlocking {
+        engine.setEnabled(true)
+        engine.pauseUntil(at("11:00"))
+        alarms.planned = null
+        now = at("09:30")
+        engine.restoreAfterBoot()
+        assertEquals(PlannedAlarm(at("11:00"), CYCLE_START), alarms.planned)
+
+        // Ist die Pause während der Ausschaltzeit abgelaufen, geht es mit einem frischen Zyklus weiter.
+        alarms.planned = null
+        now = at("11:30")
+        engine.restoreAfterBoot()
+        assertEquals(PlannedAlarm(at("12:15"), REMINDER), alarms.planned)
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Neustart
     // ---------------------------------------------------------------------------------------------
 

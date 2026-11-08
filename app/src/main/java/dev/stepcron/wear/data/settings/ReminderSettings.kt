@@ -13,12 +13,17 @@ data class ReminderSettings(
     val autoStepEnabled: Boolean = true,
     /** Wurden die Laufzeit-Berechtigungen beim ersten Start schon angefragt? */
     val permissionsRequested: Boolean = false,
+    /** Erinnerungen ruhen bis zu diesem Zeitpunkt (Schnellpause oder Urlaub); 0 = keine Pause. */
+    val pausedUntil: Long = 0L,
 ) {
     val intervalMillis: Long get() = intervalMinutes * 60_000L
 
+    /** Ruhen die Erinnerungen gerade wegen einer Pause? */
+    fun isPausedAt(nowMillis: Long): Boolean = pausedUntil > nowMillis
+
     /** Soll die Schritterkennung jetzt laufen? Berechtigung und Sensor prüft der Aufrufer. */
     fun wantsStepTracking(nowMillis: Long, zone: ZoneId): Boolean =
-        enabled && autoStepEnabled && schedule.contains(nowMillis, zone)
+        enabled && autoStepEnabled && !isPausedAt(nowMillis) && schedule.contains(nowMillis, zone)
 
     /** Bringt das Intervall in den gültigen Bereich (5–120 in 5er-Schritten); der Wochenplan ist immer gültig. */
     fun sanitized(): ReminderSettings {

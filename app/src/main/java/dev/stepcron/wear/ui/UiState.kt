@@ -36,10 +36,20 @@ sealed interface HomeStatus {
      * @property daysUntilResume Kalendertage bis zum nächsten Fensterbeginn (0 = heute, 1 = morgen, …).
      * @property freeToday Heute ist laut Zeitplan frei.
      */
-    data class Paused(
+    data class OffHours(
         val resumeAtMillis: Long,
         val daysUntilResume: Int,
         val freeToday: Boolean,
+    ) : HomeStatus
+
+    /**
+     * Vom Nutzer pausiert (Schnellpause oder Urlaub).
+     * @property resumeAtMillis Erster aktiver Moment nach der Pause, dort beginnt ein frischer Zyklus.
+     * @property daysUntilResume Kalendertage bis dahin (0 = heute, 1 = morgen, …).
+     */
+    data class PausedByUser(
+        val resumeAtMillis: Long,
+        val daysUntilResume: Int,
     ) : HomeStatus
     data class Scheduled(
         val atMillis: Long,
@@ -103,15 +113,19 @@ data class HomeUiState(
             return when {
                 !schedule.hasActiveDay -> HomeStatus.NoActiveDays
 
+                settings.isPausedAt(nowMillis) -> {
+                    val resumeAt = schedule.nextActiveAt(settings.pausedUntil, zone) ?: return HomeStatus.NoActiveDays
+                    HomeStatus.PausedByUser(resumeAt, daysBetween(nowMillis, resumeAt, zone))
+                }
+
                 !schedule.contains(nowMillis, zone) -> {
                     // Aus dem Zeitplan statt aus dem gespeicherten Alarm: Nach einer Änderung ist der Plan sofort
                     // aktuell, der Alarm erst nach dem Abgleich.
                     val resumeAt = schedule.nextStart(nowMillis, zone) ?: return HomeStatus.NoActiveDays
-                    val today = nowMillis.toLocalDate(zone)
-                    HomeStatus.Paused(
+                    HomeStatus.OffHours(
                         resumeAtMillis = resumeAt,
-                        daysUntilResume = ChronoUnit.DAYS.between(today, resumeAt.toLocalDate(zone)).toInt(),
-                        freeToday = schedule.windowOn(today) == null,
+                        daysUntilResume = daysBetween(nowMillis, resumeAt, zone),
+                        freeToday = schedule.windowAt(nowMillis, zone) == null,
                     )
                 }
 
@@ -131,6 +145,10 @@ data class HomeUiState(
                 else -> HomeStatus.Planning
             }
         }
+
+        /** Kalendertage von [fromMillis] bis [toMillis] (0 = derselbe Tag). */
+        private fun daysBetween(fromMillis: Long, toMillis: Long, zone: ZoneId): Int =
+            ChronoUnit.DAYS.between(fromMillis.toLocalDate(zone), toMillis.toLocalDate(zone)).toInt()
     }
 }
 

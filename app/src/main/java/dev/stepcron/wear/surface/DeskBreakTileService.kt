@@ -36,8 +36,10 @@ class DeskBreakTileService : TileService() {
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> =
         SuspendToFutureAdapter.launchFuture {
             val container = applicationContext.appContainer
-            val didReset = consumeResetClick(requestParams.currentState.lastClickableId)
+            val clickId = requestParams.currentState.lastClickableId
+            val didReset = consumeClick(clickId, RESET_CLICK_PREFIX)
             if (didReset) container.engine.onManualReset()
+            if (!didReset && consumeClick(clickId, RESUME_CLICK_PREFIX)) container.engine.resume()
             val now = System.currentTimeMillis()
             val model = SurfaceModel.create(
                 container.settingsRepository.currentSettings(),
@@ -58,18 +60,22 @@ class DeskBreakTileService : TileService() {
     internal companion object {
         const val RESOURCES_VERSION = "1"
 
-        /** Klick-IDs für „Jetzt bewegt" beginnen damit; dahinter steht eine pro Kachel-Aufbau eindeutige Zahl. */
+        /**
+         * Klick-IDs für „Jetzt bewegt" bzw. „Fortsetzen" beginnen damit; dahinter steht eine pro Kachel-Aufbau
+         * eindeutige Zahl.
+         */
         const val RESET_CLICK_PREFIX = "reset:"
+        const val RESUME_CLICK_PREFIX = "resume:"
 
-        private val lastHandledResetClick = AtomicReference<String?>(null)
+        private val lastHandledClick = AtomicReference<String?>(null)
 
         /**
-         * `true` genau einmal pro Tipp auf „Jetzt bewegt" – auch falls der Host dieselbe Klick-ID bei einer
-         * späteren Aktualisierung noch einmal mitschickt. Sonst würde jede Aktualisierung den Timer erneut
+         * `true` genau einmal pro Tipp auf eine Aktion mit [prefix] – auch falls der Host dieselbe Klick-ID bei
+         * einer späteren Aktualisierung noch einmal mitschickt. Sonst würde jede Aktualisierung den Timer erneut
          * zurücksetzen.
          */
-        fun consumeResetClick(clickableId: String): Boolean =
-            clickableId.startsWith(RESET_CLICK_PREFIX) && lastHandledResetClick.getAndSet(clickableId) != clickableId
+        fun consumeClick(clickableId: String, prefix: String): Boolean =
+            clickableId.startsWith(prefix) && lastHandledClick.getAndSet(clickableId) != clickableId
     }
 }
 
@@ -111,19 +117,24 @@ private class TileLayout(private val context: Context, private val device: Devic
     }
 
     private fun chip(model: SurfaceModel, nowMillis: Long): LayoutElementBuilders.LayoutElement {
-        val canReset = model != SurfaceModel.Off && model != SurfaceModel.NoActiveDays
-        val (label, clickable) = if (canReset) {
-            context.getString(R.string.tile_reset) to ModifiersBuilders.Clickable.Builder()
-                .setId(DeskBreakTileService.RESET_CLICK_PREFIX + nowMillis)
-                .setOnClick(ActionBuilders.LoadAction.Builder().build())
-                .build()
-        } else {
-            context.getString(R.string.tile_open) to openAppClickable()
+        val (label, clickable) = when (model) {
+            SurfaceModel.Off, SurfaceModel.NoActiveDays -> context.getString(R.string.tile_open) to openAppClickable()
+            is SurfaceModel.PausedByUser ->
+                context.getString(R.string.tile_resume) to reloadClickable(DeskBreakTileService.RESUME_CLICK_PREFIX + nowMillis)
+
+            else -> context.getString(R.string.tile_reset) to reloadClickable(DeskBreakTileService.RESET_CLICK_PREFIX + nowMillis)
         }
         return CompactChip.Builder(context, label, clickable, device)
             .setChipColors(ChipColors.primaryChipColors(colors))
             .build()
     }
+
+    /** Aktion in der Kachel selbst: Der Host lädt sie mit [id] als letztem Klick neu. */
+    private fun reloadClickable(id: String): ModifiersBuilders.Clickable =
+        ModifiersBuilders.Clickable.Builder()
+            .setId(id)
+            .setOnClick(ActionBuilders.LoadAction.Builder().build())
+            .build()
 
     private fun openAppClickable(): ModifiersBuilders.Clickable =
         ModifiersBuilders.Clickable.Builder()

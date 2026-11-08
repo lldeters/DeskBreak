@@ -59,6 +59,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val INTERVAL_MINUTES = intPreferencesKey("interval_minutes")
         val AUTO_STEP_ENABLED = booleanPreferencesKey("auto_step_enabled")
         val PERMISSIONS_REQUESTED = booleanPreferencesKey("permissions_requested")
+        val PAUSED_UNTIL = longPreferencesKey("paused_until")
 
         /** Wochenplan im Format von [ScheduleCodec]. Ist der Schlüssel gesetzt, gilt der Plan als übernommen. */
         val WEEKLY_SCHEDULE = stringPreferencesKey("weekly_schedule_v1")
@@ -83,6 +84,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         schedule = toSchedule(),
         autoStepEnabled = this[Keys.AUTO_STEP_ENABLED] ?: true,
         permissionsRequested = this[Keys.PERMISSIONS_REQUESTED] ?: false,
+        pausedUntil = this[Keys.PAUSED_UNTIL] ?: 0L,
     ).sanitized()
 
     private fun MutablePreferences.writeSettings(settings: ReminderSettings) {
@@ -94,6 +96,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         remove(Keys.LEGACY_END_HOUR)
         this[Keys.AUTO_STEP_ENABLED] = settings.autoStepEnabled
         this[Keys.PERMISSIONS_REQUESTED] = settings.permissionsRequested
+        this[Keys.PAUSED_UNTIL] = settings.pausedUntil
     }
 
     /**

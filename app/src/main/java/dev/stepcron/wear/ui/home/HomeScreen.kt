@@ -51,11 +51,10 @@ import dev.stepcron.wear.ui.SystemStatus
 import dev.stepcron.wear.ui.components.IntervalProgressBar
 import dev.stepcron.wear.ui.components.StepperRow
 import dev.stepcron.wear.ui.formatClock
+import dev.stepcron.wear.ui.rememberResumeText
 import dev.stepcron.wear.ui.rememberScheduleTexts
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 import kotlinx.coroutines.delay
-import java.time.Instant
-import java.time.ZoneId
 
 /** Hauptbildschirm: Status, Aktiv-Schalter, Timer-Reset, Statistik und Einstellungen. */
 @Composable
@@ -63,6 +62,8 @@ fun HomeScreen(
     state: HomeUiState,
     onEnabledChange: (Boolean) -> Unit,
     onManualReset: () -> Unit,
+    onOpenPause: () -> Unit,
+    onResume: () -> Unit,
     onOpenStats: () -> Unit,
     onIntervalStep: (Int) -> Unit,
     onOpenSchedule: () -> Unit,
@@ -89,6 +90,8 @@ fun HomeScreen(
     val showExactAlarmChip = !state.system.exactAlarmsAllowed
     // Ohne aktiven Tag direkt unter dem Status zum Zeitplan führen (der reguläre Eintrag liegt weiter unten).
     val showScheduleShortcut = state.status == HomeStatus.NoActiveDays
+    val paused = state.status is HomeStatus.PausedByUser
+    val showPauseChip = state.enabled && !showScheduleShortcut
 
     // Die Uhrzeit kommt aus dem gemeinsamen Scaffold in DeskBreakNavHost. Bewusst ohne Vignette: Sie
     // dunkelt nur einen schmalen Randstreifen ab, kostet aber zwei bildschirmgroße Bitmaps, die beim
@@ -164,6 +167,33 @@ fun HomeScreen(
                     colors = ChipDefaults.primaryChipColors(),
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+
+            if (showPauseChip) {
+                // Eigene Schlüssel: Beim Wechsel zwischen Pausieren und Fortsetzen ist es ein anderer Eintrag.
+                if (paused) {
+                    item(key = "resume") {
+                        Chip(
+                            onClick = onResume,
+                            label = { Text(stringResource(R.string.home_resume_label), maxLines = 1) },
+                            secondaryLabel = { Text(stringResource(R.string.home_resume_secondary), maxLines = 1) },
+                            icon = { ChipIcon(R.drawable.ic_play) },
+                            colors = ChipDefaults.primaryChipColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                } else {
+                    item(key = "pause") {
+                        Chip(
+                            onClick = onOpenPause,
+                            label = { Text(stringResource(R.string.home_pause_label), maxLines = 1) },
+                            secondaryLabel = { Text(stringResource(R.string.home_pause_secondary), maxLines = 1) },
+                            icon = { ChipIcon(R.drawable.ic_pause) },
+                            colors = ChipDefaults.secondaryChipColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
             }
 
             item(key = "stats") {
@@ -267,11 +297,16 @@ private fun StatusHeader(state: HomeUiState) {
 
             HomeStatus.Planning -> Headline(stringResource(R.string.home_status_planning))
 
-            is HomeStatus.Paused -> {
+            is HomeStatus.OffHours -> {
                 Headline(
                     stringResource(if (status.freeToday) R.string.home_status_free_today else R.string.home_status_paused),
                 )
-                Caption(resumeText(status))
+                Caption(rememberResumeText(status.resumeAtMillis, status.daysUntilResume))
+            }
+
+            is HomeStatus.PausedByUser -> {
+                Headline(stringResource(R.string.home_status_user_paused))
+                Caption(rememberResumeText(status.resumeAtMillis, status.daysUntilResume))
             }
 
             is HomeStatus.Scheduled -> {
@@ -313,20 +348,6 @@ private fun StatusHeader(state: HomeUiState) {
                 textAlign = TextAlign.Center,
             )
         }
-    }
-}
-
-/** „Weiter um 08:00" / „Weiter morgen um 08:00" / „Weiter am Montag um 08:00" / „Weiter nächsten Montag um …". */
-@Composable
-private fun resumeText(status: HomeStatus.Paused): String {
-    val time = formatClock(status.resumeAtMillis)
-    val weekday = rememberScheduleTexts()
-        .longName(Instant.ofEpochMilli(status.resumeAtMillis).atZone(ZoneId.systemDefault()).dayOfWeek)
-    return when (status.daysUntilResume) {
-        0 -> stringResource(R.string.home_status_paused_resume_today, time)
-        1 -> stringResource(R.string.home_status_paused_resume_tomorrow, time)
-        in 2 until WeeklySchedule.DAYS_PER_WEEK -> stringResource(R.string.home_status_paused_resume_later, weekday, time)
-        else -> stringResource(R.string.home_status_paused_resume_next_week, weekday, time)
     }
 }
 
@@ -395,6 +416,8 @@ private fun HomeScreenPreview() {
                 ),
                 onEnabledChange = {},
                 onManualReset = {},
+                onOpenPause = {},
+                onResume = {},
                 onOpenStats = {},
                 onIntervalStep = {},
                 onOpenSchedule = {},

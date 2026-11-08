@@ -63,12 +63,17 @@ class ReminderEngine(
 
     suspend fun onAlarmFired(kind: AlarmKind?): Unit = locked {
         val now = clock()
-        val settings = settingsRepository.currentSettings()
+        var settings = settingsRepository.currentSettings()
         if (!settings.enabled) {
             cancelScheduleLocked()
             syncStepTrackerLocked(now, settings)
             return@locked
         }
+        if (settings.isPausedAt(now)) {
+            resyncLocked(now, settings)
+            return@locked
+        }
+        if (settings.pausedUntil != 0L) settings = settingsRepository.updateSettings { it.copy(pausedUntil = 0L) }
         when (kind ?: settingsRepository.currentState().nextAlarmKind ?: AlarmKind.REMINDER) {
             AlarmKind.REMINDER -> handleReminderLocked(now, settings)
             AlarmKind.CYCLE_START -> handleCycleStartLocked(now, settings)
@@ -210,7 +215,7 @@ class ReminderEngine(
             movementLog.log(MovementEventType.MANUAL_RESET, now, settings.intervalMinutes)
         }
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, lastMovementAt = now) }
-        if (settings.enabled && settings.schedule.contains(now, zoneProvider())) {
+        if (settings.enabled && !settings.isPausedAt(now) && settings.schedule.contains(now, zoneProvider())) {
             startCycleLocked(now, settings)
         }
     }
@@ -257,7 +262,8 @@ class ReminderEngine(
 
     suspend fun setEnabled(enabled: Boolean): Unit = locked {
         val now = clock()
-        val settings = settingsRepository.updateSettings { it.copy(enabled = enabled) }
+        // Eine Pause gehört zu eingeschalteten Erinnerungen: Aus- und wieder Einschalten startet ohne sie.
+        val settings = settingsRepository.updateSettings { it.copy(enabled = enabled, pausedUntil = 0L) }
         if (enabled) {
             settingsRepository.updateState {
                 it.copy(cycleStartAt = now, snoozeUntil = 0L, pendingReminderAt = 0L)
@@ -289,7 +295,9 @@ class ReminderEngine(
         // Konsistent, weil alle Änderungen am Wochenplan durch diesen Mutex laufen.
         val before = settingsRepository.currentSettings().schedule
         val settings = settingsRepository.updateSettings { it.copy(schedule = transform(it.schedule)) }
-        if (!settings.enabled) {
+        if (!settings.enabled || settings.isPausedAt(now)) {
+            // Ausgeschaltet bzw. pausiert: Übergänge des heutigen Fensters spielen keine Rolle, nach einer Pause
+            // beginnt ohnehin ein frischer Zyklus.
             resyncLocked(now, settings)
             return@locked
         }
@@ -330,6 +338,32 @@ class ReminderEngine(
                     return@locked
                 }
             }
+        }
+        resyncLocked(now, settings)
+    }
+
+    /**
+     * Schnellpause bzw. Urlaub bis [untilMillis]: Eine offene Erinnerung wird geschlossen, ohne als verpasst zu
+     * zählen; bis dahin gibt es keine Erinnerungen und keine Schritterkennung. Danach startet ein frischer Zyklus.
+     */
+    suspend fun pauseUntil(untilMillis: Long): Unit = locked {
+        val now = clock()
+        val settings = settingsRepository.updateSettings { it.copy(pausedUntil = untilMillis.coerceAtLeast(0L)) }
+        alerts.cancelReminder()
+        settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L) }
+        if (!settings.isPausedAt(now)) startFreshLocked(now, settings) else resyncLocked(now, settings)
+    }
+
+    /** Pause vorzeitig beenden: Im Fenster beginnt jetzt ein frischer Zyklus. */
+    suspend fun resume(): Unit = locked {
+        val now = clock()
+        val settings = settingsRepository.updateSettings { it.copy(pausedUntil = 0L) }
+        startFreshLocked(now, settings)
+    }
+
+    private suspend fun startFreshLocked(now: Long, settings: ReminderSettings) {
+        if (settings.schedule.contains(now, zoneProvider())) {
+            settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
         }
         resyncLocked(now, settings)
     }
@@ -377,6 +411,11 @@ class ReminderEngine(
             return
         }
         val zone = zoneProvider()
+        if (settings.isPausedAt(now)) {
+            scheduleLocked(ReminderPlanner.planPauseEnd(settings.pausedUntil, settings.schedule, zone))
+            syncStepTrackerLocked(now, settings)
+            return
+        }
         val periodStart = settings.schedule.startOfDay(now, zone)
         if (periodStart != null && settings.schedule.contains(now, zone)) {
             val state = settingsRepository.currentState()

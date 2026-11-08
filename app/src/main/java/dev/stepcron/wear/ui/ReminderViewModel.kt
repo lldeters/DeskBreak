@@ -175,6 +175,15 @@ class ReminderViewModel(
         viewModelScope.launch { engine.onManualReset() }
     }
 
+    /** Schnellpause bzw. Urlaub bis [untilMillis]. */
+    fun pauseUntil(untilMillis: Long) {
+        viewModelScope.launch { engine.pauseUntil(untilMillis) }
+    }
+
+    fun resume() {
+        viewModelScope.launch { engine.resume() }
+    }
+
     fun completeExercise() {
         viewModelScope.launch { engine.onExerciseCompleted() }
     }

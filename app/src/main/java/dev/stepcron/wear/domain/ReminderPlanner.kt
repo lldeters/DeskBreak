@@ -121,6 +121,13 @@ object ReminderPlanner {
         return planInWindow(desired, nowMillis, schedule, zone)
     }
 
+    /**
+     * Während einer Pause bis [pausedUntil]: Ihr Ende ist der erste aktive Moment danach, dort startet ein frischer
+     * Zyklus ([AlarmKind.CYCLE_START]). `null`, wenn an keinem Tag erinnert wird.
+     */
+    fun planPauseEnd(pausedUntil: Long, schedule: WeeklySchedule, zone: ZoneId): PlannedAlarm? =
+        schedule.nextActiveAt(pausedUntil, zone)?.let { PlannedAlarm(it, AlarmKind.CYCLE_START) }
+
     /** Ordnet eine Änderung des Wochenplans von [before] zu [after] zum Zeitpunkt [nowMillis] ein. */
     fun scheduleChange(
         before: WeeklySchedule,

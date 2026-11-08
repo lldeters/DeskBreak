@@ -34,10 +34,13 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import dev.stepcron.wear.BuildConfig
 import dev.stepcron.wear.Permissions
 import dev.stepcron.wear.R
+import dev.stepcron.wear.domain.PauseOptions
 import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.service.ReminderNotifier
 import dev.stepcron.wear.ui.exercise.ExerciseScreen
 import dev.stepcron.wear.ui.home.HomeScreen
+import dev.stepcron.wear.ui.pause.PauseScreen
+import dev.stepcron.wear.ui.pause.VacationScreen
 import dev.stepcron.wear.ui.schedule.DayScheduleScreen
 import dev.stepcron.wear.ui.schedule.ScheduleScreen
 import dev.stepcron.wear.ui.schedule.TimeOptions
@@ -47,6 +50,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.ZoneId
 
 private object Routes {
     const val HOME = "home"
@@ -56,6 +61,8 @@ private object Routes {
     const val DAY = "schedule/{$ARG_DAY}"
     const val DAY_START = "schedule/{$ARG_DAY}/start"
     const val DAY_END = "schedule/{$ARG_DAY}/end"
+    const val PAUSE = "pause"
+    const val VACATION = "pause/vacation"
     const val ARG_EXERCISE = "index"
     const val EXERCISE = "exercise/{$ARG_EXERCISE}"
 
@@ -144,6 +151,8 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                         if (enabled) requestMissingPermissions()
                     },
                     onManualReset = viewModel::manualReset,
+                    onOpenPause = { navController.navigate(Routes.PAUSE) },
+                    onResume = viewModel::resume,
                     onOpenStats = { navController.navigate(Routes.STATS) },
                     onIntervalStep = viewModel::changeInterval,
                     onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
@@ -189,6 +198,27 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     exercise = exercises[Math.floorMod(index, exercises.size)],
                     onCompleted = viewModel::completeExercise,
                     onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.PAUSE) {
+                val schedule by rememberLoadedSchedule(homeState)
+                PauseScreen(
+                    schedule = schedule,
+                    onPauseUntil = { until ->
+                        viewModel.pauseUntil(until)
+                        navController.popBackStack(Routes.HOME, inclusive = false)
+                    },
+                    onOpenVacation = { navController.navigate(Routes.VACATION) },
+                )
+            }
+            composable(Routes.VACATION) {
+                val today = remember { LocalDate.now() }
+                VacationScreen(
+                    today = today,
+                    onConfirm = { lastDay ->
+                        viewModel.pauseUntil(PauseOptions.vacationUntil(lastDay, ZoneId.systemDefault()))
+                        navController.popBackStack(Routes.HOME, inclusive = false)
+                    },
                 )
             }
             composable(Routes.SCHEDULE) {
