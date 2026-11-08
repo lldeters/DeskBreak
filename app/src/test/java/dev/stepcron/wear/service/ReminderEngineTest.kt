@@ -613,6 +613,22 @@ class ReminderEngineTest {
     }
 
     @Test
+    fun `a reboot that slept through the window start counts yesterday's open reminder as missed`() = runBlocking {
+        now = at("16:05")
+        engine.setEnabled(true)
+        fireNextAlarm() // Mo 16:50
+        fireNextAlarm() // Mo 17:00, offen bis Di 08:00
+        alarms.planned = null
+        now = at("08:30", TUESDAY)
+        engine.restoreAfterBoot()
+
+        assertEquals(listOf(MISSED to at("16:50")), log.events)
+        assertNull(alerts.shownFor)
+        assertEquals(0L, state().pendingReminderAt)
+        assertEquals(PlannedAlarm(at("09:15", TUESDAY), REMINDER), alarms.planned)
+    }
+
+    @Test
     fun `restoring after a reboot past the alarm starts a fresh cycle`() = runBlocking {
         engine.setEnabled(true)
         alarms.planned = null

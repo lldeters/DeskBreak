@@ -1,5 +1,6 @@
 package dev.stepcron.wear.ui.schedule
 
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -10,8 +11,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.wear.compose.foundation.lazy.AutoCenteringParams
@@ -50,11 +55,15 @@ fun DayScheduleScreen(
 ) {
     val texts = rememberScheduleTexts()
     val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
     var copyState by remember { mutableStateOf(CopyState.IDLE) }
     LaunchedEffect(copyState) {
         when (copyState) {
             CopyState.CONFIRM -> {
-                delay(CONFIRM_TIMEOUT_MILLIS)
+                // Mit TalkBack dauert das erneute Antippen länger (erst die Ansage, dann Doppeltippen).
+                val touchExploration = context.getSystemService(AccessibilityManager::class.java)
+                    ?.isTouchExplorationEnabled == true
+                delay(if (touchExploration) CONFIRM_TIMEOUT_A11Y_MILLIS else CONFIRM_TIMEOUT_MILLIS)
                 copyState = CopyState.IDLE
             }
 
@@ -85,7 +94,7 @@ fun DayScheduleScreen(
                         label = {
                             Text(
                                 stringResource(R.string.day_schedule_toggle_label),
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         },
@@ -149,6 +158,8 @@ fun DayScheduleScreen(
                                     },
                                 ),
                                 maxLines = 2,
+                                // Bestätigungsfrage und Ergebnis ansagen, sie ändern nur diese Zeile.
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                             )
                         },
                         colors = ChipDefaults.secondaryChipColors(),
@@ -174,6 +185,7 @@ private fun TimeChip(label: String, minuteOfDay: Int, onClick: () -> Unit) {
 private enum class CopyState { IDLE, CONFIRM, DONE, SAME }
 
 private const val CONFIRM_TIMEOUT_MILLIS = 3_000L
+private const val CONFIRM_TIMEOUT_A11Y_MILLIS = 10_000L
 private const val FEEDBACK_MILLIS = 2_500L
 
 @Preview(device = WEAR_SMALL_ROUND, showSystemUi = true)

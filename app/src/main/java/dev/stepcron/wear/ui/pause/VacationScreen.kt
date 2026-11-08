@@ -31,6 +31,7 @@ import androidx.wear.compose.material.rememberPickerState
 import dev.stepcron.wear.R
 import dev.stepcron.wear.domain.PauseOptions
 import dev.stepcron.wear.ui.WEAR_SMALL_ROUND
+import dev.stepcron.wear.ui.components.AccessiblePicker
 import dev.stepcron.wear.ui.shortDate
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 import java.time.LocalDate
@@ -53,7 +54,7 @@ fun VacationScreen(
     val configuration = LocalConfiguration.current
     val resources = LocalContext.current.resources
     val labels = remember(days, configuration, resources) { days.map { shortDate(resources, it) } }
-    val selected by remember(days) { derivedStateOf { state.selectedOption.coerceIn(days.indices) } }
+    val selected by remember(days, state) { derivedStateOf { state.selectedOption.coerceIn(days.indices) } }
     val title = stringResource(R.string.vacation_title)
     val description = stringResource(R.string.cd_time_picker, title, labels[selected])
 
@@ -66,22 +67,28 @@ fun VacationScreen(
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(2.dp))
-            Picker(
+            AccessiblePicker(
                 state = state,
-                contentDescription = description,
-                modifier = Modifier.size(width = 150.dp, height = 88.dp),
-                separation = 4.dp,
-            ) { optionIndex ->
-                Text(
-                    text = labels[optionIndex],
-                    style = MaterialTheme.typography.title2,
-                    color = if (optionIndex == selectedOption) {
-                        MaterialTheme.colors.onSurface
-                    } else {
-                        MaterialTheme.colors.onSurfaceVariant
-                    },
-                    maxLines = 1,
-                )
+                previousLabel = stringResource(R.string.cd_picker_earlier_day),
+                nextLabel = stringResource(R.string.cd_picker_later_day),
+            ) {
+                Picker(
+                    state = state,
+                    contentDescription = description,
+                    modifier = Modifier.size(width = 150.dp, height = 88.dp),
+                    separation = 4.dp,
+                ) { optionIndex ->
+                    Text(
+                        text = labels[optionIndex],
+                        style = MaterialTheme.typography.title2,
+                        color = if (optionIndex == selectedOption) {
+                            MaterialTheme.colors.onSurface
+                        } else {
+                            MaterialTheme.colors.onSurfaceVariant
+                        },
+                        maxLines = 1,
+                    )
+                }
             }
             Spacer(Modifier.height(2.dp))
             CompactButton(onClick = { onConfirm(days[selected]) }) {

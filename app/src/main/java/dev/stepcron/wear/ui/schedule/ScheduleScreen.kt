@@ -93,7 +93,8 @@ private fun DayChip(
     SplitToggleChip(
         checked = daySchedule.enabled,
         onCheckedChange = onEnabledChange,
-        label = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        // Zwei Zeilen erlaubt: „Donnerstag" passt bei größter Schrift nicht mehr in eine.
+        label = { Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         secondaryLabel = {
             Text(
                 text = if (daySchedule.enabled) {

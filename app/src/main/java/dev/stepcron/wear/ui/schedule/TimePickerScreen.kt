@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -29,6 +30,7 @@ import dev.stepcron.wear.R
 import dev.stepcron.wear.domain.ActiveWindow
 import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.ui.WEAR_SMALL_ROUND
+import dev.stepcron.wear.ui.components.AccessiblePicker
 import dev.stepcron.wear.ui.formatTimeOfDay
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 
@@ -62,12 +64,14 @@ fun TimePickerScreen(
     onConfirm: (Int) -> Unit,
 ) {
     if (options.isEmpty()) return
+    // Einmal je Aufruf festgehalten: Ein spät gespeicherter Wert soll die Auswahl nicht zurücksetzen.
+    val initialIndex = rememberSaveable { TimeOptions.initialIndex(options, initialMinute) }
     val state = rememberPickerState(
         initialNumberOfOptions = options.size,
-        initiallySelectedOption = TimeOptions.initialIndex(options, initialMinute),
+        initiallySelectedOption = initialIndex.coerceIn(options.indices),
         repeatItems = false,
     )
-    val selectedMinute by remember(options) {
+    val selectedMinute by remember(options, state) {
         derivedStateOf { options[state.selectedOption.coerceIn(options.indices)] }
     }
     val description = stringResource(R.string.cd_time_picker, title, formatTimeOfDay(selectedMinute))
@@ -76,21 +80,27 @@ fun TimePickerScreen(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = title, style = MaterialTheme.typography.caption1, color = MaterialTheme.colors.primary)
             Spacer(Modifier.height(2.dp))
-            Picker(
+            AccessiblePicker(
                 state = state,
-                contentDescription = description,
-                modifier = Modifier.size(width = 120.dp, height = 88.dp),
-                separation = 4.dp,
-            ) { optionIndex ->
-                Text(
-                    text = formatTimeOfDay(options[optionIndex]),
-                    style = MaterialTheme.typography.display3,
-                    color = if (optionIndex == selectedOption) {
-                        MaterialTheme.colors.onSurface
-                    } else {
-                        MaterialTheme.colors.onSurfaceVariant
-                    },
-                )
+                previousLabel = stringResource(R.string.cd_picker_earlier_time),
+                nextLabel = stringResource(R.string.cd_picker_later_time),
+            ) {
+                Picker(
+                    state = state,
+                    contentDescription = description,
+                    modifier = Modifier.size(width = 120.dp, height = 88.dp),
+                    separation = 4.dp,
+                ) { optionIndex ->
+                    Text(
+                        text = formatTimeOfDay(options[optionIndex]),
+                        style = MaterialTheme.typography.display3,
+                        color = if (optionIndex == selectedOption) {
+                            MaterialTheme.colors.onSurface
+                        } else {
+                            MaterialTheme.colors.onSurfaceVariant
+                        },
+                    )
+                }
             }
             Spacer(Modifier.height(2.dp))
             CompactButton(onClick = { onConfirm(selectedMinute) }) {

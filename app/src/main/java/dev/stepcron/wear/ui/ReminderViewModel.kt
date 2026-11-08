@@ -141,7 +141,8 @@ class ReminderViewModel(
     fun setDayStart(day: DayOfWeek, minuteOfDay: Int) {
         updateSchedule { schedule ->
             schedule.with(day) { entry ->
-                val start = minuteOfDay.coerceIn(0, entry.window.endMinute - 1)
+                // Mindestens 15 Minuten Fenster, wie beim Laden (ActiveWindow.sanitized).
+                val start = minuteOfDay.coerceIn(0, entry.window.endMinute - ActiveWindow.MIN_LENGTH_MINUTES)
                 entry.copy(window = entry.window.copy(startMinute = start))
             }
         }
@@ -151,7 +152,10 @@ class ReminderViewModel(
     fun setDayEnd(day: DayOfWeek, minuteOfDay: Int) {
         updateSchedule { schedule ->
             schedule.with(day) { entry ->
-                val end = minuteOfDay.coerceIn(entry.window.startMinute + 1, ActiveWindow.MINUTES_PER_DAY)
+                val end = minuteOfDay.coerceIn(
+                    entry.window.startMinute + ActiveWindow.MIN_LENGTH_MINUTES,
+                    ActiveWindow.MINUTES_PER_DAY,
+                )
                 entry.copy(window = entry.window.copy(endMinute = end))
             }
         }

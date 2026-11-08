@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.TimeText
@@ -88,16 +90,28 @@ private val RequestPermissionsContract = ActivityResultContracts.RequestMultiple
 @Composable
 fun DeskBreakNavHost(viewModel: ReminderViewModel) {
     val context = LocalContext.current
-    // Der Wert wird nur im Home-Ziel, im Effekt und in Callbacks gelesen, nie im Rumpf dieser Funktion:
-    // So läuft sie nicht bei jeder neuen Emission (Countdown-Ticks, Speichervorgänge) erneut, sondern
-    // nur der Home-Screen. Das State-Objekt (statt `by`) macht ein versehentliches Lesen hier sichtbar.
+    // Der Wert wird nur in den Zielen (Home direkt, die übrigen über derivedStateOf), im Effekt und in Callbacks
+    // gelesen, nie im Rumpf dieser Funktion: So läuft sie nicht bei jeder neuen Emission (Countdown-Ticks,
+    // Speichervorgänge) erneut. Das State-Objekt (statt `by`) macht ein versehentliches Lesen hier sichtbar.
     val homeState = viewModel.homeUiState.collectAsStateWithLifecycle()
     val navController = rememberSwipeDismissableNavController()
     // Oberhalb des NavHosts, damit die Home-Liste beim Zurückwischen von der Statistik schon
     // initialisiert ist: Ein neuer Listenzustand blendet seine Items erst nach 2–3 Frames ein.
     val homeListState = rememberScalingLazyListState(initialCenterItemIndex = 0)
-    // Ebenso für den Zeitplan, zu dem man von jedem Wochentag zurückwischt.
-    val scheduleListState = rememberScalingLazyListState(initialCenterItemIndex = 0)
+    // Ebenso für den Zeitplan, zu dem man von jedem Wochentag zurückwischt, und für den Wochentag, zu dem die
+    // Uhrzeit-Auswahl zurückkehrt. Jeder neue Besuch (Navigation nach vorn) beginnt aber wieder oben.
+    var scheduleVisit by rememberSaveable { mutableIntStateOf(0) }
+    val scheduleListState = rememberSaveable(scheduleVisit, saver = ScalingLazyListState.Saver) {
+        ScalingLazyListState(initialCenterItemIndex = 0)
+    }
+    var dayVisit by rememberSaveable { mutableIntStateOf(0) }
+    val dayListState = rememberSaveable(dayVisit, saver = ScalingLazyListState.Saver) {
+        ScalingLazyListState(initialCenterItemIndex = 0)
+    }
+    val openSchedule = {
+        scheduleVisit++
+        navController.navigate(Routes.SCHEDULE)
+    }
 
     // Nach dem Dialog folgt immer ON_RESUME: MainActivity.onResume liest die Berechtigungen neu.
     val permissionLauncher = rememberLauncherForActivityResult(RequestPermissionsContract) { }
@@ -155,7 +169,7 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     onResume = viewModel::resume,
                     onOpenStats = { navController.navigate(Routes.STATS) },
                     onIntervalStep = viewModel::changeInterval,
-                    onOpenSchedule = { navController.navigate(Routes.SCHEDULE) },
+                    onOpenSchedule = openSchedule,
                     onAutoStepChange = { enabled ->
                         viewModel.setAutoStepEnabled(enabled)
                         if (enabled) requestMissingPermissions()
@@ -227,13 +241,17 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     schedule = schedule,
                     listState = scheduleListState,
                     onDayEnabledChange = viewModel::setDayEnabled,
-                    onOpenDay = { day -> navController.navigate(Routes.day(day)) },
+                    onOpenDay = { day ->
+                        dayVisit++
+                        navController.navigate(Routes.day(day))
+                    },
                 )
             }
             composable(Routes.DAY, arguments = Routes.dayArguments) { entry ->
                 val day = Routes.dayOf(entry) ?: return@composable
                 val schedule by rememberLoadedSchedule(homeState)
                 DayScheduleScreen(
+                    listState = dayListState,
                     day = day,
                     schedule = schedule,
                     onEnabledChange = { enabled -> viewModel.setDayEnabled(day, enabled) },

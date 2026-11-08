@@ -321,11 +321,8 @@ class ReminderEngine(
             }
 
             ScheduleChange.WINDOW_ENTERED -> {
-                // Das Fenster beginnt jetzt, also wie ein Fensterbeginn: Eine offene Erinnerung von einem früheren
-                // Tag gilt als verpasst, und statt einer sofort überfälligen Erinnerung startet ein frischer Zyklus.
-                if (pendingReminderAt > 0L && pendingReminderAt.toLocalDate(zone) < today) {
-                    missPendingReminderLocked(pendingReminderAt, settings)
-                }
+                // Das Fenster beginnt jetzt, also wie ein Fensterbeginn: statt einer sofort überfälligen Erinnerung
+                // ein frischer Zyklus. Eine offene Erinnerung von vor dem Fenster schließt der Abgleich.
                 settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }
             }
 
@@ -402,7 +399,9 @@ class ReminderEngine(
 
     /**
      * Plant aus dem gespeicherten Zustand neu. Liegt jetzt im heutigen Fenster, ohne dass seit dessen Beginn
-     * (oder seit [cycleRunningSince], falls früher) ein Zyklus läuft, startet jetzt ein frischer.
+     * (oder seit [cycleRunningSince], falls früher) ein Zyklus läuft, startet jetzt ein frischer. Eine offene
+     * Erinnerung von davor gilt dann wie beim regulären Fensterbeginn als verpasst – z. B. nach einem Neustart,
+     * der den Fensterbeginn verschlafen hat.
      */
     private suspend fun resyncLocked(now: Long, settings: ReminderSettings, cycleRunningSince: Long? = null) {
         if (!settings.enabled) {
@@ -420,6 +419,9 @@ class ReminderEngine(
         if (periodStart != null && settings.schedule.contains(now, zone)) {
             val state = settingsRepository.currentState()
             val runningSince = minOf(periodStart, cycleRunningSince ?: periodStart)
+            if (state.pendingReminderAt in 1 until runningSince) {
+                missPendingReminderLocked(state.pendingReminderAt, settings)
+            }
             if (state.cycleStartAt !in runningSince..now) {
                 // Kein laufender Zyklus in der heutigen aktiven Zeit → jetzt starten.
                 settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }

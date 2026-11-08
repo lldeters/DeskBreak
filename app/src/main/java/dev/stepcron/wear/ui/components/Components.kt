@@ -34,7 +34,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import dev.stepcron.wear.R
 
-/** Kompakte −/+ Einstellung, z. B. für Intervall und Arbeitszeiten. */
+/** Kompakte −/+ Einstellung, z. B. für das Intervall. */
 @Composable
 fun StepperRow(
     label: String,

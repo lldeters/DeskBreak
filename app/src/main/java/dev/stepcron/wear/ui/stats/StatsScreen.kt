@@ -137,16 +137,17 @@ fun StatsScreen(
 
             // 1) Heutige Regelmäßigkeit
             item {
-                // An einem freien Tag ohne Ereignisse statt der leeren Timeline ein Hinweis; wurden trotzdem
-                // Pausen erfasst, erscheinen sie wie gewohnt.
-                val hasEvents = state.todayMovements + state.todaySnoozes + state.todayMissed > 0
-                val showOffDay = !today.enabled && !hasEvents
+                // An einem freien Tag statt einer leeren Timeline ein Hinweis – außer sie zeigt erfasste Pausen
+                // (z. B. „Jetzt bewegt" innerhalb der gespeicherten Zeiten). Während des Ladens bleibt es beim
+                // Hinweis, dem an freien Tagen wahrscheinlichsten Ergebnis.
+                val timelineHasContent = state.hourSlots.any { it.status != SlotStatus.NONE }
+                val showOffDay = !today.enabled && (state.loading || !timelineHasContent)
                 ChartCard(
                     title = stringResource(R.string.stats_today_title),
-                    subtitle = if (showOffDay) {
-                        stringResource(R.string.stats_today_off_subtitle)
-                    } else {
-                        texts.window(today.window)
+                    subtitle = when {
+                        today.enabled -> texts.window(today.window)
+                        showOffDay -> stringResource(R.string.stats_today_off_subtitle)
+                        else -> stringResource(R.string.stats_today_off_window, texts.window(today.window))
                     },
                 ) {
                     if (showOffDay) {
