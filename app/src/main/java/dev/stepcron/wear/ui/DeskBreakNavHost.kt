@@ -38,8 +38,9 @@ private val RequestPermissionsContract = ActivityResultContracts.RequestMultiple
 @Composable
 fun DeskBreakNavHost(viewModel: ReminderViewModel) {
     val context = LocalContext.current
-    // Als State-Objekt (ohne `by`): Dieser Scope liest den Wert nicht selbst und wird daher nicht bei
-    // jeder neuen Emission (Countdown-Ticks, Speichervorgänge) neu ausgeführt – nur der Home-Screen.
+    // Der Wert wird nur im Home-Ziel, im Effekt und in Callbacks gelesen, nie im Rumpf dieser Funktion:
+    // So läuft sie nicht bei jeder neuen Emission (Countdown-Ticks, Speichervorgänge) erneut, sondern
+    // nur der Home-Screen. Das State-Objekt (statt `by`) macht ein versehentliches Lesen hier sichtbar.
     val homeState = viewModel.homeUiState.collectAsStateWithLifecycle()
     val navController = rememberSwipeDismissableNavController()
     // Oberhalb des NavHosts, damit die Home-Liste beim Zurückwischen von der Statistik schon

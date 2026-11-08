@@ -102,6 +102,9 @@ class ReminderViewModel(
      * Bei jedem Öffnen bzw. Zurückkehren in die App (auch nach dem Berechtigungsdialog): Berechtigungen
      * neu lesen und Alarm/Schritterkennung abgleichen – einmal pro Resume und nicht auf dem Main-Thread,
      * denn beides besteht aus Binder-Aufrufen ans System, die sonst die ersten Frames verzögern.
+     * Bewusster Kompromiss: Direkt nach dem Berechtigungsdialog kann der erste Frame noch den alten
+     * Status zeigen; er liegt unter der Schließ-Animation des Dialogs und ist ein bis zwei Frames später
+     * aktuell.
      */
     fun onResume() {
         viewModelScope.launch(Dispatchers.Default) {
