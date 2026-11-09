@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -54,6 +55,12 @@ android {
     }
 }
 
+baselineProfile {
+    // Ein Profil für alle Varianten (auch „benchmark") statt nur für release:
+    // src/main/generated/baselineProfiles/, zusätzlich zum handgeschriebenen src/main/baseline-prof.txt.
+    mergeIntoMain = true
+}
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.generateKotlin", "true")
@@ -94,6 +101,9 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.profileinstaller)
+
+    // Erzeugt das Baseline-Profil auf einer verbundenen Uhr: ./gradlew :app:generateBaselineProfile
+    baselineProfile(project(":baselineprofile"))
 
     testImplementation(libs.junit)
 }

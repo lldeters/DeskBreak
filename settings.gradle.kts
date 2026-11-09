@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "DeskBreak"
 include(":app")
+include(":baselineprofile")
