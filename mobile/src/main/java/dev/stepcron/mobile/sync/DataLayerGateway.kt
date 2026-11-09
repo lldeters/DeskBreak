@@ -71,10 +71,12 @@ class DataLayerGateway(context: Context, private val scope: CoroutineScope) : Wa
     }
 
     override suspend fun readSnapshots(): List<ByteArray> {
-        val buffer = call { dataClient.getDataItems(wearUri(SyncPaths.SNAPSHOT), DataClient.FILTER_LITERAL) }
+        // Alle DataItems der App (wenige: Snapshot der Uhr, ggf. eine laufende Wiederherstellung) und selbst nach dem
+        // Pfad filtern – so hängt nichts davon ab, wie die Play Services eine URI ohne Knoten-ID auslegen.
+        val buffer = call { dataClient.dataItems }
         // Der Puffer gilt nur bis release(): Einträge vorher einfrieren.
         val items = try {
-            buffer.map { it.freeze() }
+            buffer.filter { it.uri.path == SyncPaths.SNAPSHOT }.map { it.freeze() }
         } finally {
             buffer.release()
         }
@@ -134,7 +136,14 @@ class DataLayerGateway(context: Context, private val scope: CoroutineScope) : Wa
     }
 
     override suspend fun deleteRestore(restoreId: String) {
-        call { dataClient.deleteDataItems(wearUri(SyncPaths.RESTORE_PREFIX + restoreId), DataClient.FILTER_LITERAL) }
+        // Das DataItem hat dieses Handy angelegt: mit der eigenen Knoten-ID als Host eindeutig adressieren.
+        val localNodeId = call { nodeClient.localNode }.id
+        val uri = Uri.Builder()
+            .scheme(PutDataRequest.WEAR_URI_SCHEME)
+            .authority(localNodeId)
+            .path(SyncPaths.RESTORE_PREFIX + restoreId)
+            .build()
+        call { dataClient.deleteDataItems(uri, DataClient.FILTER_LITERAL) }
     }
 
     override fun startListening(listener: GatewayListener) {
@@ -142,9 +151,10 @@ class DataLayerGateway(context: Context, private val scope: CoroutineScope) : Wa
         if (registered) return
         registered = true
         try {
-            dataClient.addListener(dataListener, wearUri(SyncPaths.SNAPSHOT), DataClient.FILTER_LITERAL)
+            // Ohne URI-Filter: Die Pfade prüfen onDataChanged/onMessage selbst (eindeutiger als Platzhalter-URIs).
+            dataClient.addListener(dataListener)
                 .addOnFailureListener { Log.w(TAG, "DataClient-Listener nicht registriert", it) }
-            messageClient.addListener(messageListener, wearUri(SyncPaths.RESTORE_RESULT), MessageClient.FILTER_LITERAL)
+            messageClient.addListener(messageListener)
                 .addOnFailureListener { Log.w(TAG, "MessageClient-Listener nicht registriert", it) }
             capabilityClient.addListener(capabilityListener, SyncPaths.CAPABILITY_WATCH)
                 .addOnFailureListener { Log.w(TAG, "Capability-Listener nicht registriert", it) }
@@ -210,9 +220,6 @@ class DataLayerGateway(context: Context, private val scope: CoroutineScope) : Wa
         private const val CALL_TIMEOUT_MILLIS = 10_000L
         private const val ASSET_TIMEOUT_MILLIS = 30_000L
         private const val PUT_TIMEOUT_MILLIS = 30_000L
-
-        /** `wear:/pfad` – ohne Host: passt auf DataItems aller Geräte. */
-        fun wearUri(path: String): Uri = Uri.Builder().scheme(PutDataRequest.WEAR_URI_SCHEME).path(path).build()
 
         /** Geänderte Snapshot-DataItems eines Ereignis-Puffers, eingefroren (überleben das Freigeben des Puffers). */
         fun snapshotItems(events: DataEventBuffer): List<DataItem> =
