@@ -21,5 +21,8 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "DeskBreak"
+// :app = Uhr, :mobile = Handy-App, :shared = Sync-Protokoll beider Apps.
 include(":app")
+include(":shared")
+include(":mobile")
 include(":baselineprofile")

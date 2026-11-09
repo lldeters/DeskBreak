@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Deutsch; die Standardsprache (values/) ist Englisch. -->
+<resources>
+    <string name="app_name">DeskBreak</string>
+</resources>
