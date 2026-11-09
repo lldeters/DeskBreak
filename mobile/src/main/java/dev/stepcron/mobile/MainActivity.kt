@@ -4,28 +4,31 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import dev.stepcron.mobile.ui.DeskBreakPhoneRoot
 import dev.stepcron.mobile.ui.theme.DeskBreakPhoneTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val repository get() = (application as DeskBreakPhoneApp).repository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             DeskBreakPhoneTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
-                    }
-                }
+                DeskBreakPhoneRoot()
             }
         }
+    }
+
+    /** Im Vordergrund: Listener des Data Layers an und um einen frischen Stand bitten. */
+    override fun onStart() {
+        super.onStart()
+        repository.onForeground()
+    }
+
+    override fun onStop() {
+        repository.onBackground()
+        super.onStop()
     }
 }

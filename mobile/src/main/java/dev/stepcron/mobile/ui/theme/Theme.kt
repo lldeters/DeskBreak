@@ -2,12 +2,16 @@ package dev.stepcron.mobile.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
@@ -32,6 +36,34 @@ private val DarkColors = darkColorScheme(
     error = Color(0xFFFFB4AB),
 )
 
+/**
+ * Farben der Diagramme. Erledigt ist immer grün und verpasst immer rot – wie auf der Uhr und unabhängig von den
+ * Systemfarben, damit die Bedeutung gleich bleibt.
+ */
+@Immutable
+data class ChartColors(
+    val done: Color,
+    /** Text auf einer voll gefärbten Erledigt-Fläche. */
+    val onDone: Color,
+    val missed: Color,
+    val empty: Color,
+    val guide: Color,
+    val label: Color,
+    val today: Color,
+)
+
+private fun chartColors(scheme: ColorScheme, dark: Boolean) = ChartColors(
+    done = if (dark) Color(0xFF7BD88F) else Color(0xFF1B6D35),
+    onDone = if (dark) Color(0xFF00210B) else Color.White,
+    missed = scheme.error,
+    empty = scheme.surfaceVariant,
+    guide = scheme.onSurfaceVariant.copy(alpha = 0.6f),
+    label = scheme.onSurfaceVariant,
+    today = scheme.primary,
+)
+
+val LocalChartColors = staticCompositionLocalOf { chartColors(LightColors, dark = false) }
+
 @Composable
 fun DeskBreakPhoneTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val colors = when {
@@ -43,5 +75,7 @@ fun DeskBreakPhoneTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Co
         darkTheme -> DarkColors
         else -> LightColors
     }
-    MaterialTheme(colorScheme = colors, content = content)
+    CompositionLocalProvider(LocalChartColors provides chartColors(colors, darkTheme)) {
+        MaterialTheme(colorScheme = colors, content = content)
+    }
 }

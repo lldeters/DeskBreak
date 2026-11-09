@@ -1,5 +1,282 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Deutsch; die Standardsprache (values/) ist Englisch. -->
-<resources>
+<!-- Deutsch; die Standardsprache (values/) ist Englisch. Begriffe wie auf der Uhr: Pause, Erinnerung, Snooze, Ruhezeit, frei, Tagesziel. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">DeskBreak</string>
+
+    <!-- Navigation -->
+    <string name="nav_today">Heute</string>
+    <string name="nav_history">Verlauf</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="title_today">DeskBreak</string>
+    <string name="title_history">Verlauf</string>
+    <string name="title_settings">Einstellungen der Uhr</string>
+
+    <!-- Allgemein -->
+    <string name="loading">Wird geladen …</string>
+    <string name="no_value">–</string>
+    <string name="percent_value">%1$d %%</string>
+    <string name="minutes_value">%1$d min</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="apply">Übernehmen</string>
+    <string name="retry">Erneut senden</string>
+    <plurals name="breaks_count">
+        <item quantity="one">%d Pause</item>
+        <item quantity="other">%d Pausen</item>
+    </plurals>
+    <plurals name="steps_count">
+        <item quantity="one">%d Schritt</item>
+        <item quantity="other">%d Schritte</item>
+    </plurals>
+    <!-- Zeiten auf dem Handy: %1$s = Uhrzeit -->
+    <string name="datetime_today">heute, %1$s</string>
+    <string name="datetime_yesterday">gestern, %1$s</string>
+    <!-- %1$s = Datum, %2$s = Uhrzeit -->
+    <string name="datetime_date">%1$s, %2$s</string>
+
+    <!-- Abgleich -->
+    <string name="sync_title">Abgleich mit der Uhr</string>
+    <string name="sync_last">Zuletzt abgeglichen: %1$s</string>
+    <string name="sync_never">Noch nicht abgeglichen</string>
+    <string name="sync_now">Jetzt abgleichen</string>
+    <string name="sync_running">Frage die Uhr nach ihrem aktuellen Stand …</string>
+    <string name="problem_play_services">Auf diesem Handy fehlen die Google Play-Dienste oder sind veraltet.</string>
+    <string name="problem_wear_api">Dieses Handy hat keine Wear-OS-Verbindung. Installiere die Begleit-App deiner Uhr und richte sie ein.</string>
+    <string name="problem_no_watch">Keine Uhr verbunden. Prüfe Bluetooth und die Begleit-App deiner Uhr.</string>
+    <string name="problem_app_missing">DeskBreak ist auf der Uhr nicht installiert. Installiere es über den Play Store der Uhr.</string>
+    <string name="problem_no_data">Noch keine Daten – öffne DeskBreak auf der Uhr.</string>
+    <string name="problem_no_answer">Die Uhr hat keine neuen Daten geschickt. Angezeigt wird der zuletzt abgeglichene Stand.</string>
+    <string name="problem_too_new">Die Uhr nutzt ein neueres Datenformat. Bitte aktualisiere DeskBreak auf dem Handy.</string>
+    <string name="problem_invalid">Die Daten der Uhr ließen sich nicht lesen.</string>
+    <string name="problem_timeout">Die Verbindung hat nicht rechtzeitig geantwortet. Bitte versuch es noch einmal.</string>
+    <string name="problem_rejected">Die Uhr hat die Sicherung abgelehnt.</string>
+    <!-- %1$s = Meldung der Uhr -->
+    <string name="problem_rejected_message">Die Uhr hat die Sicherung abgelehnt: %1$s</string>
+    <string name="problem_failed">Verbindungsfehler. Bitte versuch es noch einmal.</string>
+    <!-- %1$d = Statuscode der Play-Dienste -->
+    <string name="problem_failed_code">Verbindungsfehler (Code %1$d). Bitte versuch es noch einmal.</string>
+
+    <!-- Leere Zustände -->
+    <string name="empty_title">Noch keine Daten von der Uhr</string>
+    <string name="empty_syncing">Warte auf die Uhr …</string>
+    <string name="empty_hint">Sobald die Uhr ihre Daten geschickt hat, siehst du hier die heutigen Pausen, deine Regelmäßigkeit und die letzten 7 Tage.</string>
+    <string name="history_empty_hint">Die letzten Wochen erscheinen hier, sobald die Uhr ihre Daten geschickt hat.</string>
+
+    <!-- Status der Uhr -->
+    <string name="status_title">Auf der Uhr</string>
+    <!-- %1$s = Uhrzeit, zu der die Uhr den Stand erzeugt hat -->
+    <string name="status_as_of">Stand %1$s – für den aktuellen Status abgleichen</string>
+    <string name="status_off">Erinnerungen aus</string>
+    <string name="status_off_hint">In den Einstellungen einschalten.</string>
+    <string name="status_no_days">Kein Tag aktiv</string>
+    <string name="status_no_days_hint">Im Zeitplan einen Tag einschalten.</string>
+    <string name="status_paused">Pausiert</string>
+    <string name="status_paused_until">Bis %1$s</string>
+    <string name="status_off_hours">Ruhezeit</string>
+    <string name="status_day_off">Heute frei</string>
+    <string name="status_day_done">Für heute geschafft</string>
+    <string name="status_day_done_hint">Ruhezeit ab %1$s</string>
+    <string name="status_next_reminder">Nächste Erinnerung um %1$s</string>
+    <string name="status_snoozed_until">Snooze bis %1$s</string>
+    <string name="status_remaining">in %1$d min</string>
+    <string name="status_remaining_now">gleich</string>
+    <string name="status_unknown">Wird geplant …</string>
+    <string name="status_unknown_hint">Abgleichen, um zu sehen, wann die nächste Erinnerung fällig ist.</string>
+    <!-- %1$s = Uhrzeit, zu der die Erinnerung fällig war -->
+    <string name="status_pending">Erinnerung offen seit %1$s – beweg dich!</string>
+    <string name="resume_today">Weiter um %1$s</string>
+    <string name="resume_tomorrow">Weiter morgen um %1$s</string>
+    <!-- %1$s = Wochentag (z. B. „Montag") oder kurzes Datum, %2$s = Uhrzeit -->
+    <string name="resume_on">Weiter am %1$s um %2$s</string>
+    <string name="resume_next_week">Weiter nächsten %1$s um %2$s</string>
+
+    <!-- Heute -->
+    <string name="today_title">Heute</string>
+    <!-- %1$d = heutige Pausen, %2$d = Tagesziel -->
+    <string name="today_goal_value">%1$d / %2$d</string>
+    <!-- Menge = Tagesziel; steht hinter „5 / 8" -->
+    <plurals name="today_breaks_label">
+        <item quantity="one">Pause</item>
+        <item quantity="other">Pausen</item>
+    </plurals>
+    <!-- Menge = Tagesziel; %1$d = heutige Pausen, %2$d = Tagesziel -->
+    <plurals name="cd_today_progress">
+        <item quantity="one">Heute %1$d von %2$d Pause</item>
+        <item quantity="other">Heute %1$d von %2$d Pausen</item>
+    </plurals>
+    <string name="today_goal_reached">Tagesziel erreicht ✓</string>
+    <plurals name="today_goal_remaining">
+        <item quantity="one">Noch %d Pause bis zum Tagesziel</item>
+        <item quantity="other">Noch %d Pausen bis zum Tagesziel</item>
+    </plurals>
+    <string name="today_regularity">regelmäßig</string>
+    <string name="today_missed">verpasst</string>
+    <string name="today_snoozes">Snooze</string>
+    <string name="today_streak">Serie</string>
+    <string name="today_nothing_due">Heute noch nichts fällig. Serie = erfolgreiche Intervalle hintereinander.</string>
+    <string name="week_title">Letzte 7 Tage</string>
+    <!-- %1$s = Regelmäßigkeit (z. B. „78 %"), %2$s = Pausen (z. B. „34 Pausen") -->
+    <string name="week_subtitle">Ø %1$s regelmäßig · %2$s</string>
+    <!-- %1$d = Tagesziel, %2$s = die Tage -->
+    <string name="cd_week_chart">Pausen der letzten 7 Tage, Tagesziel %1$d: %2$s</string>
+    <!-- %1$s = Datum, %2$s = Pausen, %3$d = verpasste Erinnerungen; „verpasst" ist unveränderlich -->
+    <string name="cd_week_day" tools:ignore="PluralsCandidate">%1$s: %2$s, %3$d verpasst</string>
+    <string name="legend_breaks">Pausen</string>
+    <string name="legend_missed">Verpasst</string>
+    <string name="legend_goal_line">Tagesziel (%1$d)</string>
+
+    <!-- Verlauf -->
+    <string name="history_calendar_title">Letzte 5 Wochen</string>
+    <!-- Menge = Tage mit Daten; %1$d = Tage mit erreichtem Ziel, %2$d = Tage mit Daten, %3$d = Tagesziel -->
+    <plurals name="history_calendar_subtitle">
+        <item quantity="one">Tagesziel von %3$d Pausen an %1$d von %2$d Tag erreicht</item>
+        <item quantity="other">Tagesziel von %3$d Pausen an %1$d von %2$d Tagen erreicht</item>
+    </plurals>
+    <!-- %1$s = Zusammenfassung (history_calendar_subtitle) -->
+    <string name="cd_calendar">Kalender der letzten 5 Wochen. %1$s. Die Liste darunter nennt jeden Tag.</string>
+    <string name="legend_no_breaks">Keine Pausen</string>
+    <string name="legend_some_breaks">Einige Pausen</string>
+    <string name="legend_goal_reached">Ziel erreicht</string>
+    <string name="legend_only_missed">Nur verpasst</string>
+    <string name="history_time_title">Tageszeit</string>
+    <string name="history_time_subtitle">Letzte 30 Tage</string>
+    <string name="history_time_empty">Noch zu wenige Daten (letzte 30 Tage)</string>
+    <string name="history_time_best">Am besten</string>
+    <string name="history_time_worst">Am schwächsten</string>
+    <!-- %1$s = Stunde, %2$s = folgende Stunde -->
+    <string name="history_time_hours">%1$s–%2$s Uhr</string>
+    <!-- Menge = fällige Intervalle; %1$d = Quote, %2$d = fällige Intervalle -->
+    <plurals name="history_time_rate">
+        <item quantity="one">%1$d %% von %2$d Intervall</item>
+        <item quantity="other">%1$d %% von %2$d Intervallen</item>
+    </plurals>
+    <string name="history_days_title">Letzte 30 Tage</string>
+    <!-- %1$s = Datum -->
+    <string name="history_day_today">%1$s (heute)</string>
+    <!-- %1$s = Pausen (z. B. „6 Pausen"), %2$d = verpasste Erinnerungen; „verpasst" ist unveränderlich -->
+    <string name="history_day_detail" tools:ignore="PluralsCandidate">%1$s · %2$d verpasst</string>
+    <string name="history_day_no_data">Keine Daten</string>
+
+    <!-- Einstellungen: Senden -->
+    <string name="send_idle">Änderungen gehen sofort an die Uhr.</string>
+    <string name="send_sending">Wird an die Uhr gesendet …</string>
+    <string name="send_waiting">Warte auf die Bestätigung der Uhr …</string>
+    <string name="send_confirmed">Auf der Uhr gespeichert ✓</string>
+    <string name="send_unconfirmed">Die Uhr hat die Änderung noch nicht bestätigt. Vielleicht ist sie nicht in Reichweite.</string>
+    <!-- %1$s = Grund -->
+    <string name="send_failed">Die Änderung wurde nicht gesendet. %1$s</string>
+    <string name="settings_empty">Gleiche zuerst mit der Uhr ab – dann erscheinen hier ihre Einstellungen.</string>
+    <string name="settings_empty_hint">Eine Sicherung kannst du unten trotzdem wiederherstellen.</string>
+
+    <!-- Einstellungen: Erinnerungen -->
+    <string name="settings_section_reminders">Erinnerungen</string>
+    <string name="settings_enabled">Erinnerungen</string>
+    <string name="settings_enabled_on">Aktiv</string>
+    <string name="settings_enabled_off">Aus</string>
+    <string name="settings_interval">Intervall</string>
+    <string name="settings_interval_hint">Zeit zwischen zwei Erinnerungen</string>
+    <string name="cd_interval_decrease">Intervall verringern</string>
+    <string name="cd_interval_increase">Intervall erhöhen</string>
+    <string name="settings_goal">Tagesziel</string>
+    <string name="settings_goal_hint">Pausen pro Tag</string>
+    <string name="cd_goal_decrease">Tagesziel verringern</string>
+    <string name="cd_goal_increase">Tagesziel erhöhen</string>
+
+    <!-- Einstellungen: Pause -->
+    <string name="settings_section_pause">Pausieren</string>
+    <string name="pause_hint">Eine Weile keine Erinnerungen, z. B. während eines Meetings.</string>
+    <string name="pause_hint_disabled">Die Erinnerungen sind aus.</string>
+    <string name="pause_one_hour">1 Stunde</string>
+    <string name="pause_rest_of_day">Rest des Tages</string>
+    <string name="pause_end">Jetzt fortsetzen</string>
+    <string name="pause_until_today">Pausiert bis %1$s</string>
+    <string name="pause_until_tomorrow">Pausiert bis morgen, %1$s</string>
+    <!-- %1$s = Datum, %2$s = Uhrzeit -->
+    <string name="pause_until_date">Pausiert bis %1$s, %2$s</string>
+
+    <!-- Einstellungen: Zeitplan -->
+    <string name="settings_section_schedule">Zeitplan</string>
+    <string name="schedule_hint">Erinnert wird nur an aktiven Tagen in diesen Zeiten, sonst ist Ruhezeit.</string>
+    <string name="schedule_day_off">Frei</string>
+    <string name="schedule_start_label">Aktiv ab</string>
+    <string name="schedule_end_label">Aktiv bis</string>
+    <!-- %1$s = Wochentag -->
+    <string name="cd_day_toggle">Erinnerungen am %1$s</string>
+    <!-- %1$s = Wochentag, %2$s = Uhrzeit -->
+    <string name="cd_day_start">%1$s, aktiv ab %2$s. Ändern</string>
+    <string name="cd_day_end">%1$s, aktiv bis %2$s. Ändern</string>
+    <string name="schedule_issue_no_day">Kein Tag aktiv – die Uhr erinnert nicht.</string>
+    <!-- %1$s = Ende -->
+    <string name="schedule_issue_start">Muss mindestens 15 Minuten vor dem Ende (%1$s) liegen.</string>
+    <!-- %1$s = Beginn -->
+    <string name="schedule_issue_end">Muss mindestens 15 Minuten nach dem Beginn (%1$s) liegen.</string>
+    <!-- %1$s = Wochentag, %2$s = „Aktiv ab" / „Aktiv bis" -->
+    <string name="time_dialog_title">%1$s · %2$s</string>
+    <string name="time_dialog_steps">Uhrzeiten gelten in 15-Minuten-Schritten.</string>
+    <!-- %1$s = gerundete Uhrzeit -->
+    <string name="time_dialog_snapped">Wird als %1$s gespeichert (15-Minuten-Schritte).</string>
+    <string name="time_dialog_midnight">Bis Mitternacht (24:00).</string>
+    <string name="time_dialog_keyboard">Eintippen</string>
+    <string name="time_dialog_dial">Zifferblatt</string>
+
+    <!-- Einstellungen: Erinnerung -->
+    <string name="settings_section_reminder">Erinnerung</string>
+    <string name="settings_snooze">Snooze</string>
+    <string name="settings_snooze_hint">Minuten, bis die Erinnerung wiederkommt</string>
+    <string name="settings_vibration">Vibration</string>
+    <string name="vibration_off">Aus</string>
+    <string name="vibration_light">Sanft</string>
+    <string name="vibration_medium">Mittel</string>
+    <string name="vibration_strong">Stark</string>
+    <string name="settings_quiet">Ruhemodi beachten</string>
+    <string name="settings_quiet_hint">Nicht stören, Schlafenszeit, Kino</string>
+    <string name="settings_worn">Nur am Handgelenk</string>
+    <string name="settings_worn_hint">Nicht erinnern, wenn abgelegt</string>
+
+    <!-- Einstellungen: Auto-Schritte -->
+    <string name="settings_section_steps">Auto-Schritte</string>
+    <string name="settings_auto_steps">Auto-Schritte</string>
+    <string name="settings_auto_steps_hint">Gehen zählt als Pause und setzt den Timer zurück</string>
+    <string name="settings_threshold">Schritte für eine Pause</string>
+    <string name="settings_threshold_hint">Innerhalb von 2 Minuten</string>
+
+    <!-- Einstellungen: Daten -->
+    <string name="settings_section_data">Daten</string>
+    <string name="data_export_csv">CSV exportieren</string>
+    <string name="data_export_csv_hint">Alle Pausen und Erinnerungen als Tabelle</string>
+    <string name="data_export_backup">Sicherung exportieren</string>
+    <string name="data_export_backup_hint">Einstellungen und Verlauf der Uhr (bis zu 400 Tage) als Datei</string>
+    <string name="data_restore">Sicherung wiederherstellen</string>
+    <string name="data_restore_hint">Ersetzt Einstellungen und Verlauf auf der Uhr</string>
+    <string name="data_no_snapshot">Exportieren geht, sobald die Uhr ihre Daten geschickt hat.</string>
+    <string name="file_busy">Datei wird bearbeitet …</string>
+    <string name="restore_confirm_title">Sicherung wiederherstellen?</string>
+    <!-- Menge = Einträge; %1$s = Datum der Sicherung, %2$d = Einträge, %3$s = erster Tag, %4$s = letzter Tag -->
+    <plurals name="restore_confirm_body">
+        <item quantity="one">Die Sicherung vom %1$s enthält %2$d Eintrag (%3$s – %4$s).</item>
+        <item quantity="other">Die Sicherung vom %1$s enthält %2$d Einträge (%3$s – %4$s).</item>
+    </plurals>
+    <!-- %1$s = Datum der Sicherung -->
+    <string name="restore_confirm_body_empty">Die Sicherung vom %1$s enthält keine Einträge.</string>
+    <string name="restore_confirm_warning">Einstellungen und Verlauf auf der Uhr werden ersetzt.</string>
+    <string name="restore_confirm">Wiederherstellen</string>
+    <string name="restore_sending">Sicherung wird an die Uhr gesendet …</string>
+    <string name="restore_waiting">Warte auf die Uhr …</string>
+    <plurals name="restore_done">
+        <item quantity="one">Auf der Uhr wiederhergestellt: %d Eintrag ✓</item>
+        <item quantity="other">Auf der Uhr wiederhergestellt: %d Einträge ✓</item>
+    </plurals>
+    <!-- %1$s = Grund -->
+    <string name="restore_failed">Wiederherstellung fehlgeschlagen. %1$s</string>
+
+    <!-- Meldungen -->
+    <string name="message_csv_exported">CSV exportiert</string>
+    <string name="message_backup_exported">Sicherung gespeichert</string>
+    <string name="message_export_failed">Die Datei konnte nicht gespeichert werden</string>
+    <string name="message_nothing_to_export">Noch keine Daten von der Uhr</string>
+    <string name="message_backup_unreadable">Diese Datei ist keine DeskBreak-Sicherung</string>
+    <string name="message_backup_too_new">Diese Sicherung stammt aus einer neueren DeskBreak-Version. Bitte aktualisiere die App.</string>
+    <string name="message_backup_too_large">Die Datei ist zu groß für eine Sicherung</string>
+    <string name="message_read_failed">Die Datei konnte nicht gelesen werden</string>
+    <string name="message_no_file_app">Keine App zum Speichern oder Öffnen von Dateien gefunden</string>
 </resources>

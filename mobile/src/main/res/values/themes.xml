@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fenster-Theme bis Compose zeichnet; die Farben setzt danach DeskBreakPhoneTheme. -->
+    <style name="Theme.DeskBreakPhone" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

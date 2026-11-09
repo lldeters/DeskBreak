@@ -1,5 +1,282 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- English (default); German is in values-de. -->
-<resources>
+<!-- English (default); German is in values-de. Terms as on the watch: break, reminder, snooze, off hours, day off, daily goal. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">DeskBreak</string>
+
+    <!-- Navigation -->
+    <string name="nav_today">Today</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+    <string name="title_today">DeskBreak</string>
+    <string name="title_history">History</string>
+    <string name="title_settings">Watch settings</string>
+
+    <!-- General -->
+    <string name="loading">Loading …</string>
+    <string name="no_value">–</string>
+    <string name="percent_value">%1$d %%</string>
+    <string name="minutes_value">%1$d min</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="apply">Apply</string>
+    <string name="retry">Retry</string>
+    <plurals name="breaks_count">
+        <item quantity="one">%d break</item>
+        <item quantity="other">%d breaks</item>
+    </plurals>
+    <plurals name="steps_count">
+        <item quantity="one">%d step</item>
+        <item quantity="other">%d steps</item>
+    </plurals>
+    <!-- Times on the phone: %1$s = time -->
+    <string name="datetime_today">today, %1$s</string>
+    <string name="datetime_yesterday">yesterday, %1$s</string>
+    <!-- %1$s = date, %2$s = time -->
+    <string name="datetime_date">%1$s, %2$s</string>
+
+    <!-- Sync -->
+    <string name="sync_title">Sync with the watch</string>
+    <string name="sync_last">Last synced %1$s</string>
+    <string name="sync_never">Not synced yet</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_running">Asking the watch for its latest data …</string>
+    <string name="problem_play_services">Google Play services are missing or out of date on this phone.</string>
+    <string name="problem_wear_api">This phone has no Wear OS connection. Install and set up your watch\'s companion app.</string>
+    <string name="problem_no_watch">No watch connected. Check Bluetooth and your watch\'s companion app.</string>
+    <string name="problem_app_missing">DeskBreak is not installed on the watch. Install it from the Play Store on the watch.</string>
+    <string name="problem_no_data">No data yet – open DeskBreak on the watch.</string>
+    <string name="problem_no_answer">The watch did not send new data. Showing the last synced state.</string>
+    <string name="problem_too_new">The watch uses a newer data format. Please update DeskBreak on this phone.</string>
+    <string name="problem_invalid">The data from the watch could not be read.</string>
+    <string name="problem_timeout">The connection did not respond in time. Please try again.</string>
+    <string name="problem_rejected">The watch rejected the backup.</string>
+    <!-- %1$s = message from the watch -->
+    <string name="problem_rejected_message">The watch rejected the backup: %1$s</string>
+    <string name="problem_failed">Connection error. Please try again.</string>
+    <!-- %1$d = Play services status code -->
+    <string name="problem_failed_code">Connection error (code %1$d). Please try again.</string>
+
+    <!-- Empty states -->
+    <string name="empty_title">No data from the watch yet</string>
+    <string name="empty_syncing">Waiting for the watch …</string>
+    <string name="empty_hint">As soon as the watch has sent its data, you will see today\'s breaks, your regularity and the last 7 days here.</string>
+    <string name="history_empty_hint">The last weeks appear here once the watch has sent its data.</string>
+
+    <!-- Watch status -->
+    <string name="status_title">On the watch</string>
+    <!-- %1$s = time the watch created the data -->
+    <string name="status_as_of">As of %1$s – sync for the current status</string>
+    <string name="status_off">Reminders off</string>
+    <string name="status_off_hint">Turn them on in the settings.</string>
+    <string name="status_no_days">No day active</string>
+    <string name="status_no_days_hint">Turn on a day in the schedule.</string>
+    <string name="status_paused">Paused</string>
+    <string name="status_paused_until">Until %1$s</string>
+    <string name="status_off_hours">Off hours</string>
+    <string name="status_day_off">Day off today</string>
+    <string name="status_day_done">Done for today</string>
+    <string name="status_day_done_hint">Off hours from %1$s</string>
+    <string name="status_next_reminder">Next reminder at %1$s</string>
+    <string name="status_snoozed_until">Snoozed until %1$s</string>
+    <string name="status_remaining">in %1$d min</string>
+    <string name="status_remaining_now">soon</string>
+    <string name="status_unknown">Planning …</string>
+    <string name="status_unknown_hint">Sync to see when the next reminder is due.</string>
+    <!-- %1$s = time the reminder was due -->
+    <string name="status_pending">Reminder open since %1$s – get moving!</string>
+    <string name="resume_today">Back at %1$s</string>
+    <string name="resume_tomorrow">Back tomorrow at %1$s</string>
+    <!-- %1$s = weekday (e.g. "Monday") or short date, %2$s = time -->
+    <string name="resume_on">Back on %1$s at %2$s</string>
+    <string name="resume_next_week">Back next %1$s at %2$s</string>
+
+    <!-- Today -->
+    <string name="today_title">Today</string>
+    <!-- %1$d = breaks today, %2$d = daily goal -->
+    <string name="today_goal_value">%1$d / %2$d</string>
+    <!-- Quantity = daily goal; shown after "5 / 8" -->
+    <plurals name="today_breaks_label">
+        <item quantity="one">break</item>
+        <item quantity="other">breaks</item>
+    </plurals>
+    <!-- Quantity = daily goal; %1$d = breaks today, %2$d = daily goal -->
+    <plurals name="cd_today_progress">
+        <item quantity="one">Today %1$d of %2$d break</item>
+        <item quantity="other">Today %1$d of %2$d breaks</item>
+    </plurals>
+    <string name="today_goal_reached">Daily goal reached ✓</string>
+    <plurals name="today_goal_remaining">
+        <item quantity="one">%d more break to reach the daily goal</item>
+        <item quantity="other">%d more breaks to reach the daily goal</item>
+    </plurals>
+    <string name="today_regularity">regular</string>
+    <string name="today_missed">missed</string>
+    <string name="today_snoozes">snoozed</string>
+    <string name="today_streak">streak</string>
+    <string name="today_nothing_due">Nothing due yet today. Streak = successful intervals in a row.</string>
+    <string name="week_title">Last 7 days</string>
+    <!-- %1$s = regularity (e.g. "78 %"), %2$s = breaks (e.g. "34 breaks") -->
+    <string name="week_subtitle">Ø %1$s regular · %2$s</string>
+    <!-- %1$d = daily goal, %2$s = the days -->
+    <string name="cd_week_chart">Breaks in the last 7 days, daily goal %1$d: %2$s</string>
+    <!-- %1$s = date, %2$s = breaks, %3$d = missed reminders -->
+    <string name="cd_week_day" tools:ignore="PluralsCandidate">%1$s: %2$s, %3$d missed</string>
+    <string name="legend_breaks">Breaks</string>
+    <string name="legend_missed">Missed</string>
+    <string name="legend_goal_line">Daily goal (%1$d)</string>
+
+    <!-- History -->
+    <string name="history_calendar_title">Last 5 weeks</string>
+    <!-- Quantity = days with data; %1$d = days with the goal reached, %2$d = days with data, %3$d = daily goal -->
+    <plurals name="history_calendar_subtitle">
+        <item quantity="one">Daily goal of %3$d breaks reached on %1$d of %2$d day</item>
+        <item quantity="other">Daily goal of %3$d breaks reached on %1$d of %2$d days</item>
+    </plurals>
+    <!-- %1$s = summary (history_calendar_subtitle) -->
+    <string name="cd_calendar">Calendar of the last 5 weeks. %1$s. The list below shows every day.</string>
+    <string name="legend_no_breaks">No breaks</string>
+    <string name="legend_some_breaks">Some breaks</string>
+    <string name="legend_goal_reached">Goal reached</string>
+    <string name="legend_only_missed">Only missed</string>
+    <string name="history_time_title">Time of day</string>
+    <string name="history_time_subtitle">Last 30 days</string>
+    <string name="history_time_empty">Not enough data yet (last 30 days)</string>
+    <string name="history_time_best">Best</string>
+    <string name="history_time_worst">Weakest</string>
+    <!-- %1$s = hour, %2$s = next hour -->
+    <string name="history_time_hours">%1$s–%2$s</string>
+    <!-- Quantity = due intervals; %1$d = rate, %2$d = due intervals -->
+    <plurals name="history_time_rate">
+        <item quantity="one">%1$d %% of %2$d interval</item>
+        <item quantity="other">%1$d %% of %2$d intervals</item>
+    </plurals>
+    <string name="history_days_title">Last 30 days</string>
+    <!-- %1$s = date -->
+    <string name="history_day_today">%1$s (today)</string>
+    <!-- %1$s = breaks (e.g. "6 breaks"), %2$d = missed reminders -->
+    <string name="history_day_detail" tools:ignore="PluralsCandidate">%1$s · %2$d missed</string>
+    <string name="history_day_no_data">No data</string>
+
+    <!-- Settings: sending -->
+    <string name="send_idle">Changes are sent to the watch right away.</string>
+    <string name="send_sending">Sending to the watch …</string>
+    <string name="send_waiting">Waiting for the watch to confirm …</string>
+    <string name="send_confirmed">Saved on the watch ✓</string>
+    <string name="send_unconfirmed">The watch has not confirmed the change yet. It may be out of reach.</string>
+    <!-- %1$s = reason -->
+    <string name="send_failed">The change was not sent. %1$s</string>
+    <string name="settings_empty">Sync with the watch first – its settings appear here.</string>
+    <string name="settings_empty_hint">You can still restore a backup below.</string>
+
+    <!-- Settings: reminders -->
+    <string name="settings_section_reminders">Reminders</string>
+    <string name="settings_enabled">Reminders</string>
+    <string name="settings_enabled_on">On</string>
+    <string name="settings_enabled_off">Off</string>
+    <string name="settings_interval">Interval</string>
+    <string name="settings_interval_hint">Time between two reminders</string>
+    <string name="cd_interval_decrease">Shorter interval</string>
+    <string name="cd_interval_increase">Longer interval</string>
+    <string name="settings_goal">Daily goal</string>
+    <string name="settings_goal_hint">Breaks per day</string>
+    <string name="cd_goal_decrease">Lower daily goal</string>
+    <string name="cd_goal_increase">Raise daily goal</string>
+
+    <!-- Settings: pause -->
+    <string name="settings_section_pause">Pause</string>
+    <string name="pause_hint">No reminders for a while, e.g. during a meeting.</string>
+    <string name="pause_hint_disabled">Reminders are off.</string>
+    <string name="pause_one_hour">1 hour</string>
+    <string name="pause_rest_of_day">Rest of the day</string>
+    <string name="pause_end">Resume now</string>
+    <string name="pause_until_today">Paused until %1$s</string>
+    <string name="pause_until_tomorrow">Paused until tomorrow, %1$s</string>
+    <!-- %1$s = date, %2$s = time -->
+    <string name="pause_until_date">Paused until %1$s, %2$s</string>
+
+    <!-- Settings: schedule -->
+    <string name="settings_section_schedule">Schedule</string>
+    <string name="schedule_hint">Reminders only on active days within these times; off hours otherwise.</string>
+    <string name="schedule_day_off">Day off</string>
+    <string name="schedule_start_label">Active from</string>
+    <string name="schedule_end_label">Active until</string>
+    <!-- %1$s = weekday -->
+    <string name="cd_day_toggle">Reminders on %1$s</string>
+    <!-- %1$s = weekday, %2$s = time -->
+    <string name="cd_day_start">%1$s, active from %2$s. Change</string>
+    <string name="cd_day_end">%1$s, active until %2$s. Change</string>
+    <string name="schedule_issue_no_day">No day active – the watch will not remind you.</string>
+    <!-- %1$s = end time -->
+    <string name="schedule_issue_start">Must be at least 15 minutes before the end (%1$s).</string>
+    <!-- %1$s = start time -->
+    <string name="schedule_issue_end">Must be at least 15 minutes after the start (%1$s).</string>
+    <!-- %1$s = weekday, %2$s = "Active from" / "Active until" -->
+    <string name="time_dialog_title">%1$s · %2$s</string>
+    <string name="time_dialog_steps">Times are set in 15-minute steps.</string>
+    <!-- %1$s = rounded time -->
+    <string name="time_dialog_snapped">Will be saved as %1$s (15-minute steps).</string>
+    <string name="time_dialog_midnight">Until midnight (24:00).</string>
+    <string name="time_dialog_keyboard">Type in</string>
+    <string name="time_dialog_dial">Clock</string>
+
+    <!-- Settings: reminder -->
+    <string name="settings_section_reminder">Reminder</string>
+    <string name="settings_snooze">Snooze</string>
+    <string name="settings_snooze_hint">Minutes until the reminder comes back</string>
+    <string name="settings_vibration">Vibration</string>
+    <string name="vibration_off">Off</string>
+    <string name="vibration_light">Light</string>
+    <string name="vibration_medium">Medium</string>
+    <string name="vibration_strong">Strong</string>
+    <string name="settings_quiet">Respect quiet modes</string>
+    <string name="settings_quiet_hint">Do not disturb, bedtime, theater</string>
+    <string name="settings_worn">Only on the wrist</string>
+    <string name="settings_worn_hint">No reminders when taken off</string>
+
+    <!-- Settings: auto steps -->
+    <string name="settings_section_steps">Auto steps</string>
+    <string name="settings_auto_steps">Auto steps</string>
+    <string name="settings_auto_steps_hint">Walking counts as a break and resets the timer</string>
+    <string name="settings_threshold">Steps for a break</string>
+    <string name="settings_threshold_hint">Within 2 minutes</string>
+
+    <!-- Settings: data -->
+    <string name="settings_section_data">Data</string>
+    <string name="data_export_csv">Export CSV</string>
+    <string name="data_export_csv_hint">All breaks and reminders as a table</string>
+    <string name="data_export_backup">Export backup</string>
+    <string name="data_export_backup_hint">Settings and history from the watch (up to 400 days) as a file</string>
+    <string name="data_restore">Restore backup</string>
+    <string name="data_restore_hint">Replaces the settings and history on the watch</string>
+    <string name="data_no_snapshot">Export becomes available once the watch has sent its data.</string>
+    <string name="file_busy">Working on the file …</string>
+    <string name="restore_confirm_title">Restore backup?</string>
+    <!-- Quantity = entries; %1$s = date of the backup, %2$d = entries, %3$s = first day, %4$s = last day -->
+    <plurals name="restore_confirm_body">
+        <item quantity="one">The backup from %1$s contains %2$d entry (%3$s – %4$s).</item>
+        <item quantity="other">The backup from %1$s contains %2$d entries (%3$s – %4$s).</item>
+    </plurals>
+    <!-- %1$s = date of the backup -->
+    <string name="restore_confirm_body_empty">The backup from %1$s contains no entries.</string>
+    <string name="restore_confirm_warning">The settings and the history on the watch will be replaced.</string>
+    <string name="restore_confirm">Restore</string>
+    <string name="restore_sending">Sending the backup to the watch …</string>
+    <string name="restore_waiting">Waiting for the watch …</string>
+    <plurals name="restore_done">
+        <item quantity="one">Restored on the watch: %d entry ✓</item>
+        <item quantity="other">Restored on the watch: %d entries ✓</item>
+    </plurals>
+    <!-- %1$s = reason -->
+    <string name="restore_failed">Restore failed. %1$s</string>
+
+    <!-- Messages -->
+    <string name="message_csv_exported">CSV exported</string>
+    <string name="message_backup_exported">Backup saved</string>
+    <string name="message_export_failed">The file could not be saved</string>
+    <string name="message_nothing_to_export">No data from the watch yet</string>
+    <string name="message_backup_unreadable">This file is not a DeskBreak backup</string>
+    <string name="message_backup_too_new">This backup is from a newer DeskBreak version. Please update the app.</string>
+    <string name="message_backup_too_large">The file is too large for a backup</string>
+    <string name="message_read_failed">The file could not be read</string>
+    <string name="message_no_file_app">No app found for saving or opening files</string>
 </resources>
