@@ -112,6 +112,28 @@
                 android:value="300" />
         </service>
 
+        <!-- Abgleich mit der Handy-App über den Wearable Data Layer: Anfragen und Einstellungen per Message,
+             Wiederherstellungen als DataItem. Die Play-Dienste binden den Dienst und stellen nur Daten der App
+             mit derselben applicationId und Signatur zu. -->
+        <service
+            android:name=".sync.WatchSyncService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/deskbreak/"
+                    android:scheme="wear" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/deskbreak/restore/"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
+
         <!-- Die App zeigt keine Emojis: EmojiCompat nicht beim Start laden. Spart das Nachladen der
              Emoji-Schrift und den Frame, in dem danach alle sichtbaren Texte neu vermessen werden.
              Die übrigen Initializer (u. a. ProfileInstaller) bleiben aktiv. -->

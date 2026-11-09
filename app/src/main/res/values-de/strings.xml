@@ -307,4 +307,8 @@
     <string name="notification_tracking_title">Schritterkennung aktiv</string>
     <string name="notification_tracking_text">Gehen setzt den Timer automatisch zurück.</string>
     <string name="ongoing_status">Schritterkennung aktiv</string>
+
+    <!-- Abgleich mit der Handy-App (Antwort auf eine Wiederherstellung; das Handy zeigt sie ggf. an) -->
+    <string name="sync_restore_unreadable">Die Sicherung ist nicht lesbar – beschädigt oder von einer neueren App-Version. Es wurde nichts geändert.</string>
+    <string name="sync_restore_not_saved">Die Sicherung konnte auf der Uhr nicht gespeichert werden.</string>
 </resources>

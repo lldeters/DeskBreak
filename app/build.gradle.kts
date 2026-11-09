@@ -102,6 +102,11 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.profileinstaller)
 
+    // Abgleich mit der Handy-App über den Wearable Data Layer (optional: die Uhr läuft auch ohne Handy).
+    implementation(project(":shared"))
+    implementation(libs.play.services.wearable)
+    implementation(libs.kotlinx.coroutines.play.services)
+
     // Erzeugt das Baseline-Profil auf einer verbundenen Uhr: ./gradlew :app:generateBaselineProfile
     baselineProfile(project(":baselineprofile"))
 

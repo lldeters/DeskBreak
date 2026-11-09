@@ -54,6 +54,8 @@ class ReminderViewModel(
     private val alarmScheduler: AlarmScheduler,
     /** Für die Probevibration beim Wechsel der Stärke. */
     private val alerts: ReminderAlerts,
+    /** Nach Änderungen an der Historie (Demo-Daten, Löschen), z. B. für den Abgleich mit dem Handy. */
+    private val onHistoryChanged: () -> Unit = {},
 ) : ViewModel() {
 
     private val zone: ZoneId get() = ZoneId.systemDefault()
@@ -265,11 +267,15 @@ class ReminderViewModel(
         // Default: Kann der erste Datenbankzugriff sein (Room-Aufbau) und erzeugt Daten im Speicher.
         viewModelScope.launch(Dispatchers.Default) {
             demoDataSeeder.seedLastSevenDays(settingsRepository.currentSettings())
+            onHistoryChanged()
         }
     }
 
     fun clearHistory() {
-        viewModelScope.launch(Dispatchers.Default) { movementRepository.clearAll() }
+        viewModelScope.launch(Dispatchers.Default) {
+            movementRepository.clearAll()
+            onHistoryChanged()
+        }
     }
 
     private fun readSystemStatus() = SystemStatus(
@@ -296,6 +302,8 @@ class ReminderViewModel(
                     demoDataSeeder = container.demoDataSeeder,
                     alarmScheduler = container.alarmScheduler,
                     alerts = container.notifier,
+                    // Erst beim Aufruf auflösen: Der Abgleich wird beim App-Start nicht gebraucht.
+                    onHistoryChanged = { container.watchSync.requestPublish() },
                 )
             }
         }

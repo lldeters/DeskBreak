@@ -16,7 +16,7 @@ import java.time.format.DateTimeParseException
  * Die Room-Datenbank wird erst beim ersten echten Zugriff gebaut – nicht schon, wenn ViewModel und
  * Engine beim App-Start (auf dem Main-Thread, im ersten Frame) das Repository erhalten.
  */
-class MovementRepository(daoProvider: () -> MovementDao) : MovementLog {
+class MovementRepository(daoProvider: () -> MovementDao) : MovementLog, MovementHistory {
 
     private val dao: MovementDao by lazy(daoProvider)
 
@@ -32,6 +32,10 @@ class MovementRepository(daoProvider: () -> MovementDao) : MovementLog {
     /** Ereignisse im Bereich [fromMillis, toMillis), z. B. der heutige Tag ab Mitternacht. */
     fun eventsBetween(fromMillis: Long, toMillis: Long): Flow<List<MovementEvent>> =
         dao.observeEventsBetween(fromMillis, toMillis)
+
+    override suspend fun eventsSince(fromMillis: Long): List<MovementEvent> = dao.eventsSince(fromMillis)
+
+    override suspend fun replaceAll(events: List<MovementEvent>) = dao.replaceAll(events)
 
     /** Tages-Aggregate ab [fromMillis] (z. B. die letzten 7 Tage). */
     fun dailyCountsSince(fromMillis: Long): Flow<List<DailyCounts>> =

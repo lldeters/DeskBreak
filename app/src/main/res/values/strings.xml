@@ -307,4 +307,8 @@
     <string name="notification_tracking_title">Step detection active</string>
     <string name="notification_tracking_text">Walking resets the timer automatically.</string>
     <string name="ongoing_status">Step detection active</string>
+
+    <!-- Sync with the phone app (reply to a restore; the phone may show it) -->
+    <string name="sync_restore_unreadable">The backup could not be read. It may be damaged or from a newer app version. Nothing was changed.</string>
+    <string name="sync_restore_not_saved">The backup could not be saved on the watch.</string>
 </resources>

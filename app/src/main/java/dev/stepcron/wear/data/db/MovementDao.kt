@@ -30,6 +30,10 @@ abstract class MovementDao {
     )
     abstract fun observeEventsBetween(fromMillis: Long, toMillis: Long): Flow<List<MovementEvent>>
 
+    /** Alle Ereignisse ab [fromMillis] (einschließlich), älteste zuerst – z. B. für den Abgleich mit dem Handy. */
+    @Query("SELECT * FROM movement_events WHERE timestamp >= :fromMillis ORDER BY timestamp ASC")
+    abstract suspend fun eventsSince(fromMillis: Long): List<MovementEvent>
+
     /**
      * Tageweise aggregierte Zähler ab [fromMillis] (z. B. die letzten 7 Tage).
      * Der Tag wird in der lokalen Zeitzone des Geräts gebildet.
@@ -86,6 +90,13 @@ abstract class MovementDao {
 
     @Query("DELETE FROM movement_events")
     abstract suspend fun deleteAll(): Int
+
+    /** Ersetzt die gesamte Historie atomar durch [events] (Wiederherstellung einer Sicherung). */
+    @Transaction
+    open suspend fun replaceAll(events: List<MovementEvent>) {
+        deleteAll()
+        insertAll(events)
+    }
 
     /** Ersetzt alle Ereignisse im Bereich [fromMillis, toMillis) atomar durch [events]. */
     @Transaction
