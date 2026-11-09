@@ -39,7 +39,7 @@
     <string name="home_reset_secondary">(resets the timer)</string>
     <string name="home_reset_done">Reset ✓</string>
     <string name="home_pause_label">Pause</string>
-    <string name="home_pause_secondary">Meeting, evening, vacation</string>
+    <string name="home_pause_secondary">Meeting or vacation</string>
     <string name="home_resume_label">Resume</string>
     <string name="home_resume_secondary">End the pause now</string>
     <string name="home_stats_label">Stats &amp; charts</string>
@@ -53,11 +53,7 @@
         <item quantity="one">Today – of %d break</item>
         <item quantity="other">Today – of %d breaks</item>
     </plurals>
-    <string name="home_goal_label">Daily goal</string>
-    <plurals name="home_goal_value">
-        <item quantity="one">%d break</item>
-        <item quantity="other">%d breaks</item>
-    </plurals>
+    <string name="home_goal_label">Breaks per day</string>
     <string name="cd_goal_decrease">Lower daily goal</string>
     <string name="cd_goal_increase">Raise daily goal</string>
 
@@ -106,7 +102,7 @@
     <string name="skip_reason_bedtime">Bedtime</string>
     <string name="skip_reason_theater">Theater mode</string>
     <string name="skip_reason_not_worn">Watch taken off</string>
-    <string name="reminder_settings_steps">Auto steps in 2 min</string>
+    <string name="reminder_settings_steps">Auto steps</string>
     <string name="reminder_settings_steps_value">%1$d</string>
     <string name="cd_snooze_decrease">Shorter snooze</string>
     <string name="cd_snooze_increase">Longer snooze</string>

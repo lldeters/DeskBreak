@@ -180,7 +180,7 @@ fun HomeScreen(
                         Chip(
                             onClick = onResume,
                             label = { Text(stringResource(R.string.home_resume_label), maxLines = 1) },
-                            secondaryLabel = { Text(stringResource(R.string.home_resume_secondary), maxLines = 1) },
+                            secondaryLabel = { Text(stringResource(R.string.home_resume_secondary), maxLines = 2) },
                             icon = { ChipIcon(R.drawable.ic_play) },
                             colors = ChipDefaults.primaryChipColors(),
                             modifier = Modifier.fillMaxWidth(),
@@ -191,7 +191,7 @@ fun HomeScreen(
                         Chip(
                             onClick = onOpenPause,
                             label = { Text(stringResource(R.string.home_pause_label), maxLines = 1) },
-                            secondaryLabel = { Text(stringResource(R.string.home_pause_secondary), maxLines = 1) },
+                            secondaryLabel = { Text(stringResource(R.string.home_pause_secondary), maxLines = 2) },
                             icon = { ChipIcon(R.drawable.ic_pause) },
                             colors = ChipDefaults.secondaryChipColors(),
                             modifier = Modifier.fillMaxWidth(),
@@ -236,7 +236,7 @@ fun HomeScreen(
             item(key = "goal") {
                 StepperRow(
                     label = stringResource(R.string.home_goal_label),
-                    value = pluralStringResource(R.plurals.home_goal_value, current.dailyGoal, current.dailyGoal),
+                    value = current.dailyGoal.toString(),
                     onDecrease = { onGoalStep(-1) },
                     onIncrease = { onGoalStep(1) },
                     decreaseEnabled = current.canDecreaseGoal,

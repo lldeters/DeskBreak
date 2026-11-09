@@ -39,7 +39,7 @@
     <string name="home_reset_secondary">(Timer Reset)</string>
     <string name="home_reset_done">Zurückgesetzt ✓</string>
     <string name="home_pause_label">Pausieren</string>
-    <string name="home_pause_secondary">Meeting, Feierabend, Urlaub</string>
+    <string name="home_pause_secondary">Meeting oder Urlaub</string>
     <string name="home_resume_label">Fortsetzen</string>
     <string name="home_resume_secondary">Pause jetzt beenden</string>
     <string name="home_stats_label">Auswertung &amp; Graphen</string>
@@ -53,11 +53,7 @@
         <item quantity="one">Heute – von %d Pause</item>
         <item quantity="other">Heute – von %d Pausen</item>
     </plurals>
-    <string name="home_goal_label">Tagesziel</string>
-    <plurals name="home_goal_value">
-        <item quantity="one">%d Pause</item>
-        <item quantity="other">%d Pausen</item>
-    </plurals>
+    <string name="home_goal_label">Pausen pro Tag</string>
     <string name="cd_goal_decrease">Tagesziel verringern</string>
     <string name="cd_goal_increase">Tagesziel erhöhen</string>
 
@@ -106,7 +102,7 @@
     <string name="skip_reason_bedtime">Schlafenszeit</string>
     <string name="skip_reason_theater">Kinomodus</string>
     <string name="skip_reason_not_worn">Uhr abgelegt</string>
-    <string name="reminder_settings_steps">Auto-Schritte in 2 Min</string>
+    <string name="reminder_settings_steps">Auto-Schritte</string>
     <string name="reminder_settings_steps_value">%1$d</string>
     <string name="cd_snooze_decrease">Snooze kürzer</string>
     <string name="cd_snooze_increase">Snooze länger</string>
