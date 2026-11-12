@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sicherung der Handy-App ab Android 12 (android:dataExtractionRules); bis Android 11 gilt backup_rules.xml –
+    beide Dateien gleich halten. Ohne <include> wird alles gesichert (Einstellungen, Lizenz- und Testphasen-Daten,
+    künftige Dateien) außer den hier ausgeschlossenen Caches. cache/, code_cache/ und no_backup/ sichert Android
+    ohnehin nie.
+
+    Ausgeschlossen:
+    - watch-snapshot.bin(.tmp): letzter Stand der Uhr (SnapshotCache in filesDir), kommt beim nächsten Abgleich
+      neu von der Uhr.
+    - profileInstalled, profileinstaller_profileWrittenFor_lastUpdateTime.dat: Merker von ProfileInstaller, gelten
+      nur für die Installation auf diesem Gerät.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="watch-snapshot.bin" />
+        <exclude domain="file" path="watch-snapshot.bin.tmp" />
+        <exclude domain="file" path="profileInstalled" />
+        <exclude domain="file" path="profileinstaller_profileWrittenFor_lastUpdateTime.dat" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="watch-snapshot.bin" />
+        <exclude domain="file" path="watch-snapshot.bin.tmp" />
+        <exclude domain="file" path="profileInstalled" />
+        <exclude domain="file" path="profileinstaller_profileWrittenFor_lastUpdateTime.dat" />
+    </device-transfer>
+</data-extraction-rules>

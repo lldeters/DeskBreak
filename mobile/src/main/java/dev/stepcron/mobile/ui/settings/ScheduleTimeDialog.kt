@@ -5,11 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -71,7 +74,11 @@ fun ScheduleTimeDialog(
             shape = MaterialTheme.shapes.extraLarge,
             tonalElevation = 6.dp,
             // Hochkant so schmal wie ein Material-Dialog; quer legt der TimePicker die Teile nebeneinander.
+            // Ab targetSdk 35 ist auf Android 15+ auch das Dialogfenster edge-to-edge (decorFitsSystemWindows wirkt
+            // nicht mehr): Abstand zu Systemleisten, Kamera-Aussparung und Tastatur (Eingabe per Tastatur) selbst
+            // halten, sonst liegen quer oder mit Tastatur Titel bzw. Tasten darunter. Ältere Systeme melden hier 0.
             modifier = Modifier
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(16.dp)
                 .then(if (portrait) Modifier.widthIn(max = 380.dp) else Modifier),
         ) {

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sicherung der Uhr-App auf API 30 (Wear OS 3, android:fullBackupContent); ab API 31 gilt
+    data_extraction_rules.xml – beide Dateien gleich halten. Ohne <include> wird alles gesichert außer den
+    hier ausgeschlossenen Merkern (Begründung siehe data_extraction_rules.xml).
+-->
+<full-backup-content>
+    <exclude domain="file" path="profileInstalled" />
+    <exclude domain="file" path="profileinstaller_profileWrittenFor_lastUpdateTime.dat" />
+</full-backup-content>

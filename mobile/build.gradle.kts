@@ -12,12 +12,33 @@ android {
     defaultConfig {
         applicationId = "dev.stepcron.wear"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        // Google Play verlangt für Handy-Apps ab 31.08.2026 API 36 (Android 16). Geprüfte Verhaltensänderungen
+        // (Edge-to-Edge, Predictive Back, große Bildschirme): docs/play-store/signing-and-build.md.
+        targetSdk = 36
+        // Version aus gradle.properties (für Uhr und Handy gemeinsam). Jedes Bundle braucht bei Play einen
+        // eigenen versionCode: Handy = Basis * 10 + 1, Uhr = Basis * 10 + 2.
+        versionCode = providers.gradleProperty("deskbreak.versionCode").get().toInt() * 10 + 1
+        versionName = providers.gradleProperty("deskbreak.versionName").get()
+    }
+
+    androidResources {
+        // Nur die Sprachen der App ausliefern (Englisch, Deutsch; passend zu res/xml/locales_config.xml). Sonst
+        // kämen die Übersetzungen der Bibliotheken mit, und bei anderer Gerätesprache (z. B. Französisch) mischten
+        // sich deren Texte in die englische Oberfläche.
+        localeFilters += listOf("en", "de")
+    }
+
+    bundle {
+        // Beide Sprachen immer installieren statt als Sprach-Split nur die Gerätesprache: wenige KB, und die
+        // Sprachwahl pro App (Android 13+) funktioniert sofort und offline.
+        language {
+            enableSplit = false
+        }
     }
 
     buildTypes {
+        // Signatur mit dem gemeinsamen Upload-Schlüssel von Uhr und Handy (falls vorhanden): siehe
+        // build.gradle.kts im Wurzelverzeichnis.
         release {
             isMinifyEnabled = true
             isShrinkResources = true

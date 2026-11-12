@@ -11,7 +11,8 @@ android {
 
     defaultConfig {
         minSdk = 30
-        targetSdk = 34
+        // Wie die Uhr-App (:app).
+        targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

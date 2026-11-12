@@ -12,12 +12,33 @@ android {
     defaultConfig {
         applicationId = "dev.stepcron.wear"
         minSdk = 30 // Wear OS 3+
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        // Google Play verlangt für Wear-OS-Apps ab 31.08.2026 mindestens API 35 (Wear OS 5.1). Geprüfte
+        // Verhaltensänderungen: docs/play-store/signing-and-build.md.
+        targetSdk = 35
+        // Version aus gradle.properties (für Uhr und Handy gemeinsam). Jedes Bundle braucht bei Play einen
+        // eigenen versionCode: Uhr = Basis * 10 + 2, Handy = Basis * 10 + 1.
+        versionCode = providers.gradleProperty("deskbreak.versionCode").get().toInt() * 10 + 2
+        versionName = providers.gradleProperty("deskbreak.versionName").get()
+    }
+
+    androidResources {
+        // Nur die Sprachen der App ausliefern (Englisch, Deutsch; passend zu res/xml/locales_config.xml). Sonst
+        // kämen die Übersetzungen der Bibliotheken mit, und bei anderer Gerätesprache (z. B. Französisch) mischten
+        // sich deren Texte in die englische Oberfläche.
+        localeFilters += listOf("en", "de")
+    }
+
+    bundle {
+        // Beide Sprachen immer installieren statt als Sprach-Split nur die Gerätesprache: wenige KB, und ein
+        // Sprachwechsel (auch pro App) funktioniert sofort und offline.
+        language {
+            enableSplit = false
+        }
     }
 
     buildTypes {
+        // Signatur mit dem gemeinsamen Upload-Schlüssel von Uhr und Handy (falls vorhanden): siehe
+        // build.gradle.kts im Wurzelverzeichnis.
         release {
             isMinifyEnabled = true
             isShrinkResources = true

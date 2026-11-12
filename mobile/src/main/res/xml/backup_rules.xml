@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sicherung der Handy-App bis Android 11 (android:fullBackupContent); ab Android 12 gilt
+    data_extraction_rules.xml – beide Dateien gleich halten. Ohne <include> wird alles gesichert außer den
+    hier ausgeschlossenen Caches (Begründung siehe data_extraction_rules.xml).
+-->
+<full-backup-content>
+    <exclude domain="file" path="watch-snapshot.bin" />
+    <exclude domain="file" path="watch-snapshot.bin.tmp" />
+    <exclude domain="file" path="profileInstalled" />
+    <exclude domain="file" path="profileinstaller_profileWrittenFor_lastUpdateTime.dat" />
+</full-backup-content>
