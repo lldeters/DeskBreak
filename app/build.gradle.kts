@@ -52,6 +52,20 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Für die Store-Screenshots (Robolectric braucht die Ressourcen der App).
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+// Screenshots der Uhr für den Play Store (Robolectric, ohne Gerät):
+// ./gradlew :app:testDebugUnitTest -Pscreenshots schreibt PNGs nach app/build/screenshots/. Ohne die Eigenschaft
+// laufen sie nicht mit (langsam, lädt beim ersten Mal das Android-Abbild für Robolectric).
+tasks.withType<Test>().configureEach {
+    if (project.hasProperty("screenshots")) {
+        systemProperty("screenshots.dir", layout.buildDirectory.dir("screenshots").get().asFile.absolutePath)
+        outputs.upToDateWhen { false }
+    } else {
+        exclude("**/screenshots/**")
     }
 }
 
@@ -112,4 +126,9 @@ dependencies {
     baselineProfile(project(":baselineprofile"))
 
     testImplementation(libs.junit)
+    // Store-Screenshots der Uhr (nur mit -Pscreenshots, siehe oben)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
