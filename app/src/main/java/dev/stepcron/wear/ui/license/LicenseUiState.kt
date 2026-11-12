@@ -9,16 +9,26 @@ import dev.stepcron.shared.license.LicenseRules
 import dev.stepcron.shared.license.LicenseStatus
 import dev.stepcron.shared.license.Unlock
 
-/** Wie weit das Öffnen von Google Play auf dem Handy ist. */
+/** Wie weit das Öffnen einer Seite auf dem Handy (ersatzweise auf der Uhr) ist. */
 enum class PhoneLinkState {
     IDLE,
     OPENING,
 
-    /** Auf dem Handy geöffnet – dort geht es weiter. */
-    OPENED,
+    /** In DeskBreak auf dem Handy geöffnet (Deep Link) – dort geht es weiter. */
+    OPENED_IN_APP,
 
-    /** Kein Handy erreichbar (nicht verbunden, kein Android-Handy). */
+    /** In Google Play auf dem Handy geöffnet – dort geht es weiter. */
+    OPENED_ON_PHONE,
+
+    /** Kein Handy erreichbar, dafür Google Play auf der Uhr geöffnet. */
+    OPENED_ON_WATCH,
+
+    /** Weder auf dem Handy noch auf der Uhr geöffnet (nicht verbunden, kein Android-Handy). */
     FAILED,
+    ;
+
+    /** Kein Android-Handy hat die Seite geöffnet: dann den Weg ohne Handy zeigen. */
+    val withoutPhone: Boolean get() = this == OPENED_ON_WATCH || this == FAILED
 }
 
 /** Hinweis zum Kauf. */
@@ -44,7 +54,10 @@ data class LicenseUiState(
     val offers: List<BillingOffer> = emptyList(),
     /** Die Käufe werden gerade bei Play abgefragt. */
     val checking: Boolean = false,
+    /** „Am Handy freischalten". */
     val phoneLink: PhoneLinkState = PhoneLinkState.IDLE,
+    /** „Abo verwalten" – getrennt, damit nach einem Kauf über das Handy kein alter Stand daran hängt. */
+    val manageLink: PhoneLinkState = PhoneLinkState.IDLE,
     val notice: LicenseNotice? = null,
 ) {
     /** Die gültige Freischaltung; `null` in der Testphase und danach. */
@@ -57,6 +70,7 @@ data class LicenseUiState(
             billing: BillingState,
             checking: Boolean,
             phoneLink: PhoneLinkState,
+            manageLink: PhoneLinkState = PhoneLinkState.IDLE,
         ): LicenseUiState {
             val status = LicenseRules.status(record, nowMillis)
             val unlocked = status is LicenseStatus.Unlocked
@@ -76,6 +90,7 @@ data class LicenseUiState(
                 offers = offers,
                 checking = checking,
                 phoneLink = phoneLink,
+                manageLink = manageLink,
                 notice = notice,
             )
         }

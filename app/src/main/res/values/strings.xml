@@ -78,8 +78,9 @@
     <string name="home_auto_step_no_permission">Permission missing</string>
     <string name="home_permissions_label">Permissions</string>
     <string name="home_permissions_secondary">Tap to grant</string>
-    <string name="home_exact_alarm_label">Exact alarms</string>
-    <string name="home_exact_alarm_secondary">Allow for on-time reminders</string>
+    <!-- Android 14+ denies exact alarms by default; the chip opens the system page "Alarms &amp; reminders" -->
+    <string name="home_exact_alarm_label">Allow alarms</string>
+    <string name="home_exact_alarm_secondary">For on-time reminders and step\u00A0detection</string>
 
     <string name="cd_interval_decrease">Shorter interval</string>
     <string name="cd_interval_increase">Longer interval</string>

@@ -208,7 +208,7 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                     onUnlockOnPhone = licenseViewModel::unlockOnPhone,
                     onBuy = { unlock -> context.findActivity()?.let { licenseViewModel.buy(it, unlock) } },
                     onCheckPurchases = licenseViewModel::checkPurchases,
-                    onManageSubscription = licenseViewModel::manageSubscriptionOnPhone,
+                    onManageSubscription = licenseViewModel::manageSubscription,
                 )
             }
             composable(Routes.STATS) {

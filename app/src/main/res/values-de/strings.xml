@@ -78,8 +78,9 @@
     <string name="home_auto_step_no_permission">Berechtigung fehlt</string>
     <string name="home_permissions_label">Berechtigungen</string>
     <string name="home_permissions_secondary">Antippen zum Erteilen</string>
-    <string name="home_exact_alarm_label">Exakte Alarme</string>
-    <string name="home_exact_alarm_secondary">Erlauben für pünktliche Erinnerungen</string>
+    <!-- Ab Android 14 sind exakte Alarme anfangs nicht erlaubt; der Eintrag öffnet die Systemseite „Wecker und Erinnerungen" -->
+    <string name="home_exact_alarm_label">Alarme erlauben</string>
+    <string name="home_exact_alarm_secondary">Für pünktliche Erinnerungen und Schritterkennung</string>
 
     <string name="cd_interval_decrease">Intervall verringern</string>
     <string name="cd_interval_increase">Intervall erhöhen</string>

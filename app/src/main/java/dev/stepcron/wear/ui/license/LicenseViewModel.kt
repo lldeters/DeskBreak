@@ -1,7 +1,7 @@
 package dev.stepcron.wear.ui.license
 
 import android.app.Activity
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -11,6 +11,7 @@ import dev.stepcron.billing.BillingGateway
 import dev.stepcron.billing.PlayLinks
 import dev.stepcron.shared.license.LicenseRecord
 import dev.stepcron.shared.license.Unlock
+import dev.stepcron.shared.sync.DeepLinks
 import dev.stepcron.wear.DeskBreakApp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -27,12 +28,14 @@ class LicenseViewModel(
     licenseRecord: Flow<LicenseRecord>,
     private val billing: BillingGateway,
     private val phone: PhoneOpener,
+    private val watch: WatchOpener,
     private val packageName: String,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     private val checking = MutableStateFlow(false)
     private val phoneLink = MutableStateFlow(PhoneLinkState.IDLE)
+    private val manageLink = MutableStateFlow(PhoneLinkState.IDLE)
 
     /** Für die verbleibenden Tage der Testphase. */
     private val ticker: Flow<Unit> = flow {
@@ -46,10 +49,10 @@ class LicenseViewModel(
         licenseRecord,
         billing.state,
         checking,
-        phoneLink,
+        combine(phoneLink, manageLink, ::Pair),
         ticker,
-    ) { record, billingState, checking, phoneLink, _ ->
-        LicenseUiState.create(record, clock(), billingState, checking, phoneLink)
+    ) { record, billingState, checking, (phoneLink, manageLink), _ ->
+        LicenseUiState.create(record, clock(), billingState, checking, phoneLink, manageLink)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), LicenseUiState())
 
     init {
@@ -74,18 +77,33 @@ class LicenseViewModel(
         billing.launchPurchase(activity, unlock)
     }
 
-    /** Die Seite der App in Google Play auf dem Handy – dort in der Handy-App freischalten. */
-    fun unlockOnPhone() = openOnPhone(RemotePhoneOpener.storePage(packageName))
+    /**
+     * Die Freischalt-Seite der Handy-App ([DeepLinks.UNLOCK]), wenn sie auf einem erreichbaren Handy installiert ist;
+     * sonst die Seite der App in Google Play auf dem Handy.
+     */
+    fun unlockOnPhone() = launchLink(phoneLink) {
+        LinkFallbacks.unlockOnPhone(
+            openInPhoneApp = { phone.openInPhoneApp(DeepLinks.UNLOCK.toUri()) },
+            openStoreOnPhone = { phone.open(RemotePhoneOpener.storePage(packageName)) },
+        )
+    }
 
-    /** Die Abo-Verwaltung von Google Play auf dem Handy (kündigen, Zahlungsmethode). */
-    fun manageSubscriptionOnPhone() = openOnPhone(PlayLinks.manageSubscription(packageName))
+    /**
+     * Die Abo-Verwaltung von Google Play (kündigen, Zahlungsmethode) auf dem Handy, ohne Android-Handy auf der Uhr;
+     * klappt beides nicht, zeigt der Bildschirm die Adresse für den Browser.
+     */
+    fun manageSubscription() = launchLink(manageLink) {
+        val uri = PlayLinks.manageSubscription(packageName)
+        LinkFallbacks.manageSubscription(
+            openOnPhone = { phone.open(uri) },
+            openOnWatch = { watch.open(uri) },
+        )
+    }
 
-    private fun openOnPhone(uri: Uri) {
-        if (phoneLink.value == PhoneLinkState.OPENING) return
-        phoneLink.value = PhoneLinkState.OPENING
-        viewModelScope.launch {
-            phoneLink.value = if (phone.open(uri)) PhoneLinkState.OPENED else PhoneLinkState.FAILED
-        }
+    private fun launchLink(link: MutableStateFlow<PhoneLinkState>, open: suspend () -> PhoneLinkState) {
+        if (link.value == PhoneLinkState.OPENING) return
+        link.value = PhoneLinkState.OPENING
+        viewModelScope.launch { link.value = open() }
     }
 
     companion object {
@@ -100,6 +118,7 @@ class LicenseViewModel(
                     licenseRecord = container.licenseRepository.record,
                     billing = container.billing,
                     phone = RemotePhoneOpener(app),
+                    watch = ActivityWatchOpener(app),
                     packageName = app.packageName,
                 )
             }

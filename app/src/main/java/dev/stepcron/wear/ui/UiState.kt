@@ -103,6 +103,15 @@ data class HomeUiState(
     val needsPermissions: Boolean
         get() = !system.notificationsGranted || (autoStepEnabled && !system.activityRecognitionGranted)
 
+    /**
+     * Exakte Alarme fehlen (ab Android 14 bei neuen Installationen der Normalfall). Ohne sie kommen Erinnerungen
+     * verspätet, und die Schritterkennung startet zu Beginn der aktiven Zeit nicht im Hintergrund – deshalb oben auf
+     * dem Startbildschirm, auch bei ausgeschalteten Erinnerungen (so springt beim Einschalten nichts). Nach der
+     * Testphase ohne Freischaltung ruhen die Erinnerungen ohnehin: dann nicht.
+     */
+    val needsExactAlarms: Boolean
+        get() = !loading && !system.exactAlarmsAllowed && !licenseExpired
+
     /** Testphase vorbei, nicht freigeschaltet. */
     val licenseExpired: Boolean get() = license is LicenseStatus.Expired
 
