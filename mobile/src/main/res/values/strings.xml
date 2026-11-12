@@ -34,12 +34,7 @@
     <!-- %1$s = date, %2$s = time -->
     <string name="datetime_date">%1$s, %2$s</string>
 
-    <!-- Sync -->
-    <string name="sync_title">Sync with the watch</string>
-    <string name="sync_last">Last synced %1$s</string>
-    <string name="sync_never">Not synced yet</string>
     <string name="sync_now">Sync now</string>
-    <string name="sync_running">Asking the watch for its latest data …</string>
     <string name="problem_play_services">Google Play services are missing or out of date on this phone.</string>
     <string name="problem_wear_api">This phone has no Wear OS connection. Install and set up your watch\'s companion app.</string>
     <string name="problem_no_watch">No watch connected. Check Bluetooth and your watch\'s companion app.</string>
@@ -59,7 +54,6 @@
     <!-- Empty states -->
     <string name="empty_title">No data from the watch yet</string>
     <string name="empty_syncing">Waiting for the watch …</string>
-    <string name="empty_hint">As soon as the watch has sent its data, you will see today\'s breaks, your regularity and the last 7 days here.</string>
     <string name="history_empty_hint">The last weeks appear here once the watch has sent its data.</string>
 
     <!-- Watch status -->
@@ -76,8 +70,6 @@
     <string name="status_day_off">Day off today</string>
     <string name="status_day_done">Done for today</string>
     <string name="status_day_done_hint">Off hours from %1$s</string>
-    <string name="status_next_reminder">Next reminder at %1$s</string>
-    <string name="status_snoozed_until">Snoozed until %1$s</string>
     <string name="status_remaining">in %1$d min</string>
     <string name="status_remaining_now">soon</string>
     <string name="status_unknown">Planning …</string>
@@ -90,15 +82,6 @@
     <string name="resume_on">Back on %1$s at %2$s</string>
     <string name="resume_next_week">Back next %1$s at %2$s</string>
 
-    <!-- Today -->
-    <string name="today_title">Today</string>
-    <!-- %1$d = breaks today, %2$d = daily goal -->
-    <string name="today_goal_value">%1$d / %2$d</string>
-    <!-- Quantity = daily goal; shown after "5 / 8" -->
-    <plurals name="today_breaks_label">
-        <item quantity="one">break</item>
-        <item quantity="other">breaks</item>
-    </plurals>
     <!-- Quantity = daily goal; %1$d = breaks today, %2$d = daily goal -->
     <plurals name="cd_today_progress">
         <item quantity="one">Today %1$d of %2$d break</item>
@@ -109,11 +92,6 @@
         <item quantity="one">%d more break to reach the daily goal</item>
         <item quantity="other">%d more breaks to reach the daily goal</item>
     </plurals>
-    <string name="today_regularity">regular</string>
-    <string name="today_missed">missed</string>
-    <string name="today_snoozes">snoozed</string>
-    <string name="today_streak">streak</string>
-    <string name="today_nothing_due">Nothing due yet today. Streak = successful intervals in a row.</string>
     <string name="week_title">Last 7 days</string>
     <!-- %1$s = regularity (e.g. "78 %"), %2$s = breaks (e.g. "34 breaks") -->
     <string name="week_subtitle">Ø %1$s regular · %2$s</string>
@@ -279,4 +257,28 @@
     <string name="message_backup_too_large">The file is too large for a backup</string>
     <string name="message_read_failed">The file could not be read</string>
     <string name="message_no_file_app">No app found for saving or opening files</string>
+
+    <!-- Neu gestaltetes Heute -->
+    <string name="today_breaks_today">Breaks today</string>
+    <string name="today_ring_of">of %1$d</string>
+    <string name="today_footer">Watch data from %1$s · pull down to refresh</string>
+    <string name="status_next_label">Next reminder</string>
+    <string name="status_snoozed_label">Snoozed until</string>
+    <string name="action_pause_hour">Pause for 1 hour</string>
+    <string name="action_resume">Resume reminders</string>
+    <string name="action_enable">Turn reminders on</string>
+    <string name="action_open_settings">Open schedule</string>
+    <string name="metric_regularity">Regular</string>
+    <string name="metric_streak">Streak</string>
+    <string name="metric_missed">Missed</string>
+    <string name="week_trend_up">+%1$d vs. last week</string>
+    <string name="week_trend_down">−%1$d vs. last week</string>
+    <string name="week_trend_same">Same as last week</string>
+    <string name="chart_free">off</string>
+    <string name="cd_week_day_free">%1$s: day off</string>
+    <string name="connect_title">Connect your watch</string>
+    <string name="connect_body">DeskBreak on your phone shows what your watch records – your breaks, your regularity and your weekly progress.</string>
+    <string name="connect_step_install">Install DeskBreak on your Wear OS watch.</string>
+    <string name="connect_step_open">Open DeskBreak on the watch once.</string>
+    <string name="connect_step_sync">Keep the watch close to your phone and sync.</string>
 </resources>

@@ -34,12 +34,7 @@
     <!-- %1$s = Datum, %2$s = Uhrzeit -->
     <string name="datetime_date">%1$s, %2$s</string>
 
-    <!-- Abgleich -->
-    <string name="sync_title">Abgleich mit der Uhr</string>
-    <string name="sync_last">Zuletzt abgeglichen: %1$s</string>
-    <string name="sync_never">Noch nicht abgeglichen</string>
     <string name="sync_now">Jetzt abgleichen</string>
-    <string name="sync_running">Frage die Uhr nach ihrem aktuellen Stand …</string>
     <string name="problem_play_services">Auf diesem Handy fehlen die Google Play-Dienste oder sind veraltet.</string>
     <string name="problem_wear_api">Dieses Handy hat keine Wear-OS-Verbindung. Installiere die Begleit-App deiner Uhr und richte sie ein.</string>
     <string name="problem_no_watch">Keine Uhr verbunden. Prüfe Bluetooth und die Begleit-App deiner Uhr.</string>
@@ -59,7 +54,6 @@
     <!-- Leere Zustände -->
     <string name="empty_title">Noch keine Daten von der Uhr</string>
     <string name="empty_syncing">Warte auf die Uhr …</string>
-    <string name="empty_hint">Sobald die Uhr ihre Daten geschickt hat, siehst du hier die heutigen Pausen, deine Regelmäßigkeit und die letzten 7 Tage.</string>
     <string name="history_empty_hint">Die letzten Wochen erscheinen hier, sobald die Uhr ihre Daten geschickt hat.</string>
 
     <!-- Status der Uhr -->
@@ -76,8 +70,6 @@
     <string name="status_day_off">Heute frei</string>
     <string name="status_day_done">Für heute geschafft</string>
     <string name="status_day_done_hint">Ruhezeit ab %1$s</string>
-    <string name="status_next_reminder">Nächste Erinnerung um %1$s</string>
-    <string name="status_snoozed_until">Snooze bis %1$s</string>
     <string name="status_remaining">in %1$d min</string>
     <string name="status_remaining_now">gleich</string>
     <string name="status_unknown">Wird geplant …</string>
@@ -90,15 +82,6 @@
     <string name="resume_on">Weiter am %1$s um %2$s</string>
     <string name="resume_next_week">Weiter nächsten %1$s um %2$s</string>
 
-    <!-- Heute -->
-    <string name="today_title">Heute</string>
-    <!-- %1$d = heutige Pausen, %2$d = Tagesziel -->
-    <string name="today_goal_value">%1$d / %2$d</string>
-    <!-- Menge = Tagesziel; steht hinter „5 / 8" -->
-    <plurals name="today_breaks_label">
-        <item quantity="one">Pause</item>
-        <item quantity="other">Pausen</item>
-    </plurals>
     <!-- Menge = Tagesziel; %1$d = heutige Pausen, %2$d = Tagesziel -->
     <plurals name="cd_today_progress">
         <item quantity="one">Heute %1$d von %2$d Pause</item>
@@ -109,11 +92,6 @@
         <item quantity="one">Noch %d Pause bis zum Tagesziel</item>
         <item quantity="other">Noch %d Pausen bis zum Tagesziel</item>
     </plurals>
-    <string name="today_regularity">regelmäßig</string>
-    <string name="today_missed">verpasst</string>
-    <string name="today_snoozes">Snooze</string>
-    <string name="today_streak">Serie</string>
-    <string name="today_nothing_due">Heute noch nichts fällig. Serie = erfolgreiche Intervalle hintereinander.</string>
     <string name="week_title">Letzte 7 Tage</string>
     <!-- %1$s = Regelmäßigkeit (z. B. „78 %"), %2$s = Pausen (z. B. „34 Pausen") -->
     <string name="week_subtitle">Ø %1$s regelmäßig · %2$s</string>
@@ -279,4 +257,28 @@
     <string name="message_backup_too_large">Die Datei ist zu groß für eine Sicherung</string>
     <string name="message_read_failed">Die Datei konnte nicht gelesen werden</string>
     <string name="message_no_file_app">Keine App zum Speichern oder Öffnen von Dateien gefunden</string>
+
+    <!-- Neu gestaltetes Heute -->
+    <string name="today_breaks_today">Pausen heute</string>
+    <string name="today_ring_of">von %1$d</string>
+    <string name="today_footer">Stand der Uhr: %1$s · zum Aktualisieren herunterziehen</string>
+    <string name="status_next_label">Nächste Erinnerung</string>
+    <string name="status_snoozed_label">Snooze bis</string>
+    <string name="action_pause_hour">1 Stunde pausieren</string>
+    <string name="action_resume">Erinnerungen fortsetzen</string>
+    <string name="action_enable">Erinnerungen einschalten</string>
+    <string name="action_open_settings">Wochenplan öffnen</string>
+    <string name="metric_regularity">Regelmäßig</string>
+    <string name="metric_streak">Serie</string>
+    <string name="metric_missed">Verpasst</string>
+    <string name="week_trend_up">+%1$d ggü. Vorwoche</string>
+    <string name="week_trend_down">−%1$d ggü. Vorwoche</string>
+    <string name="week_trend_same">Wie Vorwoche</string>
+    <string name="chart_free">frei</string>
+    <string name="cd_week_day_free">%1$s: frei</string>
+    <string name="connect_title">Uhr verbinden</string>
+    <string name="connect_body">DeskBreak auf dem Handy zeigt, was deine Uhr aufzeichnet – deine Pausen, deine Regelmäßigkeit und den Verlauf der Woche.</string>
+    <string name="connect_step_install">Installiere DeskBreak auf deiner Wear-OS-Uhr.</string>
+    <string name="connect_step_open">Öffne DeskBreak einmal auf der Uhr.</string>
+    <string name="connect_step_sync">Halte die Uhr in der Nähe des Handys und synchronisiere.</string>
 </resources>

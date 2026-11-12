@@ -36,6 +36,20 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Für die Screenshot-Tests (Robolectric braucht die Ressourcen der App).
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+// Screenshots der Bildschirme (Robolectric, ohne Gerät): ./gradlew :mobile:testDebugUnitTest -Pscreenshots
+// schreibt PNGs nach mobile/build/screenshots/. Ohne die Eigenschaft laufen sie nicht mit (langsam, lädt beim
+// ersten Mal das Android-Abbild für Robolectric).
+tasks.withType<Test>().configureEach {
+    if (project.hasProperty("screenshots")) {
+        systemProperty("screenshots.dir", layout.buildDirectory.dir("screenshots").get().asFile.absolutePath)
+        outputs.upToDateWhen { false }
+    } else {
+        exclude("**/screenshots/**")
     }
 }
 
@@ -61,4 +75,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

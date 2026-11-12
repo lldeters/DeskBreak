@@ -3,12 +3,14 @@ package dev.stepcron.mobile.ui
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -21,8 +23,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -33,6 +38,7 @@ import androidx.navigation.compose.rememberNavController
 import dev.stepcron.mobile.R
 import dev.stepcron.mobile.ui.history.HistoryScreen
 import dev.stepcron.mobile.ui.settings.SettingsScreen
+import dev.stepcron.mobile.ui.today.TodayActions
 import dev.stepcron.mobile.ui.today.TodayScreen
 
 /** Die drei Seiten der Navigationsleiste. */
@@ -40,11 +46,11 @@ private enum class Destination(
     val route: String,
     @param:StringRes val label: Int,
     @param:StringRes val title: Int,
-    val icon: ImageVector,
+    @param:DrawableRes val icon: Int,
 ) {
-    TODAY("today", R.string.nav_today, R.string.title_today, Icons.Filled.Home),
-    HISTORY("history", R.string.nav_history, R.string.title_history, Icons.Filled.DateRange),
-    SETTINGS("settings", R.string.nav_settings, R.string.title_settings, Icons.Filled.Settings),
+    TODAY("today", R.string.nav_today, R.string.title_today, R.drawable.ic_today),
+    HISTORY("history", R.string.nav_history, R.string.title_history, R.drawable.ic_bar_chart),
+    SETTINGS("settings", R.string.nav_settings, R.string.title_settings, R.drawable.ic_tune),
 }
 
 /** Gerüst der App: Titelleiste, Navigationsleiste unten, Snackbar für Meldungen. */
@@ -66,21 +72,30 @@ fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewMode
         }
     }
 
+    fun open(destination: Destination) {
+        navController.navigate(destination.route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(current.title)) }) },
+        containerColor = MaterialTheme.colorScheme.surface,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(current.title)) },
+                actions = { SyncAction(syncing = state.sync.syncing, onSync = viewModel::syncNow) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            )
+        },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                 Destination.entries.forEach { destination ->
                     NavigationBarItem(
                         selected = destination == current,
-                        onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(destination.icon, contentDescription = null) },
+                        onClick = { open(destination) },
+                        icon = { Icon(painterResource(destination.icon), contentDescription = null) },
                         label = { Text(stringResource(destination.label)) },
                     )
                 }
@@ -95,9 +110,33 @@ fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewMode
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),
         ) {
-            composable(Destination.TODAY.route) { TodayScreen(state = state, onSyncNow = viewModel::syncNow) }
+            composable(Destination.TODAY.route) {
+                TodayScreen(
+                    state = state,
+                    actions = TodayActions(
+                        onSyncNow = viewModel::syncNow,
+                        onPauseOneHour = viewModel::pauseOneHour,
+                        onResume = viewModel::endPause,
+                        onEnable = { viewModel.setEnabled(true) },
+                        onOpenSettings = { open(Destination.SETTINGS) },
+                    ),
+                )
+            }
             composable(Destination.HISTORY.route) { HistoryScreen(state = state) }
             composable(Destination.SETTINGS.route) { SettingsScreen(state = state, viewModel = viewModel) }
+        }
+    }
+}
+
+/** Abgleich in der Titelleiste – auf jeder Seite erreichbar; dreht sich, solange er läuft. */
+@Composable
+private fun SyncAction(syncing: Boolean, onSync: () -> Unit) {
+    val label = stringResource(if (syncing) R.string.empty_syncing else R.string.sync_now)
+    IconButton(onClick = onSync, enabled = !syncing, modifier = Modifier.semantics { contentDescription = label }) {
+        if (syncing) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        } else {
+            Icon(painterResource(R.drawable.ic_sync), contentDescription = null)
         }
     }
 }

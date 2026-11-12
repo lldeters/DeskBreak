@@ -26,8 +26,9 @@ import dev.stepcron.mobile.ui.currentLocale
 import dev.stepcron.mobile.ui.theme.LocalChartColors
 
 /**
- * Die letzten sieben Tage als Säulen: unten grün die Pausen, darauf rot die verpassten Erinnerungen. Über jeder
- * Säule die Zahl der Pausen, darunter der Wochentag (heute hervorgehoben); gestrichelt das Tagesziel [goal].
+ * Die letzten sieben Tage als Säulen: die Pausen grün (kräftig ab erreichtem Tagesziel), verpasste Erinnerungen
+ * mit kleinem Abstand darüber in Rot-Orange. Über jeder Säule die Zahl der Pausen, darunter der Wochentag (heute
+ * hervorgehoben); freie Tage ohne Daten zeigen „frei" statt einer leeren Säule. Gestrichelt das Tagesziel.
  * TalkBack liest alle Tage als eine Beschreibung vor.
  */
 @Composable
@@ -36,27 +37,30 @@ fun WeekBarChart(days: List<DayStat>, goal: Int, modifier: Modifier = Modifier) 
     val locale = currentLocale()
     val textMeasurer = rememberTextMeasurer()
     val typography = MaterialTheme.typography
-    val valueStyle = typography.labelMedium.copy(color = MaterialTheme.colorScheme.onSurface)
-    val weekdayStyle = typography.labelSmall.copy(color = colors.label)
+    val valueStyle = typography.labelLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+    val freeStyle = typography.labelSmall.copy(color = colors.label)
+    val weekdayStyle = typography.labelMedium.copy(color = colors.label)
     val todayStyle = weekdayStyle.copy(color = colors.today, fontWeight = FontWeight.Bold)
+    val freeText = stringResource(R.string.chart_free)
 
     val dayDescriptions = ArrayList<String>(days.size)
     for (day in days) {
-        dayDescriptions += stringResource(
-            R.string.cd_week_day,
-            Formats.shortDate(day.date, locale),
-            breaksText(day.movements),
-            day.missed,
-        )
+        dayDescriptions += if (!day.scheduled && !day.hasData) {
+            stringResource(R.string.cd_week_day_free, Formats.shortDate(day.date, locale))
+        } else {
+            stringResource(R.string.cd_week_day, Formats.shortDate(day.date, locale), breaksText(day.movements), day.missed)
+        }
     }
     val description = stringResource(R.string.cd_week_chart, goal, dayDescriptions.joinToString("; "))
 
     // Beschriftungen einmal je Datenstand messen statt bei jedem Zeichnen.
-    val labels = remember(days, locale, valueStyle, weekdayStyle, todayStyle, textMeasurer) {
+    val labels = remember(days, locale, valueStyle, weekdayStyle, todayStyle, freeStyle, freeText, textMeasurer) {
         days.map { day ->
-            textMeasurer.measure(day.movements.toString(), valueStyle) to textMeasurer.measure(
-                Formats.weekdayShort(day.date.dayOfWeek, locale),
-                if (day.isToday) todayStyle else weekdayStyle,
+            val free = !day.scheduled && !day.hasData
+            Triple(
+                textMeasurer.measure(if (free) freeText else day.movements.toString(), if (free) freeStyle else valueStyle),
+                textMeasurer.measure(Formats.weekdayShort(day.date.dayOfWeek, locale), if (day.isToday) todayStyle else weekdayStyle),
+                free,
             )
         }
     }
@@ -64,11 +68,11 @@ fun WeekBarChart(days: List<DayStat>, goal: Int, modifier: Modifier = Modifier) 
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .height(176.dp)
             .clearAndSetSemantics { contentDescription = description },
     ) {
         if (days.isEmpty()) return@Canvas
-        val gap = 4.dp.toPx()
+        val gap = 6.dp.toPx()
         val valueHeight = labels.maxOf { it.first.size.height }.toFloat()
         val weekdayHeight = labels.maxOf { it.second.size.height }.toFloat()
         val top = valueHeight + gap
@@ -76,45 +80,54 @@ fun WeekBarChart(days: List<DayStat>, goal: Int, modifier: Modifier = Modifier) 
         val chartHeight = (bottom - top).coerceAtLeast(1f)
         val maxValue = maxOf(goal, days.maxOf { it.movements + it.missed }, 1).toFloat()
         val slot = size.width / days.size
-        val barWidth = slot * BAR_SHARE
-        val radius = CornerRadius(3.dp.toPx())
+        val barWidth = (slot * BAR_SHARE).coerceAtMost(28.dp.toPx())
+        val radius = CornerRadius(6.dp.toPx())
+        val segmentGap = 2.dp.toPx()
 
-        days.forEachIndexed { index, day ->
-            val left = slot * index + (slot - barWidth) / 2f
-            val doneHeight = chartHeight * day.movements / maxValue
-            val missedHeight = chartHeight * day.missed / maxValue
-            if (day.movements + day.missed == 0) {
-                // Kein Ergebnis: flacher grauer Sockel, damit der Tag nicht fehlt.
-                val stub = 3.dp.toPx()
-                drawRoundRect(colors.empty, Offset(left, bottom - stub), Size(barWidth, stub), radius)
-            }
-            if (doneHeight > 0f) {
-                drawRoundRect(colors.done, Offset(left, bottom - doneHeight), Size(barWidth, doneHeight), radius)
-            }
-            if (missedHeight > 0f) {
-                drawRoundRect(
-                    colors.missed,
-                    Offset(left, bottom - doneHeight - missedHeight),
-                    Size(barWidth, missedHeight),
-                    radius,
-                )
-            }
-            val (value, weekday) = labels[index]
-            val barTop = bottom - doneHeight - missedHeight
-            drawText(value, topLeft = Offset(slot * index + (slot - value.size.width) / 2f, barTop - gap - value.size.height))
-            drawText(weekday, topLeft = Offset(slot * index + (slot - weekday.size.width) / 2f, bottom + gap))
-        }
-
+        // Ziel-Linie hinter den Säulen.
         val goalY = bottom - chartHeight * goal / maxValue
         drawLine(
             color = colors.guide,
             start = Offset(0f, goalY),
             end = Offset(size.width, goalY),
-            strokeWidth = 1.5.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())),
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())),
         )
+
+        days.forEachIndexed { index, day ->
+            val (value, weekday, free) = labels[index]
+            val left = slot * index + (slot - barWidth) / 2f
+            val doneHeight = chartHeight * day.movements / maxValue
+            val missedHeight = chartHeight * day.missed / maxValue
+            var barTop = bottom
+            when {
+                free -> Unit
+                day.movements + day.missed == 0 -> {
+                    // Erinnerungstag ohne Ergebnis: flacher Sockel, damit der Tag sichtbar bleibt.
+                    val stub = 4.dp.toPx()
+                    drawRoundRect(colors.empty, Offset(left, bottom - stub), Size(barWidth, stub), radius)
+                    barTop = bottom - stub
+                }
+
+                else -> {
+                    if (doneHeight > 0f) {
+                        val color = if (day.movements >= goal) colors.done else colors.doneSoft
+                        drawRoundRect(color, Offset(left, bottom - doneHeight), Size(barWidth, doneHeight), radius)
+                        barTop = bottom - doneHeight
+                    }
+                    if (missedHeight > 0f) {
+                        val missedTop = barTop - (if (doneHeight > 0f) segmentGap else 0f) - missedHeight
+                        drawRoundRect(colors.missed, Offset(left, missedTop), Size(barWidth, missedHeight), radius)
+                        barTop = missedTop
+                    }
+                }
+            }
+            val valueTop = if (free) bottom - value.size.height else barTop - gap - value.size.height
+            drawText(value, topLeft = Offset(slot * index + (slot - value.size.width) / 2f, valueTop))
+            drawText(weekday, topLeft = Offset(slot * index + (slot - weekday.size.width) / 2f, bottom + gap))
+        }
     }
 }
 
 /** Anteil der Säulen an ihrer Spalte. */
-private const val BAR_SHARE = 0.55f
+private const val BAR_SHARE = 0.5f

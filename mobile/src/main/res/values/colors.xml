@@ -2,4 +2,5 @@
 <resources>
     <color name="ic_launcher_background">#FF14532D</color>
     <color name="ic_launcher_foreground">#FFB9F6CA</color>
+    <color name="window_background">#FFF6FBF3</color>
 </resources>

@@ -16,6 +16,8 @@ data class DayStat(
     val snoozes: Int,
     val missed: Int,
     val isToday: Boolean,
+    /** Ist der Wochentag im (aktuellen) Wochenplan ein Erinnerungstag? Freie Tage ohne Daten zeigen „frei". */
+    val scheduled: Boolean = true,
 ) {
     /** Regelmäßigkeit in Prozent oder `null`, wenn an diesem Tag nichts fällig war. */
     val percent: Int? get() = StatsCalculator.regularityPercent(movements, missed)
@@ -48,6 +50,15 @@ data class TimeOfDayInsight(val best: HourRate, val worst: HourRate)
 /** Zähler einer Stunde des Tages (0–23) über mehrere Tage. */
 data class HourlyCounts(val hour: Int, val movements: Int, val missed: Int)
 
+/** Durchschnitt eines Wochentags über die letzten Wochen (nur Tage mit Daten). */
+data class WeekdayStat(
+    val dayOfWeek: java.time.DayOfWeek,
+    /** Durchschnittliche Pausen an Tagen mit Daten; `null` ohne solche Tage. */
+    val averageMovements: Float?,
+    val percent: Int?,
+    val daysWithData: Int,
+)
+
 /** Monatsansicht: Kalenderwochen Montag bis Sonntag, künftige Tage `null`. */
 data class CalendarSummary(
     val weeks: List<List<DayStat?>>,
@@ -66,8 +77,15 @@ data class Dashboard(
     val week: List<DayStat>,
     val weekMovements: Int,
     val weekPercent: Int?,
+    /** Die sieben Tage davor – für den Vergleich mit der Vorwoche. */
+    val previousWeekMovements: Int,
+    val previousWeekPercent: Int?,
     val calendar: CalendarSummary,
     val timeOfDay: TimeOfDayInsight?,
+    /** Pausen und verpasste Erinnerungen je Stunde der letzten 30 Tage (nur Stunden mit Daten). */
+    val hourly: List<HourlyCounts>,
+    /** Montag bis Sonntag über die Wochen der Monatsansicht (ohne heute). */
+    val weekdays: List<WeekdayStat>,
     /** Die letzten 30 Tage, neuester (heute) zuerst. */
     val lastDays: List<DayStat>,
     val dailyGoal: Int,
@@ -164,17 +182,38 @@ object StatsCalculator {
         return if (best.percent == worst.percent) null else TimeOfDayInsight(best, worst)
     }
 
+    /**
+     * Wochentage Montag bis Sonntag: Durchschnitt über alle Tage mit Daten aus [days] (z. B. die Monatsansicht ohne
+     * heute, damit ein angebrochener Tag den Schnitt nicht drückt).
+     */
+    fun weekdays(days: List<DayStat>): List<WeekdayStat> = java.time.DayOfWeek.entries.map { dayOfWeek ->
+        val withData = days.filter { it.date.dayOfWeek == dayOfWeek && it.movements + it.missed > 0 }
+        val movements = withData.sumOf { it.movements }
+        WeekdayStat(
+            dayOfWeek = dayOfWeek,
+            averageMovements = if (withData.isEmpty()) null else movements.toFloat() / withData.size,
+            percent = regularityPercent(movements, withData.sumOf { it.missed }),
+            daysWithData = withData.size,
+        )
+    }
+
     /** Erster Tag der Monatsansicht: Montag vor [weeks] − 1 Wochen. */
     fun calendarStart(today: LocalDate, weeks: Int = CALENDAR_WEEKS): LocalDate =
         today.minusDays(today.dayOfWeek.value - 1L).minusWeeks(weeks - 1L)
 
     /** Die letzten [weeks] Kalenderwochen bis einschließlich der aktuellen, je Montag bis Sonntag. */
-    fun calendar(daily: Map<LocalDate, DayCounts>, today: LocalDate, goal: Int, weeks: Int = CALENDAR_WEEKS): CalendarSummary {
+    fun calendar(
+        daily: Map<LocalDate, DayCounts>,
+        today: LocalDate,
+        goal: Int,
+        weeks: Int = CALENDAR_WEEKS,
+        scheduled: (LocalDate) -> Boolean = { true },
+    ): CalendarSummary {
         val firstMonday = calendarStart(today, weeks)
         val grid = (0 until weeks).map { week ->
             (0 until DAYS_PER_WEEK).map { day ->
                 val date = firstMonday.plusDays(week * DAYS_PER_WEEK.toLong() + day)
-                if (date > today) null else dayStat(date, daily[date], today)
+                if (date > today) null else dayStat(date, daily[date], today, scheduled(date))
             }
         }
         val days = grid.flatten().filterNotNull()
@@ -186,11 +225,17 @@ object StatsCalculator {
     }
 
     /** [count] Tage bis einschließlich [today]; [newestFirst] bestimmt die Reihenfolge. */
-    fun lastDays(daily: Map<LocalDate, DayCounts>, today: LocalDate, count: Int, newestFirst: Boolean): List<DayStat> {
+    fun lastDays(
+        daily: Map<LocalDate, DayCounts>,
+        today: LocalDate,
+        count: Int,
+        newestFirst: Boolean,
+        scheduled: (LocalDate) -> Boolean = { true },
+    ): List<DayStat> {
         val offsets = if (newestFirst) 0 until count else (count - 1 downTo 0)
         return offsets.map { offset ->
             val date = today.minusDays(offset.toLong())
-            dayStat(date, daily[date], today)
+            dayStat(date, daily[date], today, scheduled(date))
         }
     }
 
@@ -213,10 +258,17 @@ object StatsCalculator {
         val events = snapshot.events.filter { it.type in SyncEvent.KNOWN_TYPES }
         val today = ZonedDateTime.ofInstant(Instant.ofEpochMilli(nowMillis), zone).toLocalDate()
         val daily = dailyCounts(events, zone)
-        val week = lastDays(daily, today, DAYS_PER_WEEK, newestFirst = false)
+        // Freie Tage nach dem aktuellen Wochenplan (Montag zuerst); ältere Pläne kennt der Snapshot nicht.
+        val schedule = snapshot.settings.schedule
+        val scheduled = { date: LocalDate -> schedule.getOrNull(date.dayOfWeek.value - 1)?.enabled ?: true }
+        val week = lastDays(daily, today, DAYS_PER_WEEK, newestFirst = false, scheduled = scheduled)
         val weekMovements = week.sumOf { it.movements }
         val weekMissed = week.sumOf { it.missed }
+        val previousWeek = lastDays(daily, today.minusDays(DAYS_PER_WEEK.toLong()), DAYS_PER_WEEK, newestFirst = false)
+        val previousMovements = previousWeek.sumOf { it.movements }
         val hourlyStart = today.minusDays(TIME_OF_DAY_DAYS - 1L).atStartOfDay(zone).toInstant().toEpochMilli()
+        val hourly = hourlyCounts(events, hourlyStart, zone)
+        val calendar = calendar(daily, today, dailyGoal, scheduled = scheduled)
         return Dashboard(
             today = today,
             zone = zone,
@@ -225,19 +277,24 @@ object StatsCalculator {
             week = week,
             weekMovements = weekMovements,
             weekPercent = regularityPercent(weekMovements, weekMissed),
-            calendar = calendar(daily, today, dailyGoal),
-            timeOfDay = timeOfDay(hourlyCounts(events, hourlyStart, zone)),
-            lastDays = lastDays(daily, today, LAST_DAYS, newestFirst = true),
+            previousWeekMovements = previousMovements,
+            previousWeekPercent = regularityPercent(previousMovements, previousWeek.sumOf { it.missed }),
+            calendar = calendar,
+            timeOfDay = timeOfDay(hourly),
+            hourly = hourly,
+            weekdays = weekdays(calendar.weeks.flatten().filterNotNull().filterNot { it.isToday }),
+            lastDays = lastDays(daily, today, LAST_DAYS, newestFirst = true, scheduled = scheduled),
             dailyGoal = dailyGoal,
         )
     }
 
-    private fun dayStat(date: LocalDate, counts: DayCounts?, today: LocalDate) = DayStat(
+    private fun dayStat(date: LocalDate, counts: DayCounts?, today: LocalDate, scheduled: Boolean = true) = DayStat(
         date = date,
         movements = counts?.movements ?: 0,
         snoozes = counts?.snoozes ?: 0,
         missed = counts?.missed ?: 0,
         isToday = date == today,
+        scheduled = scheduled,
     )
 
     private const val HOURS_PER_DAY = 24
