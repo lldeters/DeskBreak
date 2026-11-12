@@ -18,7 +18,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.performClick
 import dev.stepcron.billing.BillingAvailability
 import dev.stepcron.billing.BillingProblem
 import dev.stepcron.billing.BillingState
@@ -45,7 +50,7 @@ import java.io.FileOutputStream
  * Screenshots der Freischaltung (wie [ScreenshotTest] nur mit `-Pscreenshots`): die Seite „Freischalten" in allen
  * Zuständen (mit Titelleiste wie in der App, damit man sieht, was ohne Scrollen sichtbar ist), dazu Heute mit
  * Hinweis während bzw. nach der Testphase und die Lizenz-Karte der Einstellungen. Billing kommt als fester
- * [BillingState] statt aus Google Play.
+ * [BillingState] statt aus Google Play. Für „Monatlich gewählt" tippt der Test die Auswahlkarte an wie ein Mensch.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -72,9 +77,26 @@ class LicenseScreenshotTest {
     @Config(qualifiers = "de-w411dp-h1300dp-xxhdpi")
     fun unlockTrialGerman() = unlockShot("unlock_trial_de_full", SampleData.license(billing = SampleData.billingReady(german = true)))
 
+    /** Testphase, Abo gewählt: unter dem Knopf der Hinweis, dass die Abrechnung sofort beginnt. */
+    @Test
+    fun unlockTrialMonthly() = unlockShot("unlock_trial_monthly", SampleData.license(), select = Unlock.SUBSCRIPTION)
+
+    @Test
+    @Config(qualifiers = "w411dp-h1300dp-xxhdpi")
+    fun unlockTrialMonthlyFull() = unlockShot("unlock_trial_monthly_full", SampleData.license(), select = Unlock.SUBSCRIPTION)
+
     @Test
     @Config(qualifiers = "w411dp-h1300dp-xxhdpi")
     fun unlockExpired() = unlockShot("unlock_expired_full", SampleData.license(status = SampleData.expired))
+
+    /** Nach der Testphase kein Hinweis zur Abrechnung (es gibt keine Testphase mehr, die enden könnte). */
+    @Test
+    @Config(qualifiers = "w411dp-h1300dp-xxhdpi")
+    fun unlockExpiredMonthly() = unlockShot(
+        "unlock_expired_monthly_full",
+        SampleData.license(status = SampleData.expired),
+        select = Unlock.SUBSCRIPTION,
+    )
 
     @Test
     @Config(qualifiers = "de-w411dp-h891dp-night-xxhdpi")
@@ -153,6 +175,14 @@ class LicenseScreenshotTest {
 
     @Test
     @Config(qualifiers = "de-w360dp-h1900dp-xxhdpi", fontScale = 1.3f)
+    fun unlockSmallPhoneLargeFontGermanTrialMonthly() = unlockShot(
+        "unlock_small_font130_de_trial_monthly_full",
+        SampleData.license(billing = SampleData.billingReady(german = true)),
+        select = Unlock.SUBSCRIPTION,
+    )
+
+    @Test
+    @Config(qualifiers = "de-w360dp-h1900dp-xxhdpi", fontScale = 1.3f)
     fun unlockSmallPhoneLargeFontGermanMonthly() = unlockShot(
         "unlock_small_font130_de_monthly_full",
         // Nur das Abo: es ist vorgewählt, Knopf und Satz darunter zeigen die längsten Texte.
@@ -212,9 +242,12 @@ class LicenseScreenshotTest {
         SettingsScreen(state = SampleData.state(snapshot = null).copy(license = license), actions = SettingsScreenshotTest.NoActions)
     }
 
-    /** Die Seite wie in der App: Titelleiste mit Zurück, darunter der Inhalt. */
+    /** Die Seite wie in der App: Titelleiste mit Zurück, darunter der Inhalt; [select] tippt diese Möglichkeit an. */
     @OptIn(ExperimentalMaterial3Api::class)
-    private fun unlockShot(name: String, license: LicenseUiState) = shot(name) {
+    private fun unlockShot(name: String, license: LicenseUiState, select: Unlock? = null) = shot(
+        name,
+        interact = select?.let { unlock -> { choose(unlock) } },
+    ) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.surface,
             topBar = {
@@ -232,7 +265,18 @@ class LicenseScreenshotTest {
         }
     }
 
-    private fun shot(name: String, content: @Composable () -> Unit) {
+    /** Tippt die Auswahlkarte für [unlock] an (Optionsfeld mit deren Titel). */
+    private fun choose(unlock: Unlock) {
+        val title = compose.activity.getString(
+            when (unlock) {
+                Unlock.LIFETIME -> R.string.license_option_lifetime
+                Unlock.SUBSCRIPTION -> R.string.license_option_monthly
+            },
+        )
+        compose.onNode(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton) and hasText(title)).performClick()
+    }
+
+    private fun shot(name: String, interact: (() -> Unit)? = null, content: @Composable () -> Unit) {
         java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(SampleData.zone))
         // Uhr von Hand: etwas Zeit vergehen lassen, damit Ringe und Kreisel fertig gezeichnet sind.
         compose.mainClock.autoAdvance = false
@@ -242,6 +286,11 @@ class LicenseScreenshotTest {
             }
         }
         compose.mainClock.advanceTimeBy(900)
+        if (interact != null) {
+            interact()
+            // Auswahl-Animation (Rahmen, Fläche) zu Ende laufen lassen.
+            compose.mainClock.advanceTimeBy(900)
+        }
         compose.waitForIdle()
         val view = compose.activity.window.decorView
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)

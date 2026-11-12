@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Lizenz und Kauf (Deutsch; Englisch in values/). Preise kommen immer von Google Play (%1$s), nie aus diesen Texten.
-    Vor dem Kauf steht da: Preis, Zeitraum, automatische Verlängerung und wie man kündigt.
+    Vor dem Kauf steht da: Preis, Zeitraum, automatische Verlängerung und wie man kündigt – und während der Testphase,
+    dass ein Abo sofort abgerechnet wird. Kein „gehört dir" und kein „für immer": Der Einmalkauf schaltet die App frei,
+    er verkauft sie nicht.
 -->
 <resources>
     <string name="title_unlock">DeskBreak freischalten</string>
@@ -35,16 +37,17 @@
     <string name="license_expired_detail">Schalte DeskBreak frei, damit deine Uhr dich wieder an Bewegung erinnert.</string>
     <string name="license_lifetime_label">Dauerhaft freigeschaltet</string>
     <string name="license_lifetime_headline">Vielen Dank!</string>
-    <string name="license_lifetime_detail">DeskBreak gehört dir – auf deiner Uhr und deinem Handy.</string>
+    <string name="license_lifetime_detail">Dein Einmalkauf schaltet DeskBreak auf Uhr und Handy frei.</string>
     <string name="license_subscription_label">Abo aktiv</string>
     <string name="license_subscription_headline">DeskBreak ist freigeschaltet</string>
-    <string name="license_subscription_detail">Verlängert sich monatlich über Google Play, bis du kündigst.</string>
+    <!-- Bewusst neutral: Die App weiß nicht, ob das Abo schon gekündigt ist -->
+    <string name="license_subscription_detail">Monatsabo über Google Play. Dort kannst du es verwalten oder kündigen.</string>
 
     <!-- Was die Freischaltung bringt -->
     <string name="license_benefit_reminders">Bewegungserinnerungen auf der Uhr</string>
     <string name="license_benefit_devices">Ein Kauf für Uhr und Handy</string>
     <string name="license_benefit_support">Unterstützt die Weiterentwicklung</string>
-    <string name="license_free_forever">Verlauf, Export und Sicherung bleiben immer kostenlos.</string>
+    <string name="license_free_note">Verlauf, Export und Sicherung bleiben kostenlos – mit oder ohne Kauf.</string>
     <string name="license_included_title">Das ist enthalten</string>
     <string name="license_included_reminders">Bewegungserinnerungen auf der Uhr</string>
     <string name="license_included_devices">Auf Uhr und Handy</string>
@@ -53,7 +56,7 @@
     <!-- Möglichkeiten -->
     <string name="license_choose_title">Wähle, wie du freischaltest</string>
     <string name="license_option_lifetime">Einmalkauf</string>
-    <string name="license_option_lifetime_hint">Einmal zahlen, für immer deins</string>
+    <string name="license_option_lifetime_hint">Einmal zahlen, kein Abo</string>
     <!-- Unter dem Preis des Einmalkaufs -->
     <string name="license_option_lifetime_period">einmalig</string>
     <string name="license_option_monthly">Monatlich</string>
@@ -83,6 +86,8 @@
     <string name="license_buy_subscription">Für %1$s abonnieren</string>
     <string name="license_summary_lifetime">Einmalige Zahlung von %1$s. Kein Abo, nichts verlängert sich.</string>
     <string name="license_summary_subscription">%1$s. Verlängert sich automatisch, bis du kündigst – jederzeit in Google Play.</string>
+    <!-- Unter dem Satz, solange die Testphase läuft und das Abo gewählt ist (Google Play hat keine eigene Testphase) -->
+    <string name="license_trial_billing_today">Die Abrechnung beginnt heute – mit dem Abo endet die Testphase.</string>
     <string name="license_restore">Käufe wiederherstellen</string>
     <string name="license_restoring">Käufe werden geprüft …</string>
     <string name="license_unlock">Freischalten</string>

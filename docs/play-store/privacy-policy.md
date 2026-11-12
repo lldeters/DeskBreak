@@ -5,6 +5,7 @@
 > [privacy-policy.html](privacy-policy.html) (gleicher Inhalt, eine Seite, beide Sprachen); diese Markdown-Datei
 > dient zum Lesen und Ändern. Bei Änderungen an Berechtigungen (AndroidManifest.xml von `app` und `mobile`), an
 > der Synchronisierung oder an den Käufen beide Dateien anpassen. Stand der Angaben: Code-Stand vom 12.11.2026.
+> Alle Platzhalter im Überblick: [README.md, „Vor der Veröffentlichung ausfüllen"](README.md#vor-der-veröffentlichung-ausfüllen).
 > Keine Rechtsberatung – im Zweifel von einer Fachperson prüfen lassen.
 
 [Deutsch](#deutsch) · [English](#english)
@@ -28,7 +29,8 @@ E-Mail: [E-Mail]
 - Es gibt **keine Server des Entwicklers**, **kein Benutzerkonto**, **keine Werbung** und **keine Analyse- oder
   Tracking-Werkzeuge**. Wir erfahren nicht, wie du die App nutzt.
 - Uhr und Handy gleichen sich ausschließlich untereinander über die Google Play-Dienste ab.
-- Käufe wickelt **Google Play** ab. Zahlungsdaten erhalten wir nicht.
+- Käufe wickelt **Google Play** ab; Google verarbeitet die dafür nötigen Daten in eigener Verantwortung
+  (Abschnitt 5). Zahlungsdaten erhalten wir nicht.
 
 ### 3. Welche Daten die App auf deinen Geräten verarbeitet
 
@@ -70,6 +72,13 @@ vollständig über **Google Play** (Google Play Billing); deine Zahlungsdaten ve
 eine gültige Freischaltung besteht, und gibt diese Information an dein jeweils anderes Gerät weiter (siehe
 Abschnitt 4).
 
+Für Käufe und um beim Öffnen zu prüfen, ob ein Kauf besteht, ist die Bibliothek Google Play Billing in die App
+eingebunden. Sie arbeitet über den Google Play Store und die Google Play-Dienste auf deinem Gerät; diese tauschen
+dabei technische Daten (z. B. Geräte-, App- und Versionsangaben) und Kaufdaten (z. B. Produkt, Kaufzeitpunkt,
+Status eines Abos) mit Google aus. Dafür ist Google eigenständig verantwortlich und verarbeitet die Daten nach der
+[Datenschutzerklärung von Google](https://policies.google.com/privacy) und den Bedingungen von Google Play. Der
+Entwickler erhält diese Daten nicht und auch keine Zahlungsdaten.
+
 Google stellt uns für Abrechnung, Steuern und Erstattungen Bestellinformationen bereit (z. B. Bestellnummer,
 Datum, Produkt, Preis und Land des Kaufs) – keine Zahlungsdaten wie Karten- oder Kontonummern. Wir nutzen sie nur
 für diese Zwecke (Art. 6 Abs. 1 lit. b und c DSGVO) und bewahren sie so lange auf, wie es steuerrechtlich
@@ -99,7 +108,7 @@ App nur die Datei, die du auswählst.
 | Benachrichtigungen (`POST_NOTIFICATIONS`) | Erinnerungen und die laufende Anzeige der Schritterkennung |
 | Körperliche Aktivität (`ACTIVITY_RECOGNITION`) | Schrittsensor für die automatische Schritterkennung |
 | Vibration (`VIBRATE`) | Vibration bei Erinnerungen |
-| Exakte Alarme (`USE_EXACT_ALARM`, bis Android 12L `SCHEDULE_EXACT_ALARM`) | pünktliche Erinnerungen |
+| Exakte Alarme (`SCHEDULE_EXACT_ALARM`, in den Einstellungen „Wecker und Erinnerungen"; erteilst du selbst) | pünktliche Erinnerungen; ohne diese Erlaubnis erinnert die Uhr unter Umständen einige Minuten später |
 | Start nach dem Hochfahren (`RECEIVE_BOOT_COMPLETED`), Wach halten (`WAKE_LOCK`) | Erinnerungen nach Neustart oder Update weiter planen und zuverlässig auslösen |
 | Vordergrunddienst (`FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_HEALTH`) | Schritterkennung während der aktiven Zeit, sichtbar als laufende Benachrichtigung |
 | Google Play-Abrechnung (`com.android.vending.BILLING`) | Käufe über Google Play |
@@ -119,6 +128,8 @@ diese in der Google Play Console nur zusammengefasst und ohne Bezug zu deiner Pe
 ### 10. Keine Weitergabe, keine Werbung
 
 Wir geben keine Daten an Dritte weiter, verkaufen keine Daten, zeigen keine Werbung und erstellen keine Profile.
+Was Google für Abgleich, Käufe und Sicherung in eigener Verantwortung verarbeitet, beschreiben die Abschnitte 4
+bis 6.
 
 ### 11. Kinder
 
@@ -160,7 +171,8 @@ Email: [E-Mail]
 - There are **no developer servers**, **no user account**, **no ads** and **no analytics or tracking tools**. We
   do not learn how you use the app.
 - Watch and phone sync only with each other via Google Play services.
-- Purchases are handled by **Google Play**. We never receive your payment details.
+- Purchases are handled by **Google Play**; Google processes the data needed for this under its own
+  responsibility (section 5). We never receive your payment details.
 
 ### 3. Data the app processes on your devices
 
@@ -197,6 +209,13 @@ handled entirely by **Google Play** (Google Play Billing); your payment details 
 [Google's privacy policy](https://policies.google.com/privacy). The app only learns from Google Play whether a
 valid unlock exists and passes this information on to your other device (see section 4).
 
+To make purchases and to check, when you open the app, whether a purchase exists, the app includes the Google Play
+Billing library. It works through the Google Play Store and Google Play services on your device, which exchange
+technical data (such as device, app and version information) and purchase data (such as the product, time of
+purchase and subscription status) with Google. Google is an independent controller for this and processes the data
+under [Google's privacy policy](https://policies.google.com/privacy) and the Google Play terms. The developer
+receives neither this data nor your payment details.
+
 For accounting, taxes and refunds Google provides us with order information (such as order number, date,
 product, price and country of purchase) – no payment details such as card or account numbers. We use it only for
 these purposes (Art. 6(1)(b) and (c) GDPR) and keep it as long as tax law requires (in Germany up to 10 years).
@@ -223,7 +242,7 @@ subject to the terms of that location. When restoring, the app reads only the fi
 | Notifications (`POST_NOTIFICATIONS`) | Reminders and the ongoing step detection notice |
 | Physical activity (`ACTIVITY_RECOGNITION`) | Step sensor for automatic step detection |
 | Vibration (`VIBRATE`) | Vibrating on reminders |
-| Exact alarms (`USE_EXACT_ALARM`, up to Android 12L `SCHEDULE_EXACT_ALARM`) | On-time reminders |
+| Exact alarms (`SCHEDULE_EXACT_ALARM`, "Alarms & reminders" in the settings; granted by you) | On-time reminders; without this permission the watch may remind you a few minutes late |
 | Run at startup (`RECEIVE_BOOT_COMPLETED`), keep awake (`WAKE_LOCK`) | Rescheduling reminders after a restart or update and firing them reliably |
 | Foreground service (`FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_HEALTH`) | Step detection during active hours, visible as an ongoing notification |
 | Google Play billing (`com.android.vending.BILLING`) | Purchases through Google Play |
@@ -242,7 +261,8 @@ aggregated form and without reference to you.
 
 ### 10. No sharing, no ads
 
-We do not share or sell any data, show no ads and build no profiles.
+We do not share or sell any data, show no ads and build no profiles. What Google processes under its own
+responsibility for sync, purchases and backup is described in sections 4 to 6.
 
 ### 11. Children
 

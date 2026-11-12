@@ -14,7 +14,7 @@ python3 docs/play-store/tools/count_listing.py
 |---|---:|---:|---:|
 | App-Name | 30 | 27 | 27 |
 | Kurzbeschreibung | 80 | 77 | 80 |
-| Vollständige Beschreibung | 4000 | 2695 | 2467 |
+| Vollständige Beschreibung | 4000 | 2709 | 2497 |
 | Versionshinweise 1.0 | 500 | 338 | 327 |
 
 Hinweise zu den Texten:
@@ -29,8 +29,10 @@ Hinweise zu den Texten:
   Play. In der Beschreibung ist die sachliche Nennung der Testphase erlaubt.
 - **Kein Heilversprechen:** DeskBreak ist ein Erinnerungs-Timer, kein Medizinprodukt; der Hinweis am Ende der
   Beschreibung bleibt drin.
-- Die Kaufmöglichkeit auf der Uhr bzw. auf dem Handy wird noch fertiggestellt. Falls ein Kauf nur auf einem der
-  beiden Geräte möglich sein sollte, den Absatz „Preise" entsprechend anpassen.
+- **Keine Besitz- oder „für immer"-Versprechen** (Play-Richtlinie zu irreführenden Angaben, § 5 UWG): Der
+  Einmalkauf heißt „einmalig 5,00 € (kein Abo)", nicht „für immer" oder „gehört dir" – wie in der App.
+- **Ein Kauf für beide Geräte:** Gekauft werden kann in der Handy-App und auf der Uhr. Die Freischaltung gilt auf
+  beiden, entweder über dasselbe Google-Konto oder weil die gekoppelten Geräte sie über den Abgleich weitergeben.
 
 ---
 
@@ -78,9 +80,9 @@ AUF DEM HANDY (optionale Begleit-App)
 
 PREISE
 • 3 Tage kostenlos testen – mit allen Funktionen, ohne Abo und ohne Zahlungsdaten. Die Testphase beginnt beim ersten Öffnen auf der Uhr oder dem Handy und endet von selbst.
-• Danach entscheidest du: einmalig 5,00 € für immer oder 1,00 € pro Monat (jederzeit über Google Play kündbar).
+• Danach entscheidest du: einmalig 5,00 € (kein Abo) oder 1,00 € pro Monat (jederzeit über Google Play kündbar).
 • Ohne Kauf erinnert die Uhr nach der Testphase nicht mehr. Verlauf, Export und Sicherung bleiben nutzbar – es sind deine Daten.
-• Ein Kauf gilt für Uhr und Handy, solange auf beiden dasselbe Google-Konto angemeldet ist.
+• Ein Kauf gilt für Uhr und Handy – über dasselbe Google-Konto oder den Abgleich der gekoppelten Geräte.
 Die Preise gelten für Deutschland inklusive Mehrwertsteuer; in anderen Ländern zeigt Google Play den Preis in der Landeswährung an.
 
 PRIVATSPHÄRE
@@ -154,7 +156,7 @@ PRICING
 • Try it free for 3 days – all features, no subscription and no payment details. The trial starts when you first open DeskBreak on your watch or phone and ends on its own.
 • Then you choose: a one-time purchase of €5.00 or €1.00 per month (cancel anytime in Google Play).
 • Without a purchase, the watch stops reminding you after the trial. History, export and backup keep working – it's your data.
-• One purchase covers watch and phone as long as both use the same Google account.
+• One purchase covers watch and phone – through the same Google account or the sync between your paired devices.
 Prices shown are for Germany including VAT; Google Play shows the price for your country in your local currency.
 
 PRIVACY

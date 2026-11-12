@@ -55,16 +55,21 @@ private enum class Destination(
     SETTINGS("settings", R.string.nav_settings, R.string.title_settings, R.drawable.ic_tune),
 }
 
-/** Freischalten: eine Seite über den drei anderen (mit Zurück), erreichbar von Heute und Einstellungen. */
-private const val UNLOCK_ROUTE = "unlock"
-
 /**
  * Gerüst der App: Titelleiste, Navigationsleiste unten, Snackbar für Meldungen. Auf der Seite zum Freischalten
- * stehen stattdessen Zurück und deren Titel – ohne Navigationsleiste, damit nichts von der Entscheidung ablenkt.
+ * ([UNLOCK_ROUTE], erreichbar von Heute und Einstellungen) stehen stattdessen Zurück und deren Titel – ohne
+ * Navigationsleiste, damit nichts von der Entscheidung ablenkt.
+ *
+ * [linkRequest] ist ein Deep Link, den die Activity bekommen hat (z. B. „Am Handy freischalten" auf der Uhr); die
+ * Seite wird geöffnet und die Anfrage über [onLinkHandled] als erledigt gemeldet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)) {
+fun DeskBreakPhoneRoot(
+    linkRequest: LinkRequest? = null,
+    onLinkHandled: (LinkRequest) -> Unit = {},
+    viewModel: AppViewModel = viewModel(factory = AppViewModel.Factory),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -161,6 +166,12 @@ fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewMode
                 )
             }
             composable(UNLOCK_ROUTE) { UnlockScreen(state = state.license, actions = viewModel) }
+        }
+        // Erst hier hat der NavHost seinen Graphen – vorher ließe sich nicht navigieren.
+        LaunchedEffect(linkRequest) {
+            val request = linkRequest ?: return@LaunchedEffect
+            navController.openFromLink(request.target)
+            onLinkHandled(request)
         }
     }
 }

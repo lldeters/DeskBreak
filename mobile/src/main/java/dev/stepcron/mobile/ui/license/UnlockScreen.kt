@@ -57,6 +57,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.stepcron.billing.BillingAvailability
@@ -75,7 +76,8 @@ import dev.stepcron.shared.license.Unlock
  * Freischalten: oben der Stand (Testphase mit Ring, beendet oder freigeschaltet), darunter – solange nicht
  * freigeschaltet – was DeskBreak bietet, die zwei Möglichkeiten als Auswahl (Einmalkauf vorgewählt), eine
  * Hauptaktion mit Preis und direkt darunter, was sie genau bedeutet. Preise kommen immer von Google Play. Vor dem
- * Kauf steht klar da: Preis, Zeitraum, automatische Verlängerung des Abos und wie man kündigt.
+ * Kauf steht klar da: Preis, Zeitraum, automatische Verlängerung des Abos und wie man kündigt – und während der
+ * Testphase, dass ein Abo sofort abgerechnet wird (Play kennt keinen Probezeitraum, die Testphase ist die der App).
  */
 @Composable
 fun UnlockScreen(state: LicenseUiState, actions: LicenseActions, modifier: Modifier = Modifier) {
@@ -246,6 +248,7 @@ private fun PurchaseContent(state: LicenseUiState, actions: LicenseActions) {
             PurchaseButton(
                 offer = offer,
                 pending = selected in billing.pending,
+                billingStartsToday = state.status is LicenseStatus.Trial && selected == Unlock.SUBSCRIPTION,
                 onClick = { context.findActivity()?.let { actions.purchase(it, selected) } },
             )
         }
@@ -378,10 +381,12 @@ private fun OptionSkeleton() {
 
 /**
  * Hauptaktion mit Preis („Für 5,00 € freischalten") und direkt darunter in einem Satz, was sie bedeutet – beim Abo
- * mit automatischer Verlängerung und Kündigung. Wartet eine Zahlung für diese Möglichkeit, ist sie gesperrt.
+ * mit automatischer Verlängerung und Kündigung. [billingStartsToday]: Abo während der Testphase – die erste Zahlung
+ * ist heute fällig, nicht erst nach der Testphase; das steht als eigene, etwas kräftigere Zeile darunter. Wartet eine
+ * Zahlung für diese Möglichkeit, ist sie gesperrt.
  */
 @Composable
-private fun PurchaseButton(offer: BillingOffer, pending: Boolean, onClick: () -> Unit) {
+private fun PurchaseButton(offer: BillingOffer, pending: Boolean, billingStartsToday: Boolean, onClick: () -> Unit) {
     val price = priceText(offer)
     val label = when {
         pending -> stringResource(R.string.license_pending_button)
@@ -413,6 +418,17 @@ private fun PurchaseButton(offer: BillingOffer, pending: Boolean, onClick: () ->
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp),
         )
+        if (billingStartsToday) {
+            Text(
+                text = stringResource(R.string.license_trial_billing_today),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+            )
+        }
     }
 }
 
@@ -497,7 +513,7 @@ private fun FinePrint(showFreeNote: Boolean, showManageLink: Boolean, onLinkFail
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (showFreeNote) {
-            FinePrintText(stringResource(R.string.license_free_forever))
+            FinePrintText(stringResource(R.string.license_free_note))
         }
         FinePrintText(stringResource(R.string.license_fine_print))
         if (showManageLink) {

@@ -216,7 +216,7 @@ Wear-OS-5/5.1-Hinweise, jeweils gegen den Code:
 | `BOOT_COMPLETED`-Empfänger dürfen bestimmte Foreground-Services nicht mehr starten (dataSync, camera, mediaPlayback, phoneCall, mediaProjection, microphone) | `BootReceiver` stellt den Timer wieder her und kann die Schritterkennung starten | Nicht betroffen: `StepTrackerService` hat den Typ `health`, der nicht auf der Liste steht. |
 | Zeitlimit 6 h/Tag für FGS-Typen dataSync und mediaProcessing | Nein | Typ `health` hat kein solches Limit. |
 | FGS-Start mit `SYSTEM_ALERT_WINDOW` | Nein | Berechtigung wird nicht verwendet. |
-| Exakte Alarme | Ja (Erinnerungs-Timer) | Unverändert gegenüber targetSdk 34: `SCHEDULE_EXACT_ALARM` bis API 32, `USE_EXACT_ALARM` ab API 33, ungenauer Fallback im `AlarmScheduler`. Exakte Alarme sind vom Startverbot für Foreground-Services aus dem Hintergrund ausgenommen. Siehe aber den Play-Hinweis unten. |
+| Exakte Alarme | Ja (Erinnerungs-Timer) | Nur noch `SCHEDULE_EXACT_ALARM` (ohne `maxSdkVersion`), kein `USE_EXACT_ALARM`. Ab Android 14 (Wear OS 5) ist die Erlaubnis für neu installierte Apps standardmäßig aus: `AlarmScheduler` prüft `canScheduleExactAlarms()` und plant bis dahin ungenaue Alarme (`setAndAllowWhileIdle`); erlaubt der Nutzer „Wecker und Erinnerungen", plant `BootReceiver` nach `SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED` exakt neu. Exakte Alarme sind vom Startverbot für Foreground-Services aus dem Hintergrund ausgenommen – ungenaue nicht; **Prüfen:** auf einer Uhr mit Wear OS 5 ohne die Erlaubnis, ob die Schritterkennung trotzdem startet. Siehe auch den Play-Hinweis unten. |
 | OpenJDK: `List.removeFirst()/removeLast()` (API 35) statt Kotlin-Erweiterung | `StepBurstDetector` ruft `removeFirst()` auf | Unkritisch: `stepTimes` ist `kotlin.collections.ArrayDeque`, die Methode gehört zur Klasse selbst. Lint `NewApi` meldet nichts. |
 | OpenJDK: strengere Prüfung von `String.format` | Formatmuster wie `%02d`, `%d:%02d`, `%.1f` | Alle gültig. |
 | Edge-to-Edge, stabile Konfiguration (`screenWidthDp` inkl. Systemleisten) | Wear OS hat keine Status-/Navigationsleiste wie das Handy | Keine Auswirkung. |
@@ -243,11 +243,11 @@ Wear-OS-5/5.1-Hinweise, jeweils gegen den Code:
 
 ### Hinweise für die Play Console (Berechtigungen der Uhr)
 
-- **`USE_EXACT_ALARM`** ist laut Play-Richtlinie Wecker-, Timer- und Kalender-Apps vorbehalten; in der Play
-  Console wird dafür eine Erklärung verlangt. DeskBreak ist ein Erinnerungs-Timer; lehnt Play das ab, die
-  Berechtigung entfernen und `SCHEDULE_EXACT_ALARM` ohne `maxSdkVersion` deklarieren (Nutzer muss „Wecker und
-  Erinnerungen" erlauben; die App fällt bis dahin auf ungenaue Alarme zurück und bietet den Weg in die Einstellung
-  schon an).
+- **Exakte Alarme:** Die Uhr deklariert `SCHEDULE_EXACT_ALARM` ohne `maxSdkVersion` und nicht mehr das
+  eingeschränkte `USE_EXACT_ALARM` (laut Play-Richtlinie Wecker-, Timer- und Kalender-Apps vorbehalten, mit Erklärung
+  in der Console). Für `SCHEDULE_EXACT_ALARM` ist keine Erklärung nötig: Der Nutzer erlaubt „Wecker und
+  Erinnerungen" (die Startseite der Uhr bietet den Weg in die Einstellung an), bis dahin fällt die App auf ungenaue
+  Alarme zurück. Details: [data-safety.md, Abschnitt 2.12](data-safety.md#212-exakte-alarme-schedule_exact_alarm).
 - **`FOREGROUND_SERVICE_HEALTH`**: Play verlangt eine Erklärung zum Foreground-Service-Typ (Beschreibung und kurzes
   Video, wie die Schritterkennung während der aktiven Zeit läuft).
 - **`ACTIVITY_RECOGNITION`** und Gesundheitsbezug: Angaben im Abschnitt „App-Inhalte" (u. a. Datensicherheit,

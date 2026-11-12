@@ -18,6 +18,22 @@ Grundlage sind developer.android.com und weitere seriöse Quellen (siehe [Quelle
 | [assets/](assets/) | App-Symbol, Vorstellungsgrafiken, Screenshots für Handy und Uhr (siehe [Grafiken](#grafiken)) |
 | [tools/count_listing.py](tools/count_listing.py) | prüft die Zeichenzahl der Store-Texte |
 
+## Vor der Veröffentlichung ausfüllen
+
+Die Platzhalter bleiben in diesem Repository stehen. Ausgefüllt wird nur die **veröffentlichte Kopie** (bzw. das
+Feld in der Play Console):
+
+| Platzhalter | Datei / Stelle | Eintragen |
+|---|---|---|
+| `[Name]`, `[Anschrift]`, `[E-Mail]` | [privacy-policy.html](privacy-policy.html), Abschnitt 1 und 12, deutscher **und** englischer Teil (ebenso [privacy-policy.md](privacy-policy.md), falls du sie veröffentlichst) | verantwortliche Person bzw. Firma, ladungsfähige Anschrift, Kontakt-E-Mail |
+| `[Datum]` | [privacy-policy.html](privacy-policy.html): „Stand" und „Last updated" | Datum der veröffentlichten Fassung |
+| `[E-Mail]` | [store-listing.md](store-listing.md), „Weitere Angaben im Store-Eintrag" | öffentliche Kontakt-E-Mail im Store-Eintrag |
+| `<benutzer>` | diese Datei, [Abschnitt 7](#7-app-inhalte-ausfüllen) (Adresse bei GitHub Pages) | dein GitHub-Benutzername |
+| `[Name]` | [signing-and-build.md](signing-and-build.md), Abschnitt 1 und 2 (`keytool -dname`, Pfad in `keystore.properties`) | nur lokal, wird nicht veröffentlicht |
+
+Das Quell-Repository am besten **privat** halten: Jeder Commit enthält Name und E-Mail-Adresse der Autorin bzw. des
+Autors (`git log`). Öffentlich wird nur die ausgefüllte Datenschutzerklärung (eigenes Repository, siehe Abschnitt 7).
+
 ## Das Modell in einem Satz
 
 Die App ist im Store **kostenlos**. Ab dem ersten Öffnen (auf Uhr oder Handy) läuft eine **3-tägige Testphase**,
@@ -25,31 +41,49 @@ die die App selbst verwaltet (ohne Zahlungsdaten). Danach wählt man zwischen de
 `deskbreak_lifetime` (5,00 €)** und dem **Abo `deskbreak_monthly` mit Basis-Abo `monthly` (1,00 € im Monat)**.
 Ohne Kauf erinnert die Uhr nicht mehr; Verlauf, Export und Sicherung bleiben nutzbar.
 
+**So wird freigeschaltet:** In der Handy-App auf der Seite „DeskBreak freischalten" (über den Hinweis auf Heute
+oder die Lizenz-Karte in den Einstellungen) oder direkt auf der Uhr. „Am Handy freischalten" auf der Uhr öffnet auf
+dem gekoppelten Handy genau diese Seite der Handy-App – über den Deep Link `deskbreak://unlock`; ist die Handy-App
+dort nicht installiert, stattdessen die Seite von DeskBreak im Play Store. Ein Kauf gilt für Uhr und Handy: über
+dasselbe Google-Konto oder den Abgleich der gekoppelten Geräte.
+
 ---
 
-## 0. Vorher im Code klären (Blocker)
+## 0. Stand im Code (vor dem ersten Hochladen)
 
 Diese Punkte verhindern sonst das Hochladen oder die Freigabe. Sie betreffen den Code bzw. den Build, nicht die
-Play Console – Details in [signing-and-build.md](signing-and-build.md).
+Play Console – Details in [signing-and-build.md](signing-and-build.md). Abgehakt ist, was im Code erledigt ist;
+offen bleibt, was nur du selbst erledigen kannst.
 
-- [ ] **Ziel-API-Level.** Seit 31.08.2026 verlangt Play für neue Apps und Updates **API 36 (Android 16)** für
+- [x] **Ziel-API-Level.** Seit 31.08.2026 verlangt Play für neue Apps und Updates **API 36 (Android 16)** für
       Handy-Apps und **API 35 (Android 15)** für Wear-OS-Apps
-      ([developer.android.com](https://developer.android.com/google/play/requirements/target-sdk)). Stand dieses
-      Dokuments steht in `app/build.gradle.kts` und `mobile/build.gradle.kts` noch `targetSdk = 34` – das wird
-      beim Hochladen abgelehnt. Anheben und anschließend auf echten Geräten testen (Verhaltensänderungen von
-      Android 15/16, z. B. Vordergrunddienste und Randlos-Darstellung).
-- [ ] **Eindeutige Versionscodes.** Uhr- und Handy-Bundle haben dieselbe App-ID `dev.stepcron.wear`; ihre
-      `versionCode`s müssen über beide Formfaktoren hinweg **verschieden** sein (beide stehen derzeit auf `1`).
-      Beispiel: Handy 1, 2, 3 …; Uhr 100001, 100002 … (Google empfiehlt für die Uhr ein eigenes Schema).
-- [ ] **Gleicher Signaturschlüssel** für Uhr und Handy (Play App Signing für beide Bundles mit demselben
-      Upload-/App-Signaturschlüssel). Sonst stellt der Wearable Data Layer zwischen den Geräten nichts zu, und die
-      Wear-OS-Richtlinie WO-G7 ist verletzt.
-- [ ] **64-Bit:** Seit 15.09.2026 müssen Wear-OS-Apps 64-Bit-Geräte unterstützen. DeskBreak enthält keinen
-      nativen Code; im fertigen Bundle prüfen, dass keine `lib/`-Ordner nur für 32 Bit enthalten sind.
-- [ ] **Kauf-Oberfläche fertig** (wird parallel gebaut): Preis aus Play anzeigen, Abrechnungszeitraum, Hinweis
-      „jederzeit kündbar", Link zur Abo-Verwaltung in Play, Käufe bestätigen (sonst erstattet Play sie nach
-      3 Tagen), Käufe nach Neuinstallation wiederherstellen. Das verlangt die Abo-Richtlinie von Play.
-- [ ] **Screenshots neu erzeugen**, sobald die Kauf-/Testphasen-Anzeige in der App ist (siehe [Grafiken](#grafiken)).
+      ([developer.android.com](https://developer.android.com/google/play/requirements/target-sdk)). Im Code:
+      Handy (`mobile/build.gradle.kts`) `targetSdk = 36`, Uhr (`app/build.gradle.kts`) `targetSdk = 35`,
+      `compileSdk = 36` in allen Modulen. Die Verhaltensänderungen von Android 15/16 sind gegen den Code geprüft
+      ([signing-and-build.md, Abschnitt 7](signing-and-build.md#7-geprüft-für-targetsdk-35-uhr-und-36-handy)); auf
+      echten Geräten noch ansehen (Zeit-Dialog quer, Predictive Back, Tablet).
+- [x] **Eindeutige Versionscodes.** Uhr- und Handy-Bundle haben dieselbe App-ID `dev.stepcron.wear`; ihre
+      `versionCode`s müssen über beide Formfaktoren hinweg **verschieden** sein. Einzige Stelle ist
+      `deskbreak.versionCode` in `gradle.properties`; daraus berechnen die Build-Skripte **Handy = Basis × 10 + 1**
+      und **Uhr = Basis × 10 + 2** (bei Basis 1: Handy 11, Uhr 12). Für jedes Update nur die Basis um 1 erhöhen
+      ([signing-and-build.md, Abschnitt 4](signing-and-build.md#4-versionen)).
+- [ ] **Gleicher Signaturschlüssel** für Uhr und Handy. Der Build signiert beide Module zentral (Wurzel-
+      `build.gradle.kts`) mit demselben Upload-Schlüssel – den Schlüssel musst du einmal selbst anlegen
+      ([signing-and-build.md, Abschnitt 1–2](signing-and-build.md#1-upload-schlüssel-erstellen-einmalig)); Play App
+      Signing gibt dann beiden Bundles denselben App-Signaturschlüssel. Sonst stellt der Wearable Data Layer
+      zwischen den Geräten nichts zu, und die Wear-OS-Richtlinie WO-G7 ist verletzt.
+- [ ] **64-Bit:** Seit 15.09.2026 müssen Wear-OS-Apps 64-Bit-Geräte unterstützen. DeskBreak enthält keinen eigenen
+      nativen Code, nur zwei kleine Bibliotheken aus AndroidX (siehe signing-and-build.md, Abschnitt 3); im
+      fertigen Bundle prüfen, dass es zu jedem 32-Bit-Ordner unter `lib/` auch den 64-Bit-Ordner gibt
+      (`arm64-v8a`, `x86_64`). Die Release-APK des Handys enthält alle vier (`arm64-v8a`, `armeabi-v7a`, `x86`,
+      `x86_64`); beim Uhr-Bundle genauso nachsehen.
+- [x] **Kauf-Oberfläche** auf Handy und Uhr: Preis aus Play, Abrechnungszeitraum, „jederzeit kündbar", automatische
+      Verlängerung, Link zur Abo-Verwaltung in Play, Käufe bestätigen (sonst erstattet Play sie nach 3 Tagen),
+      Käufe nach Neuinstallation wiederherstellen; während der Testphase steht beim Abo, dass die Abrechnung sofort
+      beginnt. Das verlangt die Abo-Richtlinie von Play.
+- [x] **Screenshots:** Die Store-Screenshots in [assets/](assets/) entsprechen dem aktuellen Stand (Testphasen- und
+      Kaufanzeige sind darauf bewusst nicht zu sehen). Nach Änderungen an der Oberfläche neu erzeugen (siehe
+      [Grafiken](#grafiken)).
 
 ---
 
@@ -142,14 +176,18 @@ Library in einem Track hochgeladen (Abschnitt 4) – erst dann schaltet die Cons
 | Feld | Wert |
 |---|---|
 | Produkt-ID | `deskbreak_lifetime` (exakt so, nicht änderbar) |
-| Name | DE: „DeskBreak dauerhaft freischalten" · EN: „Unlock DeskBreak forever" |
-| Beschreibung | DE: „Einmal zahlen, dauerhaft erinnert werden – auf Uhr und Handy." · EN: „Pay once, get reminders for good – on your watch and phone." |
+| Name | DE: „DeskBreak dauerhaft freischalten" · EN: „Unlock DeskBreak permanently" |
+| Beschreibung | DE: „Einmalzahlung, kein Abo – schaltet die Erinnerungen auf Uhr und Handy frei." · EN: „One-time payment, no subscription – unlocks reminders on your watch and phone." |
 | Kaufoption | eine Option vom Typ **Kaufen** (nicht „Leihen"); **Prüfen:** Die neuere Console verlangt pro Produkt eine Kaufoption mit eigener ID, z. B. `buy` |
 | Preis | **5,00 EUR** als Standardpreis; die Console rechnet die anderen Länder um – Rundungen prüfen |
 | Status | **Aktiv** |
 
 Der Einmalkauf ist „nicht verbrauchbar": Die App bestätigt ihn nur (acknowledge) und verbraucht ihn nie. Das legt
 der Code fest, nicht die Console.
+
+Keine Besitz- oder „für immer"-Versprechen (Play-Richtlinie zu irreführenden Angaben, § 5 UWG): Der Kauf schaltet
+die App frei, er verkauft sie nicht. Deshalb „dauerhaft freischalten" bzw. „Einmalzahlung, kein Abo" – dieselbe
+Wortwahl wie in der App und im Store-Eintrag.
 
 ### 5.2 Abo `deskbreak_monthly` mit Basis-Abo `monthly`
 
@@ -173,6 +211,9 @@ enden ohne Abo-Falle. Ein Probe-Angebot in Play würde dagegen eine Zahlungsmeth
 und sich mit der App-Testphase addieren. Ein Play-Angebot (z. B. Einführungspreis) bleibt später optional möglich;
 der Code würde dann das Basis-Abo bzw. das Angebot auswählen müssen – vorher prüfen.
 
+Folge: Wer während der Testphase abonniert, zahlt sofort. Das steht in der App beim gewählten Abo direkt unter dem
+Kaufknopf („Die Abrechnung beginnt heute – mit dem Abo endet die Testphase.").
+
 Nach dem Anlegen dauert es teils einige Stunden, bis die Produkte in der App erscheinen.
 
 ## 6. Testen mit Lizenztestern und Testkäufen
@@ -188,6 +229,10 @@ Nach dem Anlegen dauert es teils einige Stunden, bis die Produkte in der App ers
    Interne Tests und Entwürfe haben Ausgabenlimits pro Tag.
 3. **Testfälle:**
    - [ ] Erststart auf der Uhr: Testphase „noch 3 Tage"; danach auf dem Handy dieselbe Restlaufzeit.
+   - [ ] Auf der Uhr „Am Handy freischalten" → das Handy zeigt „DeskBreak freischalten" der Handy-App; Zurück führt
+         auf Heute. Auch wenn die Handy-App schon offen ist (keine zweite Kopie der App). Ohne Handy-App öffnet sich
+         die Play-Store-Seite. Von Hand: `adb shell am start -a android.intent.action.VIEW -d deskbreak://unlock`.
+   - [ ] Testphase, Abo gewählt: Unter dem Kaufknopf steht, dass die Abrechnung heute beginnt.
    - [ ] Ende der Testphase: Datum auf dem Gerät um 4 Tage vorstellen → Uhr erinnert nicht mehr, Verlauf/Export
          gehen weiter. Datum zurückstellen.
    - [ ] Einmalkauf mit „Testkarte, immer genehmigt" → freigeschaltet, auch auf dem anderen Gerät.
@@ -221,10 +266,11 @@ Unter **Richtlinien und Programme > App-Inhalte**. Alle Antworten mit Begründun
 | Nachrichten-App / Behörden-App | nein / nein |
 | Werbe-ID | nein |
 | Vordergrunddienste | Typ „Health" für die Schritterkennung, mit Beschreibung und **Video-Link** |
-| Exakte Alarme | `USE_EXACT_ALARM` als Timer-Kernfunktion begründen; bei Ablehnung auf `SCHEDULE_EXACT_ALARM` umstellen |
+| Exakte Alarme | keine Erklärung nötig: die Uhr nutzt `SCHEDULE_EXACT_ALARM` (Nutzer erlaubt „Wecker und Erinnerungen", sonst ungenaue Alarme), nicht das eingeschränkte `USE_EXACT_ALARM` |
 
 Die Datenschutzerklärung veröffentlichen, z. B. mit **GitHub Pages**: ein eigenes, öffentliches Repository (etwa
-`deskbreak-privacy`) anlegen, die Platzhalter in `privacy-policy.html` füllen, die Datei dort als `index.html`
+`deskbreak-privacy`) anlegen, die Platzhalter in `privacy-policy.html` füllen (siehe
+[Vor der Veröffentlichung ausfüllen](#vor-der-veröffentlichung-ausfüllen)), die Datei dort als `index.html`
 hochladen, unter *Settings > Pages* den Branch als Quelle wählen und die Adresse
 `https://<benutzer>.github.io/deskbreak-privacy/` eintragen. Die Seite braucht keine weiteren Dateien. (Pages direkt
 aus diesem Repository würde den ganzen Ordner `docs/` veröffentlichen und setzt bei privaten Repositories ein
@@ -348,7 +394,7 @@ assets/wear-de-3-stats-month.png         assets/wear-en-3-stats-month.png
 assets/wear-de-4-exercise.png            assets/wear-en-4-exercise.png
 ```
 
-**Neu erzeugen** (z. B. nach Änderungen an der Oberfläche oder sobald die Kauf-/Testphasen-Anzeige fertig ist).
+**Neu erzeugen** (z. B. nach Änderungen an der Oberfläche).
 Die Bilder rendert Robolectric ohne Gerät aus den echten Bildschirmen:
 
 ```sh
@@ -381,7 +427,7 @@ Transparenz oder Maske (WO-G5).
 - Datenschutzformular, Datentypen: <https://developer.android.com/privacy-and-security/declare-data-use>
 - Wearable Data Layer (Verschlüsselung, Zustellung nur an gleich signierte App): <https://developer.android.com/training/wearables/data/overview>
 - Vordergrunddienst-Typen (`health`): <https://developer.android.com/develop/background-work/services/fgs/service-types>
-- Exakte Alarme (`USE_EXACT_ALARM`): <https://developer.android.com/develop/background-work/services/alarms/schedule>
+- Exakte Alarme (`SCHEDULE_EXACT_ALARM`, „Wecker und Erinnerungen"): <https://developer.android.com/develop/background-work/services/alarms/schedule>
 - Google-Play-Symbol: <https://developer.android.com/distribute/google-play/resources/icon-design-specifications>
 - Android-Entwicklerverifizierung (für Apps aus Play automatisch registriert): <https://developer.android.com/developer-verification>
 - Testpflicht neuer privater Konten (12 Tester, 14 Tage) und neue Gebührenstruktur ab 30.06.2026: Play-Console-Hilfe
