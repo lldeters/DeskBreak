@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sprachen der Uhr-App für die Spracheinstellung pro App (API 33+, android:localeConfig; ob Wear OS sie anbietet,
+    hängt vom System ab). Muss zu den ausgelieferten Übersetzungen passen: values/ (Englisch) und values-de/
+    (Deutsch), siehe localeFilters in app/build.gradle.kts.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="de" />
+</locale-config>

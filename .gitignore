@@ -13,3 +13,8 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# Upload-Schlüssel für Release-Builds: nie einchecken (siehe docs/play-store/signing-and-build.md).
+keystore.properties
+*.jks
+*.keystore

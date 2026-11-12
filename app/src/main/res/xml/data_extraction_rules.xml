@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sicherung der Uhr-App ab API 31 (android:dataExtractionRules); auf API 30 (Wear OS 3) gilt backup_rules.xml –
+    beide Dateien gleich halten. Ohne <include> wird alles gesichert: Einstellungen und Timer-Zustand (DataStore
+    deskbreak_settings), Verlauf (Room-Datenbank deskbreak.db samt -wal/-shm), Lizenz- und Testphasen-Daten und
+    künftige Dateien. cache/, code_cache/ und no_backup/ sichert Android ohnehin nie.
+
+    Ausgeschlossen sind nur die Merker von ProfileInstaller (profileInstalled,
+    profileinstaller_profileWrittenFor_lastUpdateTime.dat): Sie gelten nur für die Installation auf diesem Gerät.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="profileInstalled" />
+        <exclude domain="file" path="profileinstaller_profileWrittenFor_lastUpdateTime.dat" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="profileInstalled" />
+        <exclude domain="file" path="profileinstaller_profileWrittenFor_lastUpdateTime.dat" />
+    </device-transfer>
+</data-extraction-rules>
