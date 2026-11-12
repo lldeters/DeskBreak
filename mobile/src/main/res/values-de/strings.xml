@@ -52,7 +52,6 @@
     <string name="problem_failed_code">Verbindungsfehler (Code %1$d). Bitte versuch es noch einmal.</string>
 
     <!-- Leere Zustände -->
-    <string name="empty_title">Noch keine Daten von der Uhr</string>
     <string name="empty_syncing">Warte auf die Uhr …</string>
 
     <!-- Status der Uhr -->
@@ -135,18 +134,12 @@
     <string name="send_idle">Änderungen gehen sofort an die Uhr.</string>
     <string name="send_sending">Wird an die Uhr gesendet …</string>
     <string name="send_waiting">Warte auf die Bestätigung der Uhr …</string>
-    <string name="send_confirmed">Auf der Uhr gespeichert ✓</string>
-    <string name="send_unconfirmed">Die Uhr hat die Änderung noch nicht bestätigt. Vielleicht ist sie nicht in Reichweite.</string>
     <!-- %1$s = Grund -->
     <string name="send_failed">Die Änderung wurde nicht gesendet. %1$s</string>
-    <string name="settings_empty">Gleiche zuerst mit der Uhr ab – dann erscheinen hier ihre Einstellungen.</string>
     <string name="settings_empty_hint">Eine Sicherung kannst du unten trotzdem wiederherstellen.</string>
 
     <!-- Einstellungen: Erinnerungen -->
-    <string name="settings_section_reminders">Erinnerungen</string>
     <string name="settings_enabled">Erinnerungen</string>
-    <string name="settings_enabled_on">Aktiv</string>
-    <string name="settings_enabled_off">Aus</string>
     <string name="settings_interval">Intervall</string>
     <string name="settings_interval_hint">Zeit zwischen zwei Erinnerungen</string>
     <string name="cd_interval_decrease">Intervall verringern</string>
@@ -159,7 +152,6 @@
     <!-- Einstellungen: Pause -->
     <string name="settings_section_pause">Pausieren</string>
     <string name="pause_hint">Eine Weile keine Erinnerungen, z. B. während eines Meetings.</string>
-    <string name="pause_hint_disabled">Die Erinnerungen sind aus.</string>
     <string name="pause_one_hour">1 Stunde</string>
     <string name="pause_rest_of_day">Rest des Tages</string>
     <string name="pause_end">Jetzt fortsetzen</string>
@@ -169,23 +161,17 @@
     <string name="pause_until_date">Pausiert bis %1$s, %2$s</string>
 
     <!-- Einstellungen: Zeitplan -->
-    <string name="settings_section_schedule">Zeitplan</string>
     <string name="schedule_hint">Erinnert wird nur an aktiven Tagen in diesen Zeiten, sonst ist Ruhezeit.</string>
     <string name="schedule_day_off">Frei</string>
     <string name="schedule_start_label">Aktiv ab</string>
     <string name="schedule_end_label">Aktiv bis</string>
     <!-- %1$s = Wochentag -->
     <string name="cd_day_toggle">Erinnerungen am %1$s</string>
-    <!-- %1$s = Wochentag, %2$s = Uhrzeit -->
-    <string name="cd_day_start">%1$s, aktiv ab %2$s. Ändern</string>
-    <string name="cd_day_end">%1$s, aktiv bis %2$s. Ändern</string>
     <string name="schedule_issue_no_day">Kein Tag aktiv – die Uhr erinnert nicht.</string>
     <!-- %1$s = Ende -->
     <string name="schedule_issue_start">Muss mindestens 15 Minuten vor dem Ende (%1$s) liegen.</string>
     <!-- %1$s = Beginn -->
     <string name="schedule_issue_end">Muss mindestens 15 Minuten nach dem Beginn (%1$s) liegen.</string>
-    <!-- %1$s = Wochentag, %2$s = „Aktiv ab" / „Aktiv bis" -->
-    <string name="time_dialog_title">%1$s · %2$s</string>
     <string name="time_dialog_steps">Uhrzeiten gelten in 15-Minuten-Schritten.</string>
     <!-- %1$s = gerundete Uhrzeit -->
     <string name="time_dialog_snapped">Wird als %1$s gespeichert (15-Minuten-Schritte).</string>
@@ -194,9 +180,7 @@
     <string name="time_dialog_dial">Zifferblatt</string>
 
     <!-- Einstellungen: Erinnerung -->
-    <string name="settings_section_reminder">Erinnerung</string>
     <string name="settings_snooze">Snooze</string>
-    <string name="settings_snooze_hint">Minuten, bis die Erinnerung wiederkommt</string>
     <string name="settings_vibration">Vibration</string>
     <string name="vibration_off">Aus</string>
     <string name="vibration_light">Sanft</string>
@@ -208,7 +192,6 @@
     <string name="settings_worn_hint">Nicht erinnern, wenn abgelegt</string>
 
     <!-- Einstellungen: Auto-Schritte -->
-    <string name="settings_section_steps">Auto-Schritte</string>
     <string name="settings_auto_steps">Auto-Schritte</string>
     <string name="settings_auto_steps_hint">Gehen zählt als Pause und setzt den Timer zurück</string>
     <string name="settings_threshold">Schritte für eine Pause</string>

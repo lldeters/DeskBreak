@@ -104,6 +104,53 @@ class SettingsRulesTest {
     }
 
     @Test
+    fun snoozeAndStepThresholdStepThroughTheirOptions() {
+        assertEquals(15, SettingsRules.stepSnooze(10, 1))
+        assertEquals(30, SettingsRules.stepSnooze(20, 1))
+        assertEquals(30, SettingsRules.stepSnooze(30, 1))
+        assertEquals(5, SettingsRules.stepSnooze(5, -1))
+        // Krumme Werte (ältere Uhr) zählen ab der nächstgelegenen Option.
+        assertEquals(15, SettingsRules.stepSnooze(12, 1))
+        assertFalse(SettingsRules.canDecreaseSnooze(5))
+        assertFalse(SettingsRules.canIncreaseSnooze(30))
+        assertTrue(SettingsRules.canIncreaseSnooze(20))
+        assertEquals(50, SettingsRules.stepStepThreshold(30, 1))
+        assertEquals(20, SettingsRules.stepStepThreshold(30, -2))
+        assertFalse(SettingsRules.canDecreaseStepThreshold(20))
+        assertFalse(SettingsRules.canIncreaseStepThreshold(100))
+        assertEquals(SettingsUpdate(snoozeMinutes = 15), SettingsEdits.stepSnooze(settings, 1))
+        assertEquals(SettingsUpdate(stepThreshold = 20), SettingsEdits.stepStepThreshold(settings, -1))
+        assertTrue(SettingsEdits.stepSnooze(settings.copy(snoozeMinutes = 30), 1).isEmpty)
+    }
+
+    @Test
+    fun dayWindowSetsStartAndEndTogether() {
+        // Später als das alte Ende: einzeln nacheinander gesetzt würde der Beginn am alten Ende hängen bleiben.
+        val update = SettingsEdits.dayWindow(settings, 2, 18 * 60, 22 * 60)
+        assertEquals(SyncDay(true, 18 * 60, 22 * 60), update.schedule?.get(2))
+        assertEquals(settings.schedule.filterIndexed { i, _ -> i != 2 }, update.schedule?.filterIndexed { i, _ -> i != 2 })
+        // Gerundet und auf mindestens 15 Minuten begrenzt.
+        assertEquals(SyncDay(true, 9 * 60, 9 * 60 + 15), SettingsEdits.dayWindow(settings, 0, 9 * 60 + 2, 9 * 60)
+            .schedule?.get(0))
+        assertTrue(SettingsEdits.dayWindow(settings, 0, 8 * 60, 17 * 60).isEmpty)
+    }
+
+    @Test
+    fun windowForAllDaysCopiesTheTimesButKeepsFreeDaysFree() {
+        val update = SettingsEdits.windowForAllDays(settings, 9 * 60, 18 * 60 + 30)
+        val schedule = update.schedule!!
+        assertEquals(7, schedule.size)
+        assertTrue(schedule.all { it.startMinute == 9 * 60 && it.endMinute == 18 * 60 + 30 })
+        assertEquals(settings.schedule.map { it.enabled }, schedule.map { it.enabled })
+        // Nur Felder, die sich ändern: Haben schon alle Tage diese Zeiten, gibt es nichts zu senden.
+        assertTrue(SettingsEdits.windowForAllDays(settings, 8 * 60, 17 * 60).isEmpty)
+        assertTrue(SettingsEdits.allDaysHaveWindow(settings, 8 * 60, 17 * 60))
+        assertFalse(SettingsEdits.allDaysHaveWindow(settings, 8 * 60, 16 * 60))
+        // Bis Mitternacht bleibt 24:00.
+        assertEquals(1440, SettingsEdits.windowForAllDays(settings, 20 * 60, 1440).schedule?.get(6)?.endMinute)
+    }
+
+    @Test
     fun pausesEndAfterAnHourOrAtMidnightInTheWatchZone() {
         val now = at("2026-11-09", 10, 20)
         assertEquals(SettingsUpdate(pausedUntilMillis = now + 3_600_000L), SettingsEdits.pauseFor(settings, now, 60))

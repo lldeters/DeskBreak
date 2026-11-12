@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings screen (English, default; German in values-de). Terms as on the watch: break, reminder, snooze, off hours, day off, daily goal. -->
+<resources>
+    <!-- Main switch: what currently applies -->
+    <!-- %1$d = interval in minutes -->
+    <string name="settings_main_on">Every %1$d min on active days</string>
+    <string name="settings_main_off">Off – the watch does not remind you</string>
+    <string name="settings_main_no_days">On, but no day is active in the weekly schedule</string>
+
+    <!-- Units below a stepper value -->
+    <string name="settings_unit_minutes">min</string>
+    <plurals name="settings_unit_breaks">
+        <item quantity="one">break</item>
+        <item quantity="other">breaks</item>
+    </plurals>
+    <plurals name="settings_unit_steps">
+        <item quantity="one">step</item>
+        <item quantity="other">steps</item>
+    </plurals>
+
+    <!-- Pause -->
+    <string name="settings_pause_off">Reminders are off – there is nothing to pause.</string>
+
+    <!-- Weekly schedule -->
+    <string name="settings_schedule_title">Weekly schedule</string>
+    <!-- %1$s = start, %2$s = end -->
+    <string name="settings_schedule_window">%1$s – %2$s</string>
+    <!-- %1$s = weekday -->
+    <string name="settings_schedule_today">%1$s (today)</string>
+    <!-- %1$s = weekday, %2$s = start, %3$s = end -->
+    <string name="cd_schedule_day">%1$s, reminders from %2$s to %3$s</string>
+    <!-- %1$s = weekday -->
+    <string name="cd_schedule_day_off">%1$s, day off</string>
+    <string name="cd_schedule_edit">Change times</string>
+    <string name="time_dialog_copy">Apply to all days</string>
+    <string name="time_dialog_copy_hint">Days off stay off</string>
+    <string name="time_dialog_copy_same">All days already have these times</string>
+
+    <!-- On the watch -->
+    <string name="settings_watch_title">On the watch</string>
+    <string name="settings_watch_subtitle">How a reminder reaches you</string>
+    <string name="settings_snooze_until">Until the reminder comes back</string>
+    <string name="cd_snooze_decrease">Shorter snooze</string>
+    <string name="cd_snooze_increase">Longer snooze</string>
+
+    <!-- Step detection -->
+    <string name="settings_steps_title">Step detection</string>
+    <string name="cd_steps_decrease">Fewer steps</string>
+    <string name="cd_steps_increase">More steps</string>
+
+    <!-- Data -->
+    <string name="settings_data_subtitle">Your breaks and settings as a file</string>
+
+    <!-- Sending and footer -->
+    <string name="settings_send_saved">Saved on the watch</string>
+    <string name="settings_send_unconfirmed">Not confirmed by the watch yet – is it out of reach?</string>
+    <!-- %1$s = when the phone received the watch data (e.g. "today, 10:21") -->
+    <string name="settings_footer_synced">Watch data from %1$s</string>
+</resources>

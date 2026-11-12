@@ -123,7 +123,7 @@ fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewMode
                 )
             }
             composable(Destination.HISTORY.route) { HistoryScreen(state = state, onSyncNow = viewModel::syncNow) }
-            composable(Destination.SETTINGS.route) { SettingsScreen(state = state, viewModel = viewModel) }
+            composable(Destination.SETTINGS.route) { SettingsScreen(state = state, actions = viewModel) }
         }
     }
 }

@@ -52,7 +52,6 @@
     <string name="problem_failed_code">Connection error (code %1$d). Please try again.</string>
 
     <!-- Empty states -->
-    <string name="empty_title">No data from the watch yet</string>
     <string name="empty_syncing">Waiting for the watch …</string>
 
     <!-- Watch status -->
@@ -135,18 +134,12 @@
     <string name="send_idle">Changes are sent to the watch right away.</string>
     <string name="send_sending">Sending to the watch …</string>
     <string name="send_waiting">Waiting for the watch to confirm …</string>
-    <string name="send_confirmed">Saved on the watch ✓</string>
-    <string name="send_unconfirmed">The watch has not confirmed the change yet. It may be out of reach.</string>
     <!-- %1$s = reason -->
     <string name="send_failed">The change was not sent. %1$s</string>
-    <string name="settings_empty">Sync with the watch first – its settings appear here.</string>
     <string name="settings_empty_hint">You can still restore a backup below.</string>
 
     <!-- Settings: reminders -->
-    <string name="settings_section_reminders">Reminders</string>
     <string name="settings_enabled">Reminders</string>
-    <string name="settings_enabled_on">On</string>
-    <string name="settings_enabled_off">Off</string>
     <string name="settings_interval">Interval</string>
     <string name="settings_interval_hint">Time between two reminders</string>
     <string name="cd_interval_decrease">Shorter interval</string>
@@ -159,7 +152,6 @@
     <!-- Settings: pause -->
     <string name="settings_section_pause">Pause</string>
     <string name="pause_hint">No reminders for a while, e.g. during a meeting.</string>
-    <string name="pause_hint_disabled">Reminders are off.</string>
     <string name="pause_one_hour">1 hour</string>
     <string name="pause_rest_of_day">Rest of the day</string>
     <string name="pause_end">Resume now</string>
@@ -169,23 +161,17 @@
     <string name="pause_until_date">Paused until %1$s, %2$s</string>
 
     <!-- Settings: schedule -->
-    <string name="settings_section_schedule">Schedule</string>
     <string name="schedule_hint">Reminders only on active days within these times; off hours otherwise.</string>
     <string name="schedule_day_off">Day off</string>
     <string name="schedule_start_label">Active from</string>
     <string name="schedule_end_label">Active until</string>
     <!-- %1$s = weekday -->
     <string name="cd_day_toggle">Reminders on %1$s</string>
-    <!-- %1$s = weekday, %2$s = time -->
-    <string name="cd_day_start">%1$s, active from %2$s. Change</string>
-    <string name="cd_day_end">%1$s, active until %2$s. Change</string>
     <string name="schedule_issue_no_day">No day active – the watch will not remind you.</string>
     <!-- %1$s = end time -->
     <string name="schedule_issue_start">Must be at least 15 minutes before the end (%1$s).</string>
     <!-- %1$s = start time -->
     <string name="schedule_issue_end">Must be at least 15 minutes after the start (%1$s).</string>
-    <!-- %1$s = weekday, %2$s = "Active from" / "Active until" -->
-    <string name="time_dialog_title">%1$s · %2$s</string>
     <string name="time_dialog_steps">Times are set in 15-minute steps.</string>
     <!-- %1$s = rounded time -->
     <string name="time_dialog_snapped">Will be saved as %1$s (15-minute steps).</string>
@@ -194,9 +180,7 @@
     <string name="time_dialog_dial">Clock</string>
 
     <!-- Settings: reminder -->
-    <string name="settings_section_reminder">Reminder</string>
     <string name="settings_snooze">Snooze</string>
-    <string name="settings_snooze_hint">Minutes until the reminder comes back</string>
     <string name="settings_vibration">Vibration</string>
     <string name="vibration_off">Off</string>
     <string name="vibration_light">Light</string>
@@ -208,7 +192,6 @@
     <string name="settings_worn_hint">No reminders when taken off</string>
 
     <!-- Settings: auto steps -->
-    <string name="settings_section_steps">Auto steps</string>
     <string name="settings_auto_steps">Auto steps</string>
     <string name="settings_auto_steps_hint">Walking counts as a break and resets the timer</string>
     <string name="settings_threshold">Steps for a break</string>
