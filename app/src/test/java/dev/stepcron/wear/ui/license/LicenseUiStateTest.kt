@@ -86,10 +86,22 @@ class LicenseUiStateTest {
 
     @Test
     fun `checking and the phone link are passed through`() {
-        val state = create(trial, checking = true, phoneLink = PhoneLinkState.OPENED)
+        val state = create(trial, checking = true, phoneLink = PhoneLinkState.OPENED_IN_APP)
 
         assertTrue(state.checking)
-        assertEquals(PhoneLinkState.OPENED, state.phoneLink)
+        assertEquals(PhoneLinkState.OPENED_IN_APP, state.phoneLink)
+        assertEquals(PhoneLinkState.IDLE, state.manageLink)
         assertEquals(false, state.loading)
+    }
+
+    @Test
+    fun `unlocking on the phone and managing the subscription keep separate states`() {
+        val record = expired.copy(ownUnlock = Unlock.SUBSCRIPTION.name, ownCheckedAtMillis = now)
+
+        val state = LicenseUiState.create(record, now, ready, false, PhoneLinkState.OPENED_IN_APP, PhoneLinkState.FAILED)
+
+        assertEquals(Unlock.SUBSCRIPTION, state.unlock)
+        assertEquals(PhoneLinkState.OPENED_IN_APP, state.phoneLink)
+        assertEquals(PhoneLinkState.FAILED, state.manageLink)
     }
 }

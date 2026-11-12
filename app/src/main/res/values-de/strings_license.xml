@@ -11,7 +11,7 @@
     <string name="license_expired_button">Freischalten</string>
     <string name="license_home_label">Freischaltung</string>
     <string name="license_home_expired">Testphase vorbei</string>
-    <string name="license_home_lifetime">Dauerhaft freigeschaltet</string>
+    <string name="license_home_lifetime">Freigeschaltet · Einmalkauf</string>
     <string name="license_home_subscription">Monatsabo aktiv</string>
 
     <!-- Freischaltung -->
@@ -25,29 +25,39 @@
     <string name="license_status_expired">Testphase vorbei</string>
     <string name="license_status_expired_hint">Erinnerungen sind pausiert. Verlauf und Statistik bleiben erhalten.</string>
     <string name="license_status_thanks">Danke!</string>
-    <string name="license_status_lifetime">Dauerhaft freigeschaltet</string>
+    <string name="license_status_lifetime">Per Einmalkauf freigeschaltet</string>
     <string name="license_status_subscription">Monatsabo aktiv</string>
 
     <string name="license_unlock_on_phone">Am Handy freischalten</string>
-    <string name="license_unlock_on_phone_secondary">Öffnet Google Play</string>
+    <string name="license_unlock_on_phone_secondary">Öffnet sich am Handy</string>
     <string name="license_phone_opening">Wird geöffnet …</string>
+    <!-- Freischalt-Seite der DeskBreak-Handy-App geöffnet -->
+    <string name="license_phone_opened_app">Weiter in der Handy-App</string>
+    <!-- Handy-App nicht installiert (oder zu alt): ihre Seite in Google Play am Handy geöffnet -->
+    <string name="license_phone_opened_store">Weiter in Google Play</string>
     <string name="license_phone_opened">Weiter auf dem Handy</string>
+    <!-- Kein Handy erreichbar: stattdessen Google Play auf der Uhr geöffnet -->
+    <string name="license_phone_opened_watch">Auf der Uhr geöffnet</string>
     <string name="license_phone_failed">Handy nicht erreichbar</string>
 
     <string name="license_buy_header">Auf der Uhr kaufen</string>
     <!-- %1$s = Preis von Google Play, z. B. „5,00 €" -->
-    <string name="license_buy_lifetime">Einmalig %1$s</string>
-    <string name="license_buy_lifetime_secondary">Dauerhaft freischalten</string>
+    <string name="license_buy_lifetime">%1$s einmalig</string>
+    <string name="license_buy_lifetime_secondary">Einmalzahlung, kein Abo</string>
     <!-- %1$s = Preis von Google Play, z. B. „1,00 €" -->
     <string name="license_buy_monthly">%1$s / Monat</string>
-    <string name="license_buy_monthly_secondary">Monatsabo</string>
-    <string name="license_cancel_anytime">Das Abo ist jederzeit in Google Play kündbar.</string>
+    <!-- Muss auf kleinen runden Uhren in zwei Zeilen passen; das geschützte Leerzeichen hält „jederzeit kündbar" zusammen -->
+    <string name="license_buy_monthly_secondary">Verlängert sich monatlich, jederzeit\u00A0kündbar</string>
+    <!-- Direkt unter dem Abo (Angebot bzw. „Abo verwalten") -->
+    <string name="license_cancel_anytime">Jederzeit kündbar in Google Play unter „Zahlungen und Abos“.</string>
+    <!-- Kein Android-Handy erreichbar (z. B. mit einem iPhone gekoppelt). %1$s = license_subscriptions_address -->
+    <string name="license_cancel_web">Ohne Handy: in jedem Browser kündigen unter %1$s</string>
 
     <string name="license_check">Käufe prüfen</string>
     <string name="license_check_secondary">Nach dem Kauf am Handy</string>
     <string name="license_checking">Wird geprüft …</string>
     <string name="license_manage_subscription">Abo verwalten</string>
-    <string name="license_manage_subscription_secondary">Öffnet sich am Handy</string>
+    <string name="license_manage_subscription_secondary">Öffnet Google Play</string>
 
     <string name="license_notice_pending">Zahlung ausstehend – Google Play bestätigt sie.</string>
     <string name="license_notice_unreachable">Google Play ist nicht erreichbar. Bitte später erneut versuchen.</string>

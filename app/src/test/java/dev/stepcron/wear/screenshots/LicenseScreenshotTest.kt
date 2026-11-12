@@ -26,6 +26,7 @@ import dev.stepcron.shared.license.Unlock
 import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.ui.HomeStatus
 import dev.stepcron.wear.ui.HomeUiState
+import dev.stepcron.wear.ui.SystemStatus
 import dev.stepcron.wear.ui.home.HomeScreen
 import dev.stepcron.wear.ui.license.LicenseScreen
 import dev.stepcron.wear.ui.license.LicenseUiState
@@ -42,8 +43,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Screenshots der Freischaltung auf der Uhr – zum Prüfen der Texte (vor allem Deutsch auf kleinen runden Uhren), nur
- * mit `-Pscreenshots`:
+ * Screenshots der Freischaltung auf der Uhr und der Bitte um exakte Alarme auf dem Startbildschirm – zum Prüfen der
+ * Texte (vor allem Deutsch auf kleinen runden Uhren), nur mit `-Pscreenshots`:
  *
  *     ./gradlew :app:testDebugUnitTest -Pscreenshots --tests '*wear.screenshots.LicenseScreenshotTest*'
  *
@@ -71,7 +72,7 @@ class LicenseScreenshotTest {
 
     private fun licenseSet(variant: String) {
         val shots = listOf(
-            Shot("license-$variant-1-home-trial") { Home(LicenseStatus.Trial(NOW + 2 * LicenseRules.DAY_MILLIS, 2)) },
+            Shot("license-$variant-1-home-trial") { Home(trial) },
             Shot("license-$variant-2-home-expired") { Home(LicenseStatus.Expired(NOW - LicenseRules.DAY_MILLIS)) },
             Shot("license-$variant-3-home-expired-bottom", scrollToIndex = LAST) {
                 Home(LicenseStatus.Expired(NOW - LicenseRules.DAY_MILLIS))
@@ -79,14 +80,39 @@ class LicenseScreenshotTest {
             Shot("license-$variant-4-screen-expired") { License(expiredWithOffers) },
             Shot("license-$variant-5-screen-expired-offers", scrollToIndex = 4) { License(expiredWithOffers) },
             Shot("license-$variant-6-screen-expired-bottom", scrollToIndex = LAST) { License(expiredWithOffers) },
-            Shot("license-$variant-7-screen-phone-opened") {
-                License(expiredWithOffers.copy(offers = emptyList(), phoneLink = PhoneLinkState.OPENED))
+            // Rückmeldung nach „Am Handy freischalten" – bis zum Eintrag gescrollt, damit sie ganz zu sehen ist.
+            Shot("license-$variant-7-screen-phone-opened", scrollToIndex = 2) {
+                License(expiredWithOffers.copy(offers = emptyList(), phoneLink = PhoneLinkState.OPENED_IN_APP))
             },
             Shot("license-$variant-8-screen-subscription") {
                 License(LicenseUiState(loading = false, status = LicenseStatus.Unlocked(Unlock.SUBSCRIPTION)))
             },
             Shot("license-$variant-9-screen-lifetime") {
                 License(LicenseUiState(loading = false, status = LicenseStatus.Unlocked(Unlock.LIFETIME)))
+            },
+            // Das Abo-Angebot mit dem Hinweis zum Kündigen direkt darunter.
+            Shot("license-$variant-10-screen-expired-subscription", scrollToIndex = 5) { License(expiredWithOffers) },
+            Shot("license-$variant-11-screen-phone-store", scrollToIndex = 2) {
+                License(expiredWithOffers.copy(offers = emptyList(), phoneLink = PhoneLinkState.OPENED_ON_PHONE))
+            },
+            // Abo verwalten ohne Android-Handy (z. B. mit einem iPhone gekoppelt): die Adresse für den Browser.
+            Shot("license-$variant-12-screen-subscription-no-phone", scrollToIndex = LAST) {
+                License(
+                    LicenseUiState(
+                        loading = false,
+                        status = LicenseStatus.Unlocked(Unlock.SUBSCRIPTION),
+                        manageLink = PhoneLinkState.FAILED,
+                    ),
+                )
+            },
+            // Neu installiert ab Android 14: exakte Alarme nicht erlaubt, Erinnerungen noch aus.
+            Shot("license-$variant-13-home-exact-alarm") { Home(trial, enabled = false, system = noExactAlarms) },
+            Shot("license-$variant-14-home-exact-alarm-chip", scrollToIndex = 2) {
+                Home(trial, enabled = false, system = noExactAlarms)
+            },
+            // Zusätzlich fehlende Laufzeit-Berechtigungen: beide Warnungen vor dem Schalter.
+            Shot("license-$variant-15-home-permissions-and-exact-alarm", scrollToIndex = 3) {
+                Home(trial, system = noExactAlarms.copy(notificationsGranted = false))
             },
         )
         compose.runOnUiThread { compose.activity.actionBar?.hide() }
@@ -130,22 +156,28 @@ class LicenseScreenshotTest {
     }
 
     @Composable
-    private fun Home(license: LicenseStatus) {
+    private fun Home(license: LicenseStatus, enabled: Boolean = true, system: SystemStatus = SystemStatus()) {
         val active = license.isActive
         HomeScreen(
             state = HomeUiState(
                 loading = false,
-                enabled = true,
+                enabled = enabled,
                 intervalMinutes = 45,
                 schedule = WeeklySchedule.DEFAULT,
                 today = WeeklySchedule.DEFAULT[DayOfWeek.TUESDAY],
                 dailyGoal = 8,
                 todayMovements = 3,
-                status = if (active) {
-                    HomeStatus.Scheduled(atMillis = NOW + 23 * 60_000L, remainingMinutes = 23, progress = 0.5f, snoozed = false)
-                } else {
-                    HomeStatus.Locked
+                status = when {
+                    !enabled -> HomeStatus.Disabled
+                    active -> HomeStatus.Scheduled(
+                        atMillis = NOW + 23 * 60_000L,
+                        remainingMinutes = 23,
+                        progress = 0.5f,
+                        snoozed = false,
+                    )
+                    else -> HomeStatus.Locked
                 },
+                system = system,
                 license = license,
             ),
             onEnabledChange = {},
@@ -180,6 +212,9 @@ class LicenseScreenshotTest {
         /** Bis ans Ende der Liste scrollen. */
         const val LAST = -1
         const val MAX_ITEMS = 40
+
+        val trial = LicenseStatus.Trial(NOW + 2 * LicenseRules.DAY_MILLIS, 2)
+        val noExactAlarms = SystemStatus(exactAlarmsAllowed = false)
 
         val expiredWithOffers = LicenseUiState(
             loading = false,

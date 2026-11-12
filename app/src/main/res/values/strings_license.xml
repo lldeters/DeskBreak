@@ -11,7 +11,7 @@
     <string name="license_expired_button">Unlock</string>
     <string name="license_home_label">Unlock</string>
     <string name="license_home_expired">Trial ended</string>
-    <string name="license_home_lifetime">Unlocked for good</string>
+    <string name="license_home_lifetime">Unlocked · one-time purchase</string>
     <string name="license_home_subscription">Monthly subscription active</string>
 
     <!-- Unlock screen -->
@@ -25,29 +25,40 @@
     <string name="license_status_expired">Trial ended</string>
     <string name="license_status_expired_hint">Reminders are paused. History and stats stay available.</string>
     <string name="license_status_thanks">Thank you!</string>
-    <string name="license_status_lifetime">Unlocked for good</string>
+    <string name="license_status_lifetime">Unlocked with a one-time purchase</string>
     <string name="license_status_subscription">Monthly subscription active</string>
 
     <string name="license_unlock_on_phone">Unlock on phone</string>
-    <string name="license_unlock_on_phone_secondary">Opens Google Play</string>
+    <string name="license_unlock_on_phone_secondary">Opens on your phone</string>
     <string name="license_phone_opening">Opening …</string>
+    <!-- Opened the unlock page of the DeskBreak phone app -->
+    <string name="license_phone_opened_app">Continue in the phone app</string>
+    <!-- Phone app not installed (or too old): opened its page in Google Play on the phone -->
+    <string name="license_phone_opened_store">Continue in Google Play</string>
     <string name="license_phone_opened">Continue on your phone</string>
+    <!-- No phone reachable: opened Google Play on the watch instead -->
+    <string name="license_phone_opened_watch">Opened on the watch</string>
     <string name="license_phone_failed">Phone not reachable</string>
 
     <string name="license_buy_header">Buy on the watch</string>
     <!-- %1$s = price from Google Play, e.g. "€5.00" -->
-    <string name="license_buy_lifetime">One-time %1$s</string>
-    <string name="license_buy_lifetime_secondary">Unlock for good</string>
+    <string name="license_buy_lifetime">%1$s once</string>
+    <string name="license_buy_lifetime_secondary">One-time payment, no\u00A0subscription</string>
     <!-- %1$s = price from Google Play, e.g. "€1.00" -->
     <string name="license_buy_monthly">%1$s / month</string>
-    <string name="license_buy_monthly_secondary">Monthly subscription</string>
-    <string name="license_cancel_anytime">The subscription can be cancelled anytime in Google Play.</string>
+    <!-- Must fit two lines on a small round watch; the no-break space keeps "cancel anytime" together -->
+    <string name="license_buy_monthly_secondary">Renews monthly, cancel\u00A0anytime</string>
+    <!-- Directly below the subscription (offer or "Manage subscription") -->
+    <string name="license_cancel_anytime">Cancel anytime in Google Play under Payments &amp; subscriptions.</string>
+    <!-- No Android phone reachable (e.g. paired with an iPhone). %1$s = license_subscriptions_address -->
+    <string name="license_cancel_web">Without a phone: cancel in any web browser at %1$s</string>
+    <string name="license_subscriptions_address" translatable="false">play.google.com/store/account/subscriptions</string>
 
     <string name="license_check">Check purchases</string>
     <string name="license_check_secondary">After buying on the phone</string>
     <string name="license_checking">Checking …</string>
     <string name="license_manage_subscription">Manage subscription</string>
-    <string name="license_manage_subscription_secondary">Opens on the phone</string>
+    <string name="license_manage_subscription_secondary">Opens Google Play</string>
 
     <string name="license_notice_pending">Payment pending – Google Play will confirm it.</string>
     <string name="license_notice_unreachable">Google Play is not reachable. Try again later.</string>

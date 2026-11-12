@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -42,8 +43,9 @@ import dev.stepcron.wear.ui.WEAR_SMALL_ROUND
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 
 /**
- * Freischaltung: Stand der Lizenz, „Am Handy freischalten" (öffnet Google Play auf dem Handy), Kauf direkt auf der Uhr,
- * wenn Play Billing hier bereit ist, und „Käufe prüfen". Freigeschaltet ein Dank, beim Abo die Abo-Verwaltung.
+ * Freischaltung: Stand der Lizenz, „Am Handy freischalten" (öffnet die Freischalt-Seite der Handy-App, ohne sie Google
+ * Play auf dem Handy), Kauf direkt auf der Uhr, wenn Play Billing hier bereit ist, und „Käufe prüfen". Freigeschaltet
+ * ein Dank, beim Abo die Abo-Verwaltung. Der Hinweis zum Kündigen steht jeweils direkt unter dem Abo.
  */
 @Composable
 fun LicenseScreen(
@@ -74,15 +76,26 @@ fun LicenseScreen(
                     item(key = "manage") {
                         Chip(
                             onClick = onManageSubscription,
-                            label = { Text(stringResource(R.string.license_manage_subscription), maxLines = 1) },
+                            label = { Text(stringResource(R.string.license_manage_subscription), maxLines = 2) },
                             secondaryLabel = {
-                                PhoneLinkText(state.phoneLink, R.string.license_manage_subscription_secondary)
+                                LinkStateText(
+                                    text = when (state.manageLink) {
+                                        PhoneLinkState.IDLE -> R.string.license_manage_subscription_secondary
+                                        PhoneLinkState.OPENING -> R.string.license_phone_opening
+                                        PhoneLinkState.OPENED_IN_APP,
+                                        PhoneLinkState.OPENED_ON_PHONE,
+                                        -> R.string.license_phone_opened
+                                        PhoneLinkState.OPENED_ON_WATCH -> R.string.license_phone_opened_watch
+                                        PhoneLinkState.FAILED -> R.string.license_phone_failed
+                                    },
+                                )
                             },
                             icon = { ChipIcon(R.drawable.ic_phone) },
                             colors = ChipDefaults.secondaryChipColors(),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
+                    cancelNote(withoutPhone = state.manageLink.withoutPhone)
                 }
 
                 Unlock.LIFETIME -> Unit
@@ -102,10 +115,6 @@ fun LicenseScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-
-            if (state.unlock != Unlock.LIFETIME) {
-                item(key = "cancel_anytime") { Note(stringResource(R.string.license_cancel_anytime)) }
-            }
         }
     }
 }
@@ -120,7 +129,19 @@ private fun ScalingLazyListScope.unlockItems(
         Chip(
             onClick = onUnlockOnPhone,
             label = { Text(stringResource(R.string.license_unlock_on_phone), maxLines = 2) },
-            secondaryLabel = { PhoneLinkText(state.phoneLink, R.string.license_unlock_on_phone_secondary) },
+            secondaryLabel = {
+                LinkStateText(
+                    text = when (state.phoneLink) {
+                        PhoneLinkState.IDLE -> R.string.license_unlock_on_phone_secondary
+                        PhoneLinkState.OPENING -> R.string.license_phone_opening
+                        PhoneLinkState.OPENED_IN_APP -> R.string.license_phone_opened_app
+                        PhoneLinkState.OPENED_ON_PHONE -> R.string.license_phone_opened_store
+                        // Kommt hier nicht vor: Die Freischaltung öffnet nichts auf der Uhr.
+                        PhoneLinkState.OPENED_ON_WATCH -> R.string.license_phone_opened_watch
+                        PhoneLinkState.FAILED -> R.string.license_phone_failed
+                    },
+                )
+            },
             icon = { ChipIcon(R.drawable.ic_phone) },
             colors = ChipDefaults.primaryChipColors(),
             modifier = Modifier.fillMaxWidth(),
@@ -149,9 +170,32 @@ private fun ScalingLazyListScope.unlockItems(
             Chip(
                 onClick = { onBuy(offer.unlock) },
                 label = { Text(offerLabel(offer), maxLines = 1) },
-                secondaryLabel = { Text(stringResource(offerSecondary(offer.unlock)), maxLines = 1) },
+                // Bis zu drei Zeilen: Bei größerer Schrift darf vom Hinweis zur Verlängerung nichts fehlen.
+                secondaryLabel = { Text(stringResource(offerSecondary(offer.unlock)), maxLines = 3) },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        // Wie und wo sich das Abo kündigen lässt, direkt beim Abo – nicht erst am Ende der Liste.
+        if (offer.unlock == Unlock.SUBSCRIPTION) cancelNote(withoutPhone = false)
+    }
+}
+
+/**
+ * Hinweis zum Kündigen unter dem Abo; [withoutPhone] (kein Android-Handy hat die Abo-Verwaltung geöffnet, z. B. mit
+ * einem iPhone gekoppelt) zusätzlich die Adresse, unter der es in jedem Browser geht.
+ */
+private fun ScalingLazyListScope.cancelNote(withoutPhone: Boolean) {
+    item(key = "cancel_anytime") { Note(stringResource(R.string.license_cancel_anytime)) }
+    if (withoutPhone) {
+        item(key = "cancel_web") {
+            Note(
+                text = stringResource(
+                    R.string.license_cancel_web,
+                    stringResource(R.string.license_subscriptions_address),
+                ),
+                color = MaterialTheme.colors.onSurface,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
     }
@@ -193,17 +237,11 @@ private fun LicenseStatusText(status: LicenseStatus) {
     }
 }
 
-/** Zweite Zeile der Handy-Aktionen: der Stand des Öffnens, sonst [idleText]. */
+/** Zweite Zeile der Handy-Aktionen: der Stand des Öffnens (auf kleinen Uhren zwei Zeilen, bei größerer Schrift drei). */
 @Composable
-private fun PhoneLinkText(phoneLink: PhoneLinkState, @StringRes idleText: Int) {
-    val text = when (phoneLink) {
-        PhoneLinkState.IDLE -> idleText
-        PhoneLinkState.OPENING -> R.string.license_phone_opening
-        PhoneLinkState.OPENED -> R.string.license_phone_opened
-        PhoneLinkState.FAILED -> R.string.license_phone_failed
-    }
+private fun LinkStateText(@StringRes text: Int) {
     // Das Ergebnis ansagen, es ändert nur diese Zeile.
-    Text(stringResource(text), maxLines = 2, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    Text(stringResource(text), maxLines = 3, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
 }
 
 @Composable
@@ -246,13 +284,17 @@ private fun Caption(text: String) {
 }
 
 @Composable
-private fun Note(text: String) {
+private fun Note(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colors.onSurfaceVariant,
+) {
     Text(
         text = text,
         style = MaterialTheme.typography.caption3,
-        color = MaterialTheme.colors.onSurfaceVariant,
+        color = color,
         textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     )
 }
 

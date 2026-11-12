@@ -19,12 +19,13 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Exakte Alarme: bis Android 12L per SCHEDULE_EXACT_ALARM, ab Android 13 per USE_EXACT_ALARM
-         (automatisch erteilt; die App ist ein Erinnerungs-Timer). -->
-    <uses-permission
-        android:name="android.permission.SCHEDULE_EXACT_ALARM"
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- Exakte Alarme für pünktliche Erinnerungen und den Start der Schritterkennung im Hintergrund (aus einem
+         ungenauen Alarm heraus verbietet Android den Start eines Foreground-Service). Ab Android 14 ist SCHEDULE_EXACT_ALARM
+         bei neuen Installationen nicht erteilt: Der Startbildschirm bittet dann oben darum („Alarme erlauben" →
+         Systemseite „Wecker und Erinnerungen"), bis dahin plant AlarmScheduler ungenau. Wird sie erteilt, plant
+         der BootReceiver (SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) exakt neu.
+         Bewusst nicht USE_EXACT_ALARM: Google Play erlaubt es nur Wecker-, Timer- und Kalender-Apps. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <!-- Foreground-Service für die Schritterkennung während der aktiven Zeit -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

@@ -66,6 +66,7 @@ import kotlinx.coroutines.delay
 /**
  * Hauptbildschirm: Status, Aktiv-Schalter, Timer-Reset, Statistik und Einstellungen. Zur Freischaltung führen in der
  * Testphase ein kleiner Hinweis unter dem Status, nach der Testphase eine Karte ganz oben und immer ein Eintrag unten.
+ * Fehlende Berechtigungen und exakte Alarme stehen als Warnung direkt unter dem Status, vor dem Aktiv-Schalter.
  */
 @Composable
 fun HomeScreen(
@@ -100,7 +101,7 @@ fun HomeScreen(
     val current by rememberUpdatedState(state)
     // Diese Werte bestimmen, welche Items es überhaupt gibt – deshalb direkt als Wert.
     val showPermissionsChip = state.needsPermissions
-    val showExactAlarmChip = !state.system.exactAlarmsAllowed
+    val showExactAlarmChip = state.needsExactAlarms
     // Ohne aktiven Tag direkt unter dem Status zum Zeitplan führen (der reguläre Eintrag liegt weiter unten).
     val showScheduleShortcut = state.status == HomeStatus.NoActiveDays
     val paused = state.status is HomeStatus.PausedByUser
@@ -153,12 +154,22 @@ fun HomeScreen(
                         label = { Text(stringResource(R.string.home_permissions_label)) },
                         secondaryLabel = { Text(stringResource(R.string.home_permissions_secondary)) },
                         icon = { ChipIcon(R.drawable.ic_warning) },
-                        colors = ChipDefaults.chipColors(
-                            backgroundColor = WARNING_BACKGROUND,
-                            contentColor = MaterialTheme.colors.secondary,
-                            secondaryContentColor = MaterialTheme.colors.onSurface,
-                            iconColor = MaterialTheme.colors.secondary,
-                        ),
+                        colors = warningChipColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            // Direkt nach den Berechtigungen (exakte Alarme sind keine Laufzeit-Berechtigung, der Dialog fragt sie
+            // nicht ab): Öffnet die Systemseite „Wecker und Erinnerungen", MainActivity.onResume liest sie neu.
+            if (showExactAlarmChip) {
+                item(key = "exact_alarm") {
+                    Chip(
+                        onClick = onOpenExactAlarmSettings,
+                        label = { Text(stringResource(R.string.home_exact_alarm_label), maxLines = 2) },
+                        secondaryLabel = { Text(stringResource(R.string.home_exact_alarm_secondary), maxLines = 3) },
+                        icon = { ChipIcon(R.drawable.ic_warning) },
+                        colors = warningChipColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -316,19 +327,6 @@ fun HomeScreen(
                     enabled = sensorAvailable,
                     modifier = Modifier.fillMaxWidth(),
                 )
-            }
-
-            if (showExactAlarmChip) {
-                item(key = "exact_alarm") {
-                    Chip(
-                        onClick = onOpenExactAlarmSettings,
-                        label = { Text(stringResource(R.string.home_exact_alarm_label)) },
-                        secondaryLabel = { Text(stringResource(R.string.home_exact_alarm_secondary), maxLines = 2) },
-                        icon = { ChipIcon(R.drawable.ic_warning) },
-                        colors = ChipDefaults.secondaryChipColors(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
             }
 
             if (showLicenseChip) {
@@ -498,8 +496,17 @@ private fun licenseSummary(license: LicenseStatus?): String = when (license) {
     )
 }
 
-/** Hintergrund von Warnungen (Berechtigungen, abgelaufene Testphase). */
+/** Hintergrund von Warnungen (Berechtigungen, exakte Alarme, abgelaufene Testphase). */
 private val WARNING_BACKGROUND = Color(0xFF3D2E0A)
+
+/** Einträge, die eine fehlende Erlaubnis melden. */
+@Composable
+private fun warningChipColors() = ChipDefaults.chipColors(
+    backgroundColor = WARNING_BACKGROUND,
+    contentColor = MaterialTheme.colors.secondary,
+    secondaryContentColor = MaterialTheme.colors.onSurface,
+    iconColor = MaterialTheme.colors.secondary,
+)
 
 @Composable
 private fun ScheduleSummary(schedule: WeeklySchedule) {
