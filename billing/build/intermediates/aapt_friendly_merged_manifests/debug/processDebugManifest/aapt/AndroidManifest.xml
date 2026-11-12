@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Die Berechtigung com.android.vending.BILLING bringt die Billing Library selbst mit. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="dev.stepcron.billing" >
-
-    <uses-sdk android:minSdkVersion="26" />
-
-</manifest>
