@@ -24,6 +24,7 @@ import dev.stepcron.mobile.sync.SettingsSendState
 import dev.stepcron.mobile.sync.SyncDecoding
 import dev.stepcron.mobile.sync.SyncRepository
 import dev.stepcron.mobile.sync.SyncState
+import dev.stepcron.mobile.ui.settings.SettingsActions
 import dev.stepcron.shared.sync.SettingsUpdate
 import dev.stepcron.shared.sync.SyncBackup
 import dev.stepcron.shared.sync.SyncCodec
@@ -103,7 +104,7 @@ class AppViewModel(
     private val repository: SyncRepository,
     private val contentResolver: ContentResolver,
     private val clock: () -> Long = System::currentTimeMillis,
-) : ViewModel() {
+) : ViewModel(), SettingsActions {
 
     /** Taktgeber für Countdown und Tageswechsel. */
     private val ticker = flow {
@@ -150,7 +151,7 @@ class AppViewModel(
 
     // --- Abgleich ---
 
-    fun syncNow() {
+    override fun syncNow() {
         repository.refresh()
     }
 
@@ -161,36 +162,41 @@ class AppViewModel(
         repository.changeSettings(build(current))
     }
 
-    fun setEnabled(enabled: Boolean) = edit { SettingsEdits.enabled(it, enabled) }
-    fun stepInterval(steps: Int) = edit { SettingsEdits.stepInterval(it, steps) }
-    fun stepDailyGoal(steps: Int) = edit { SettingsEdits.stepDailyGoal(it, steps) }
-    fun setSnooze(minutes: Int) = edit { SettingsEdits.snooze(it, minutes) }
-    fun setStepThreshold(steps: Int) = edit { SettingsEdits.stepThreshold(it, steps) }
-    fun setVibration(level: VibrationLevel) = edit { SettingsEdits.vibration(it, level) }
-    fun setAutoSteps(enabled: Boolean) = edit { SettingsEdits.autoSteps(it, enabled) }
-    fun setRespectQuietModes(enabled: Boolean) = edit { SettingsEdits.respectQuietModes(it, enabled) }
-    fun setOnlyWhenWorn(enabled: Boolean) = edit { SettingsEdits.onlyWhenWorn(it, enabled) }
-    fun setDayEnabled(dayIndex: Int, enabled: Boolean) = edit { SettingsEdits.dayEnabled(it, dayIndex, enabled) }
-    fun setDayStart(dayIndex: Int, minute: Int) = edit { SettingsEdits.dayStart(it, dayIndex, minute) }
-    fun setDayEnd(dayIndex: Int, minute: Int) = edit { SettingsEdits.dayEnd(it, dayIndex, minute) }
-    fun endPause() = edit { SettingsEdits.endPause(it) }
-    fun pauseOneHour() = edit { SettingsEdits.pauseFor(it, clock(), SettingsRules.QUICK_PAUSE_MINUTES) }
+    override fun setEnabled(enabled: Boolean) = edit { SettingsEdits.enabled(it, enabled) }
+    override fun stepInterval(steps: Int) = edit { SettingsEdits.stepInterval(it, steps) }
+    override fun stepDailyGoal(steps: Int) = edit { SettingsEdits.stepDailyGoal(it, steps) }
+    override fun stepSnooze(steps: Int) = edit { SettingsEdits.stepSnooze(it, steps) }
+    override fun stepStepThreshold(steps: Int) = edit { SettingsEdits.stepStepThreshold(it, steps) }
+    override fun setVibration(level: VibrationLevel) = edit { SettingsEdits.vibration(it, level) }
+    override fun setAutoSteps(enabled: Boolean) = edit { SettingsEdits.autoSteps(it, enabled) }
+    override fun setRespectQuietModes(enabled: Boolean) = edit { SettingsEdits.respectQuietModes(it, enabled) }
+    override fun setOnlyWhenWorn(enabled: Boolean) = edit { SettingsEdits.onlyWhenWorn(it, enabled) }
+    override fun setDayEnabled(dayIndex: Int, enabled: Boolean) = edit { SettingsEdits.dayEnabled(it, dayIndex, enabled) }
 
-    fun pauseRestOfDay() {
+    override fun setDayWindow(dayIndex: Int, startMinute: Int, endMinute: Int) =
+        edit { SettingsEdits.dayWindow(it, dayIndex, startMinute, endMinute) }
+
+    override fun setWindowForAllDays(startMinute: Int, endMinute: Int) =
+        edit { SettingsEdits.windowForAllDays(it, startMinute, endMinute) }
+
+    override fun endPause() = edit { SettingsEdits.endPause(it) }
+    override fun pauseOneHour() = edit { SettingsEdits.pauseFor(it, clock(), SettingsRules.QUICK_PAUSE_MINUTES) }
+
+    override fun pauseRestOfDay() {
         val zone = watchZone()
         edit { SettingsEdits.pauseRestOfDay(it, clock(), zone) }
     }
 
-    fun retrySettings() {
+    override fun retrySettings() {
         repository.retrySettings()
     }
 
     // --- Export ---
 
     /** Dateiname für den CSV-Export (Tag in der Zeitzone der Uhr). */
-    fun csvFileName(): String = CsvExport.fileName(today())
+    override fun csvFileName(): String = CsvExport.fileName(today())
 
-    fun backupFileName(): String = BackupFiles.fileName(today())
+    override fun backupFileName(): String = BackupFiles.fileName(today())
 
     private fun today() = Instant.ofEpochMilli(clock()).atZone(watchZone()).toLocalDate()
 
@@ -198,12 +204,12 @@ class AppViewModel(
     private fun watchZone(): ZoneId =
         repository.snapshot.value.snapshot?.let(StatsCalculator::zoneOf) ?: ZoneId.systemDefault()
 
-    fun exportCsv(uri: Uri) {
+    override fun exportCsv(uri: Uri) {
         val snapshot = repository.snapshot.value.snapshot ?: return show(UserMessage.NOTHING_TO_EXPORT)
         writeFile(uri, UserMessage.CSV_EXPORTED) { CsvExport.build(snapshot).toByteArray(Charsets.UTF_8) }
     }
 
-    fun exportBackup(uri: Uri) {
+    override fun exportBackup(uri: Uri) {
         val snapshot = repository.snapshot.value.snapshot ?: return show(UserMessage.NOTHING_TO_EXPORT)
         // Einstellungen wie gerade angezeigt (inkl. noch nicht bestätigter Änderungen).
         val settings = repository.currentSettings() ?: snapshot.settings
@@ -237,7 +243,7 @@ class AppViewModel(
     // --- Wiederherstellung ---
 
     /** Liest die gewählte Datei; bei einer gültigen Sicherung folgt die Rückfrage ([LocalUiState.pendingRestore]). */
-    fun loadBackup(uri: Uri) {
+    override fun loadBackup(uri: Uri) {
         viewModelScope.launch {
             local.update { it.copy(fileBusy = true) }
             val result = withContext(Dispatchers.IO) { readBackup(uri) }
@@ -250,22 +256,22 @@ class AppViewModel(
         }
     }
 
-    fun confirmRestore() {
+    override fun confirmRestore() {
         val pending = local.value.pendingRestore ?: return
         local.update { it.copy(pendingRestore = null) }
         repository.startRestore(pending.backup)
     }
 
-    fun cancelRestore() {
+    override fun cancelRestore() {
         local.update { it.copy(pendingRestore = null) }
     }
 
-    fun dismissRestoreResult() {
+    override fun dismissRestoreResult() {
         repository.clearRestoreState()
     }
 
     /** Keine App zum Speichern bzw. Öffnen von Dateien gefunden. */
-    fun onNoFileApp() {
+    override fun onNoFileApp() {
         show(UserMessage.NO_FILE_APP)
     }
 

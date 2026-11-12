@@ -62,6 +62,19 @@ object SettingsRules {
     /** Nächstgelegene Schritt-Schwelle (bei Gleichstand die kleinere). */
     fun nearestStepThreshold(steps: Int): Int = STEP_THRESHOLD_OPTIONS.nearest(steps)
 
+    /** Snooze [steps] Optionen neben [current] (5 → 10 → 15 → 20 → 30), begrenzt auf die Liste – wie auf der Uhr. */
+    fun stepSnooze(current: Int, steps: Int): Int = SNOOZE_OPTIONS.step(nearestSnooze(current), steps)
+
+    fun canDecreaseSnooze(current: Int): Boolean = nearestSnooze(current) > SNOOZE_OPTIONS.first()
+    fun canIncreaseSnooze(current: Int): Boolean = nearestSnooze(current) < SNOOZE_OPTIONS.last()
+
+    /** Schritt-Schwelle [steps] Optionen neben [current] (20 → 30 → 50 → 75 → 100), begrenzt auf die Liste. */
+    fun stepStepThreshold(current: Int, steps: Int): Int =
+        STEP_THRESHOLD_OPTIONS.step(nearestStepThreshold(current), steps)
+
+    fun canDecreaseStepThreshold(current: Int): Boolean = nearestStepThreshold(current) > STEP_THRESHOLD_OPTIONS.first()
+    fun canIncreaseStepThreshold(current: Int): Boolean = nearestStepThreshold(current) < STEP_THRESHOLD_OPTIONS.last()
+
     /** Vibrationsstufe eines Snapshots; unbekannte Namen (neuere Uhr) gelten als „Stark" wie auf der Uhr. */
     fun vibrationOf(name: String): VibrationLevel = VibrationLevel.fromName(name) ?: VibrationLevel.STRONG
 
@@ -121,6 +134,9 @@ object SettingsRules {
     )
 
     private fun List<Int>.nearest(value: Int): Int = minBy { abs(it - value) }
+
+    /** Option [steps] Plätze neben [option] (muss in der Liste stehen), begrenzt auf die Liste. */
+    private fun List<Int>.step(option: Int, steps: Int): Int = this[(indexOf(option) + steps).coerceIn(0, lastIndex)]
 }
 
 /**
@@ -144,6 +160,14 @@ object SettingsEdits {
     fun stepThreshold(current: SyncSettings, steps: Int): SettingsUpdate =
         SettingsUpdate(stepThreshold = SettingsRules.nearestStepThreshold(steps)).without(current)
 
+    /** Snooze eine Option kürzer (−1) bzw. länger (+1). */
+    fun stepSnooze(current: SyncSettings, steps: Int): SettingsUpdate =
+        SettingsUpdate(snoozeMinutes = SettingsRules.stepSnooze(current.snoozeMinutes, steps)).without(current)
+
+    /** Schritt-Schwelle eine Option niedriger (−1) bzw. höher (+1). */
+    fun stepStepThreshold(current: SyncSettings, steps: Int): SettingsUpdate =
+        SettingsUpdate(stepThreshold = SettingsRules.stepStepThreshold(current.stepThreshold, steps)).without(current)
+
     fun vibration(current: SyncSettings, level: VibrationLevel): SettingsUpdate =
         SettingsUpdate(vibration = level.name).without(current)
 
@@ -164,6 +188,37 @@ object SettingsEdits {
 
     fun dayEnd(current: SyncSettings, dayIndex: Int, endMinute: Int): SettingsUpdate =
         schedule(current, ScheduleRules.withEnd(current.schedule, dayIndex, endMinute))
+
+    /**
+     * Beginn und Ende eines Tages in einem Schritt (z. B. 08:00–17:00 → 18:00–22:00, was nacheinander am
+     * jeweils alten Ende bzw. Beginn scheitern würde). Werte wie [window] begrenzt.
+     */
+    fun dayWindow(current: SyncSettings, dayIndex: Int, startMinute: Int, endMinute: Int): SettingsUpdate {
+        val schedule = ScheduleRules.normalize(current.schedule)
+        return schedule(
+            current,
+            schedule.mapIndexed { index, day -> if (index == dayIndex) window(day, startMinute, endMinute) else day },
+        )
+    }
+
+    /**
+     * Dieselben Uhrzeiten für alle sieben Tage – wie „Für alle Tage" auf der Uhr: Welche Tage aktiv oder frei sind,
+     * bleibt gleich; freie Tage haben die Zeiten dann parat, wenn man sie einschaltet.
+     */
+    fun windowForAllDays(current: SyncSettings, startMinute: Int, endMinute: Int): SettingsUpdate =
+        schedule(current, ScheduleRules.normalize(current.schedule).map { window(it, startMinute, endMinute) })
+
+    /** Haben alle Tage schon das Fenster [startMinute]–[endMinute] (nach dem Begrenzen)? Dann gibt es nichts zu übernehmen. */
+    fun allDaysHaveWindow(current: SyncSettings, startMinute: Int, endMinute: Int): Boolean =
+        windowForAllDays(current, startMinute, endMinute).isEmpty
+
+    /** Fenster auf das 15-Minuten-Raster gerundet, Beginn höchstens 23:45, mindestens 15 Minuten lang, Ende bis 24:00. */
+    private fun window(day: SyncDay, startMinute: Int, endMinute: Int): SyncDay {
+        val start = ScheduleRules.snap(startMinute).coerceIn(0, ScheduleRules.MAX_START_MINUTE)
+        val end = ScheduleRules.snap(endMinute)
+            .coerceIn(start + ScheduleRules.MIN_LENGTH_MINUTES, ScheduleRules.MINUTES_PER_DAY)
+        return day.copy(startMinute = start, endMinute = end)
+    }
 
     fun endPause(current: SyncSettings): SettingsUpdate = SettingsUpdate(pausedUntilMillis = 0L).without(current)
 

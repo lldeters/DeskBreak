@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Einstellungen (Deutsch; Englisch in values/). Begriffe wie auf der Uhr: Pause, Erinnerung, Snooze, Ruhezeit, frei, Tagesziel. -->
+<resources>
+    <!-- Hauptschalter: was gerade gilt -->
+    <!-- %1$d = Intervall in Minuten -->
+    <string name="settings_main_on">Alle %1$d min an aktiven Tagen</string>
+    <string name="settings_main_off">Aus – die Uhr erinnert dich nicht</string>
+    <string name="settings_main_no_days">An, aber im Wochenplan ist kein Tag aktiv</string>
+
+    <!-- Einheiten unter dem Wert eines Reglers -->
+    <string name="settings_unit_minutes">min</string>
+    <plurals name="settings_unit_breaks">
+        <item quantity="one">Pause</item>
+        <item quantity="other">Pausen</item>
+    </plurals>
+    <plurals name="settings_unit_steps">
+        <item quantity="one">Schritt</item>
+        <item quantity="other">Schritte</item>
+    </plurals>
+
+    <!-- Pausieren -->
+    <string name="settings_pause_off">Die Erinnerungen sind aus – es gibt nichts zu pausieren.</string>
+
+    <!-- Wochenplan -->
+    <string name="settings_schedule_title">Wochenplan</string>
+    <!-- %1$s = Beginn, %2$s = Ende -->
+    <string name="settings_schedule_window">%1$s – %2$s</string>
+    <!-- %1$s = Wochentag -->
+    <string name="settings_schedule_today">%1$s (heute)</string>
+    <!-- %1$s = Wochentag, %2$s = Beginn, %3$s = Ende -->
+    <string name="cd_schedule_day">%1$s, Erinnerungen von %2$s bis %3$s</string>
+    <!-- %1$s = Wochentag -->
+    <string name="cd_schedule_day_off">%1$s, frei</string>
+    <string name="cd_schedule_edit">Uhrzeiten ändern</string>
+    <string name="time_dialog_copy">Für alle Tage übernehmen</string>
+    <string name="time_dialog_copy_hint">Freie Tage bleiben frei</string>
+    <string name="time_dialog_copy_same">Alle Tage haben schon diese Zeiten</string>
+
+    <!-- Auf der Uhr -->
+    <string name="settings_watch_title">Auf der Uhr</string>
+    <string name="settings_watch_subtitle">Wie dich eine Erinnerung erreicht</string>
+    <string name="settings_snooze_until">Bis die Erinnerung wiederkommt</string>
+    <string name="cd_snooze_decrease">Snooze kürzer</string>
+    <string name="cd_snooze_increase">Snooze länger</string>
+
+    <!-- Schritterkennung -->
+    <string name="settings_steps_title">Schritterkennung</string>
+    <string name="cd_steps_decrease">Weniger Schritte</string>
+    <string name="cd_steps_increase">Mehr Schritte</string>
+
+    <!-- Daten -->
+    <string name="settings_data_subtitle">Deine Pausen und Einstellungen als Datei</string>
+
+    <!-- Senden und Fußzeile -->
+    <string name="settings_send_saved">Auf der Uhr gespeichert</string>
+    <string name="settings_send_unconfirmed">Von der Uhr noch nicht bestätigt – ist sie außer Reichweite?</string>
+    <!-- %1$s = wann die Daten der Uhr auf dem Handy ankamen (z. B. „heute, 10:21") -->
+    <string name="settings_footer_synced">Stand der Uhr: %1$s</string>
+</resources>
