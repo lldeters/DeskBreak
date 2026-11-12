@@ -137,7 +137,10 @@
                     android:host="*"
                     android:pathPrefix="/deskbreak/restore/"
                     android:scheme="wear" />
-                <!-- Lizenz-Sicht des Handys (wird auch nach längerer Trennung noch zugestellt) -->
+            </intent-filter>
+            <!-- Lizenz-Sicht des Handys (wird auch nach längerer Trennung noch zugestellt) -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data
                     android:host="*"
                     android:path="/deskbreak/license"
