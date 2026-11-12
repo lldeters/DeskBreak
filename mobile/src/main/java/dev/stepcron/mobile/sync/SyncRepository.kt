@@ -1,6 +1,8 @@
 package dev.stepcron.mobile.sync
 
 import dev.stepcron.mobile.settings.SettingsRules
+import dev.stepcron.shared.license.LicenseCodec
+import dev.stepcron.shared.license.LicenseInfo
 import dev.stepcron.shared.sync.RestoreResult
 import dev.stepcron.shared.sync.SettingsUpdate
 import dev.stepcron.shared.sync.SyncBackup
@@ -101,7 +103,8 @@ sealed interface RestoreState {
  * Einzige Quelle für den Stand der Uhr auf dem Handy: gespeicherter Snapshot ([SnapshotCache]), Abgleich über den
  * Data Layer ([WatchGateway]), Einstellungs-Änderungen mit sofortiger Anzeige und Bestätigung durch die Uhr sowie
  * die Wiederherstellung einer Sicherung. Lebt so lange wie der App-Prozess; Vordergrund-Listener und der
- * Hintergrunddienst liefern ihm neue Snapshots.
+ * Hintergrunddienst liefern ihm neue Snapshots. Die Lizenz-Sicht der Uhr aus jedem gelesenen Snapshot geht an
+ * [license]; dessen Sicht schickt jeder Abgleich der Uhr mit.
  */
 class SyncRepository(
     private val gateway: WatchGateway,
@@ -110,6 +113,7 @@ class SyncRepository(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val clock: () -> Long = System::currentTimeMillis,
     private val timing: SyncTiming = SyncTiming(),
+    private val license: LicenseLink? = null,
 ) : GatewayListener {
 
     private val _snapshot = MutableStateFlow(SnapshotState())
@@ -173,6 +177,7 @@ class SyncRepository(
         _snapshot.value = try {
             val entry = cache.read()
             val snapshot = entry?.let { (SyncDecoding.snapshot(it.bytes) as? Decoded.Ok)?.value }
+            snapshot?.license?.let { info -> scope.launch { mergeLicense(info) } }
             SnapshotState(
                 loaded = true,
                 snapshot = snapshot,
@@ -227,6 +232,7 @@ class SyncRepository(
         if (targets.isEmpty()) return lastDataProblem ?: SyncProblem.NoWatch
 
         val seenBefore = snapshotsSeen.value
+        sendLicense(targets.map { it.id })
         gateway.sendMessage(targets.map { it.id }, SyncPaths.REQUEST_SYNC, ByteArray(0))
         val answered = withTimeoutOrNull(timing.syncWaitMillis) { snapshotsSeen.first { it > seenBefore } } != null
         // Ohne Änderungsereignis (z. B. Listener noch nicht aktiv) noch einmal direkt nachsehen.
@@ -260,7 +266,15 @@ class SyncRepository(
 
     private suspend fun ingest(bytes: ByteArray, decoded: Decoded<SyncSnapshot>, fromEvent: Boolean): Boolean {
         awaitLoaded()
-        return ingestMutex.withLock {
+        val isNew = storeSnapshot(bytes, decoded, fromEvent)
+        // Auch aus einem nicht neueren Stand: withPeerInfo übernimmt nur, was nicht älter ist als das Bekannte.
+        if (decoded is Decoded.Ok) mergeLicense(decoded.value.license)
+        return isNew
+    }
+
+    /** Speichert und zeigt [decoded], falls er neuer ist; liefert `true`, wenn er als neuer Stand gespeichert wurde. */
+    private suspend fun storeSnapshot(bytes: ByteArray, decoded: Decoded<SyncSnapshot>, fromEvent: Boolean): Boolean =
+        ingestMutex.withLock {
             when (decoded) {
                 is Decoded.TooNew -> {
                     lastDataProblem = SyncProblem.DataTooNew(decoded.version)
@@ -303,6 +317,30 @@ class SyncRepository(
                     isNew
                 }
             }
+        }
+
+    // --- Lizenz ---
+
+    /** Übernimmt die Lizenz-Sicht der Uhr; ein Fehler dabei ist kein Fehler des Abgleichs. */
+    private suspend fun mergeLicense(info: LicenseInfo?) {
+        val link = license ?: return
+        if (info == null) return
+        try {
+            link.onWatchLicense(info)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Kommt mit dem nächsten Stand wieder.
+        }
+    }
+
+    /** Meldet der Uhr die Lizenz-Sicht des Handys – vor der Bitte um einen Stand, damit der schon dazu passt. */
+    private suspend fun sendLicense(nodeIds: List<String>) {
+        val info = license?.licenseForWatch() ?: return
+        try {
+            gateway.sendMessage(nodeIds, SyncPaths.LICENSE, LicenseCodec.encodeInfo(info))
+        } catch (e: SyncException) {
+            // Nicht schlimm: Die Uhr erinnert weiter nach ihrem eigenen Stand; beim nächsten Abgleich geht es wieder mit.
         }
     }
 

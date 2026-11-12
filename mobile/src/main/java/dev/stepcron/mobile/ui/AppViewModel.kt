@@ -1,5 +1,6 @@
 package dev.stepcron.mobile.ui
 
+import android.app.Activity
 import android.content.ContentResolver
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -7,7 +8,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.stepcron.billing.BillingProblem
+import dev.stepcron.billing.PurchaseEvent
 import dev.stepcron.mobile.DeskBreakPhoneApp
+import dev.stepcron.mobile.license.LicenseRepository
+import dev.stepcron.mobile.license.PurchaseCheck
 import dev.stepcron.mobile.settings.SettingsEdits
 import dev.stepcron.mobile.settings.SettingsRules
 import dev.stepcron.mobile.settings.VibrationLevel
@@ -24,7 +29,11 @@ import dev.stepcron.mobile.sync.SettingsSendState
 import dev.stepcron.mobile.sync.SyncDecoding
 import dev.stepcron.mobile.sync.SyncRepository
 import dev.stepcron.mobile.sync.SyncState
+import dev.stepcron.mobile.ui.license.LicenseActions
+import dev.stepcron.mobile.ui.license.LicenseUiState
 import dev.stepcron.mobile.ui.settings.SettingsActions
+import dev.stepcron.shared.license.LicenseRules
+import dev.stepcron.shared.license.Unlock
 import dev.stepcron.shared.sync.SettingsUpdate
 import dev.stepcron.shared.sync.SyncBackup
 import dev.stepcron.shared.sync.SyncCodec
@@ -48,7 +57,7 @@ import java.io.InputStream
 import java.time.Instant
 import java.time.ZoneId
 
-/** Kurzmeldungen (Snackbar) nach Export und Dateiauswahl. */
+/** Kurzmeldungen (Snackbar) nach Export, Dateiauswahl, Kauf und „Käufe wiederherstellen". */
 enum class UserMessage {
     CSV_EXPORTED,
     BACKUP_EXPORTED,
@@ -59,6 +68,21 @@ enum class UserMessage {
     BACKUP_TOO_LARGE,
     READ_FAILED,
     NO_FILE_APP,
+
+    PURCHASED_LIFETIME,
+    PURCHASED_SUBSCRIPTION,
+    PURCHASE_PENDING,
+    ALREADY_OWNED,
+    BILLING_NETWORK,
+    BILLING_SERVICE,
+    BILLING_UNAVAILABLE,
+    BILLING_PRODUCT,
+    BILLING_SETUP,
+    BILLING_FAILED,
+    RESTORED_LIFETIME,
+    RESTORED_SUBSCRIPTION,
+    RESTORE_NOTHING_FOUND,
+    LINK_FAILED,
 }
 
 /** Eine anzuzeigende Meldung; die [id] unterscheidet zwei gleiche Meldungen nacheinander. */
@@ -93,18 +117,23 @@ data class AppUiState(
     val settingsSend: SettingsSendState = SettingsSendState.Idle,
     val restore: RestoreState = RestoreState.Idle,
     val local: LocalUiState = LocalUiState(),
+    val license: LicenseUiState = LicenseUiState(),
 ) {
     /** Noch kein gespeicherter Stand gelesen. */
     val loading: Boolean get() = !data.loaded
     val hasSnapshot: Boolean get() = data.snapshot != null
 }
 
-/** Ein ViewModel für alle drei Seiten; Rechnen und Dateizugriffe laufen abseits des Main-Threads. */
+/**
+ * Ein ViewModel für alle Seiten (samt Freischalten); Rechnen und Dateizugriffe laufen abseits des Main-Threads.
+ * Ergebnisse von Käufen meldet Google Play als Ereignis – hier werden sie zur Kurzmeldung.
+ */
 class AppViewModel(
     private val repository: SyncRepository,
+    private val license: LicenseRepository,
     private val contentResolver: ContentResolver,
     private val clock: () -> Long = System::currentTimeMillis,
-) : ViewModel(), SettingsActions {
+) : ViewModel(), SettingsActions, LicenseActions {
 
     /** Taktgeber für Countdown und Tageswechsel. */
     private val ticker = flow {
@@ -139,15 +168,32 @@ class AppViewModel(
         }
     }.flowOn(Dispatchers.Default)
 
+    /** „Käufe wiederherstellen" läuft. */
+    private val restoring = MutableStateFlow(false)
+
+    // Der Stand der Lizenz hängt an der Uhrzeit (Ende der Testphase, Vertrauen ins Abo): mit dem Taktgeber berechnen.
+    private val licenseState = combine(license.record, license.billing.state, restoring, ticker) { record, billing, busy, now ->
+        LicenseUiState(
+            status = record?.let { LicenseRules.status(it, now) },
+            billing = billing,
+            restoring = busy,
+            nowMillis = now,
+        )
+    }
+
     val uiState: StateFlow<AppUiState> = combine(
-        watchData,
-        repository.sync,
-        repository.settingsSend,
-        repository.restore,
-        local,
-    ) { data, sync, send, restore, localState ->
-        AppUiState(data = data, sync = sync, settingsSend = send, restore = restore, local = localState)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), AppUiState())
+        combine(watchData, repository.sync, repository.settingsSend, repository.restore, local) { data, sync, send, restore, localState ->
+            AppUiState(data = data, sync = sync, settingsSend = send, restore = restore, local = localState)
+        },
+        licenseState,
+    ) { state, licenseUi -> state.copy(license = licenseUi) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), AppUiState())
+
+    init {
+        viewModelScope.launch {
+            license.billing.events.collect { event -> onPurchaseEvent(event) }
+        }
+    }
 
     // --- Abgleich ---
 
@@ -189,6 +235,74 @@ class AppViewModel(
 
     override fun retrySettings() {
         repository.retrySettings()
+    }
+
+    // --- Lizenz ---
+
+    override fun purchase(activity: Activity, unlock: Unlock) {
+        if (!license.billing.launchPurchase(activity, unlock)) {
+            show(billingProblemMessage(license.billing.state.value.problem))
+        }
+    }
+
+    override fun restorePurchases() {
+        if (!restoring.compareAndSet(expect = false, update = true)) return
+        viewModelScope.launch {
+            val result = try {
+                license.checkPurchases()
+            } finally {
+                restoring.value = false
+            }
+            show(
+                when (result) {
+                    is PurchaseCheck.Found -> when (result.unlock) {
+                        Unlock.LIFETIME -> UserMessage.RESTORED_LIFETIME
+                        Unlock.SUBSCRIPTION -> UserMessage.RESTORED_SUBSCRIPTION
+                    }
+
+                    PurchaseCheck.NothingFound -> UserMessage.RESTORE_NOTHING_FOUND
+                    is PurchaseCheck.Failed -> billingProblemMessage(result.problem)
+                },
+            )
+        }
+    }
+
+    override fun retryBilling() {
+        license.refreshPlay()
+    }
+
+    override fun onLinkFailed() {
+        show(UserMessage.LINK_FAILED)
+    }
+
+    private fun onPurchaseEvent(event: PurchaseEvent) {
+        when (event) {
+            is PurchaseEvent.Purchased -> show(
+                when (event.unlock) {
+                    Unlock.LIFETIME -> UserMessage.PURCHASED_LIFETIME
+                    Unlock.SUBSCRIPTION -> UserMessage.PURCHASED_SUBSCRIPTION
+                },
+            )
+
+            is PurchaseEvent.Pending -> show(UserMessage.PURCHASE_PENDING)
+            // Selbst abgebrochen: keine Meldung nötig.
+            PurchaseEvent.Cancelled -> Unit
+            is PurchaseEvent.Failed -> {
+                // Schon gekauft: nur die Käufe neu einlesen, dann ist die Freischaltung da.
+                if (event.problem == BillingProblem.ALREADY_OWNED) license.refreshPlay()
+                show(billingProblemMessage(event.problem))
+            }
+        }
+    }
+
+    private fun billingProblemMessage(problem: BillingProblem?): UserMessage = when (problem) {
+        BillingProblem.NETWORK -> UserMessage.BILLING_NETWORK
+        BillingProblem.SERVICE_UNAVAILABLE -> UserMessage.BILLING_SERVICE
+        BillingProblem.BILLING_UNAVAILABLE -> UserMessage.BILLING_UNAVAILABLE
+        BillingProblem.PRODUCT_UNAVAILABLE -> UserMessage.BILLING_PRODUCT
+        BillingProblem.ALREADY_OWNED -> UserMessage.ALREADY_OWNED
+        BillingProblem.DEVELOPER_ERROR -> UserMessage.BILLING_SETUP
+        BillingProblem.UNKNOWN, null -> UserMessage.BILLING_FAILED
     }
 
     // --- Export ---
@@ -336,7 +450,7 @@ class AppViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as DeskBreakPhoneApp
-                AppViewModel(app.repository, app.contentResolver)
+                AppViewModel(app.repository, app.license, app.contentResolver)
             }
         }
     }

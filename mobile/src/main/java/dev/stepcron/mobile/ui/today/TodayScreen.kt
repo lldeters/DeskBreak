@@ -55,10 +55,13 @@ import dev.stepcron.mobile.ui.components.Pill
 import dev.stepcron.mobile.ui.components.ProblemBanner
 import dev.stepcron.mobile.ui.components.ProgressRing
 import dev.stepcron.mobile.ui.components.ConnectWatchCard
+import dev.stepcron.mobile.ui.license.TrialBanner
+import dev.stepcron.mobile.ui.license.TrialEndedCard
 import dev.stepcron.mobile.ui.percentText
 import dev.stepcron.mobile.ui.phoneDateTimeText
 import dev.stepcron.mobile.ui.resumeText
 import dev.stepcron.mobile.ui.theme.LocalChartColors
+import dev.stepcron.shared.license.LicenseStatus
 import java.time.ZoneId
 
 /** Was der Heute-Bildschirm auslösen kann. */
@@ -68,12 +71,14 @@ data class TodayActions(
     val onResume: () -> Unit = {},
     val onEnable: () -> Unit = {},
     val onOpenSettings: () -> Unit = {},
+    val onOpenUnlock: () -> Unit = {},
 )
 
 /**
  * Heute – das Wichtigste zuerst: Fortschritt zum Tagesziel und was die Uhr als Nächstes tut (mit der passenden
  * Aktion direkt daneben), dann drei Kennzahlen und die letzten sieben Tage. Der Abgleich läuft im Hintergrund
- * und per Herunterziehen; Probleme erscheinen nur, wenn es welche gibt.
+ * und per Herunterziehen; Probleme erscheinen nur, wenn es welche gibt. Während der Testphase steht ganz oben ein
+ * kleiner Hinweis, danach – ohne Freischaltung – eine deutliche Karte; alles andere bleibt sichtbar.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +97,17 @@ fun TodayScreen(state: AppUiState, actions: TodayActions, modifier: Modifier = M
             val problem = state.sync.problem
             val dashboard = data.dashboard
             val status = data.watchStatus
+            val license = state.license.status
+            if (!state.loading) {
+                when (license) {
+                    is LicenseStatus.Trial -> item(key = "trial") {
+                        TrialBanner(license, state.license.nowMillis, onOpen = actions.onOpenUnlock)
+                    }
+
+                    is LicenseStatus.Expired -> item(key = "trialEnded") { TrialEndedCard(onUnlock = actions.onOpenUnlock) }
+                    else -> Unit
+                }
+            }
             if (problem != null && !state.sync.syncing && state.hasSnapshot) {
                 item(key = "problem") { ProblemBanner(problem, onRetry = actions.onSyncNow) }
             }
@@ -108,7 +124,9 @@ fun TodayScreen(state: AppUiState, actions: TodayActions, modifier: Modifier = M
                 }
 
                 else -> {
-                    item(key = "hero") { HeroCard(dashboard, status, data.nowMillis, data.zone, actions) }
+                    item(key = "hero") {
+                        HeroCard(dashboard, status, data.nowMillis, data.zone, actions, trialEnded = license is LicenseStatus.Expired)
+                    }
                     item(key = "metrics") { MetricsRow(dashboard) }
                     item(key = "week") { WeekCard(dashboard) }
                     item(key = "footer") {
@@ -129,9 +147,19 @@ fun TodayScreen(state: AppUiState, actions: TodayActions, modifier: Modifier = M
     }
 }
 
-/** Fortschrittsring zum Tagesziel und darunter der Status der Uhr mit der passenden Aktion. */
+/**
+ * Fortschrittsring zum Tagesziel und darunter der Status der Uhr mit der passenden Aktion. Nach der Testphase ohne
+ * Freischaltung erinnert die Uhr nicht – dann steht das dort statt eines (womöglich veralteten) nächsten Termins.
+ */
 @Composable
-private fun HeroCard(dashboard: Dashboard, info: WatchStatusInfo, nowMillis: Long, zone: ZoneId, actions: TodayActions) {
+private fun HeroCard(
+    dashboard: Dashboard,
+    info: WatchStatusInfo,
+    nowMillis: Long,
+    zone: ZoneId,
+    actions: TodayActions,
+    trialEnded: Boolean,
+) {
     val summary = dashboard.summary
     val colors = LocalChartColors.current
     val goalText = if (summary.goalReached) {
@@ -174,7 +202,32 @@ private fun HeroCard(dashboard: Dashboard, info: WatchStatusInfo, nowMillis: Lon
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        StatusSection(info, nowMillis, zone, actions)
+        if (trialEnded) TrialEndedStatus() else StatusSection(info, nowMillis, zone, actions)
+    }
+}
+
+/** Status ohne Freischaltung nach der Testphase; die Aktion dazu steht in der Karte ganz oben. */
+@Composable
+private fun TrialEndedStatus() {
+    Row(
+        modifier = Modifier.semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconBadge(R.drawable.ic_alarm_off, tint = MaterialTheme.colorScheme.onSurfaceVariant, size = 40.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.status_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(text = stringResource(R.string.status_license_expired), style = MaterialTheme.typography.headlineSmall)
+            Text(
+                text = stringResource(R.string.status_license_expired_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    License and purchase (English, default; German in values-de). Prices always come from Google Play (%1$s), never
+    from these texts. Before a purchase the screen states price, billing period, automatic renewal and how to cancel.
+-->
+<resources>
+    <string name="title_unlock">Unlock DeskBreak</string>
+    <string name="title_license">DeskBreak license</string>
+    <string name="cd_navigate_back">Back</string>
+
+    <!-- Status: free trial -->
+    <string name="license_trial_label">Free trial</string>
+    <plurals name="license_trial_days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <!-- Below the number inside the ring -->
+    <plurals name="license_ring_days">
+        <item quantity="one">day</item>
+        <item quantity="other">days</item>
+    </plurals>
+    <plurals name="cd_trial_ring">
+        <item quantity="one">%d day of the free trial left</item>
+        <item quantity="other">%d days of the free trial left</item>
+    </plurals>
+    <!-- %1$s = time -->
+    <string name="license_trial_ends_today">Ends today at %1$s</string>
+    <string name="license_trial_ends_tomorrow">Ends tomorrow at %1$s</string>
+    <!-- %1$s = date (e.g. "Thu, Nov 13"), %2$s = time -->
+    <string name="license_trial_ends_on">Ends on %1$s at %2$s</string>
+
+    <!-- Status: trial ended, unlocked -->
+    <string name="license_expired_label">Free trial ended</string>
+    <string name="license_expired_headline">Your watch no longer reminds you</string>
+    <string name="license_expired_detail">Unlock DeskBreak to get your move reminders back.</string>
+    <string name="license_lifetime_label">Unlocked for good</string>
+    <string name="license_lifetime_headline">Thank you!</string>
+    <string name="license_lifetime_detail">DeskBreak is yours – on your watch and your phone.</string>
+    <string name="license_subscription_label">Subscription active</string>
+    <string name="license_subscription_headline">DeskBreak is unlocked</string>
+    <string name="license_subscription_detail">Renews monthly through Google Play until you cancel.</string>
+
+    <!-- What unlocking brings -->
+    <string name="license_benefit_reminders">Move reminders on your watch</string>
+    <string name="license_benefit_devices">One purchase for watch and phone</string>
+    <string name="license_benefit_support">Supports DeskBreak\'s development</string>
+    <string name="license_free_forever">Your history, export and backup always stay free.</string>
+    <string name="license_included_title">What\'s included</string>
+    <string name="license_included_reminders">Move reminders on your watch</string>
+    <string name="license_included_devices">On your watch and your phone</string>
+    <string name="license_included_data">History, statistics, export and backup</string>
+
+    <!-- Options -->
+    <string name="license_choose_title">Choose how to unlock</string>
+    <string name="license_option_lifetime">One-time purchase</string>
+    <string name="license_option_lifetime_hint">Pay once, yours forever</string>
+    <!-- Below the price of the one-time purchase -->
+    <string name="license_option_lifetime_period">once</string>
+    <string name="license_option_monthly">Monthly</string>
+    <string name="license_option_monthly_hint">Cancel anytime</string>
+    <!-- Billing period of the subscription, below its price and after it ("€1.00 per month") -->
+    <plurals name="license_period_day">
+        <item quantity="one">per day</item>
+        <item quantity="other">every %d days</item>
+    </plurals>
+    <plurals name="license_period_week">
+        <item quantity="one">per week</item>
+        <item quantity="other">every %d weeks</item>
+    </plurals>
+    <plurals name="license_period_month">
+        <item quantity="one">per month</item>
+        <item quantity="other">every %d months</item>
+    </plurals>
+    <plurals name="license_period_year">
+        <item quantity="one">per year</item>
+        <item quantity="other">every %d years</item>
+    </plurals>
+    <!-- %1$s = price from Google Play, %2$s = period (e.g. "per month") -->
+    <string name="license_price_with_period">%1$s %2$s</string>
+
+    <!-- Main action and what it means; %1$s = price (with period for the subscription) -->
+    <string name="license_buy_lifetime">Unlock for %1$s</string>
+    <string name="license_buy_subscription">Subscribe for %1$s</string>
+    <string name="license_summary_lifetime">One-time payment of %1$s. No subscription, nothing renews.</string>
+    <string name="license_summary_subscription">%1$s. Renews automatically until you cancel – anytime in Google Play.</string>
+    <string name="license_restore">Restore purchases</string>
+    <string name="license_restoring">Checking purchases …</string>
+    <string name="license_unlock">Unlock</string>
+    <string name="license_retry">Try again</string>
+
+    <!-- When buying is not possible right now -->
+    <string name="license_connecting">Connecting to Google Play …</string>
+    <string name="license_unavailable_title">Purchases aren\'t available here</string>
+    <string name="license_unavailable_body">Buying needs the Google Play Store and a Google account on this phone. If you installed DeskBreak from somewhere else, please install it from Google Play.</string>
+    <string name="license_error_title">Google Play can\'t be reached</string>
+    <string name="license_error_network">Please check your internet connection and try again.</string>
+    <string name="license_error_service">Google Play isn\'t responding right now. Please try again in a moment.</string>
+    <string name="license_error_generic">The purchase options couldn\'t be loaded. Please try again.</string>
+    <string name="license_products_missing_title">Purchase options are not available right now</string>
+    <string name="license_products_missing_body">Please try again later.</string>
+    <string name="license_pending">Payment pending – DeskBreak unlocks as soon as Google Play confirms it.</string>
+    <string name="license_pending_button">Payment pending</string>
+
+    <!-- Subscription active -->
+    <string name="license_manage_subscription">Manage subscription</string>
+    <string name="license_switch_title">Prefer to pay once?</string>
+    <string name="license_switch_body">Buy the one-time unlock, then cancel your subscription in Google Play so it doesn\'t renew.</string>
+    <!-- %1$s = price of the one-time purchase -->
+    <string name="license_switch_button">Unlock once for %1$s</string>
+
+    <!-- Fine print -->
+    <string name="license_fine_print">Payment is made through your Google Play account. The subscription renews automatically every month until you cancel it. You can cancel anytime in Google Play; DeskBreak stays unlocked until the end of the period you paid for.</string>
+    <string name="license_manage_link">Manage subscriptions in Google Play</string>
+
+    <!-- Today -->
+    <plurals name="license_banner_trial">
+        <item quantity="one">Free trial: %d day left</item>
+        <item quantity="other">Free trial: %d days left</item>
+    </plurals>
+    <string name="license_banner_action">Unlock</string>
+    <string name="license_ended_card_title">Trial ended – your watch no longer reminds you</string>
+    <string name="license_ended_card_body">Unlock DeskBreak to get your move reminders back. Your history stays available.</string>
+    <string name="status_license_expired">No reminders</string>
+    <string name="status_license_expired_hint">Your free trial has ended</string>
+
+    <!-- Settings -->
+    <string name="license_card_title">DeskBreak license</string>
+    <plurals name="license_card_trial">
+        <item quantity="one">Free trial – %d day left</item>
+        <item quantity="other">Free trial – %d days left</item>
+    </plurals>
+    <string name="license_card_expired">Trial ended – the watch no longer reminds you</string>
+    <string name="license_card_lifetime">Unlocked for good – thank you!</string>
+    <string name="license_card_subscription">Monthly subscription active</string>
+    <string name="license_card_unlock">Unlock DeskBreak</string>
+    <string name="license_card_unlock_hint">One-time purchase or monthly, through Google Play</string>
+    <string name="license_card_details">License details</string>
+    <string name="license_card_details_hint">What\'s included with your unlock</string>
+    <string name="license_card_details_hint_subscription">Including how to switch to the one-time purchase</string>
+    <string name="license_card_manage_hint">Cancel or change the payment method in Google Play</string>
+    <string name="license_card_restore_hint">Bought already? Check Google Play again</string>
+
+    <!-- Short messages -->
+    <string name="message_purchased_lifetime">Thank you! DeskBreak is now unlocked for good.</string>
+    <string name="message_purchased_subscription">Thank you! Your subscription is active.</string>
+    <string name="message_purchase_pending">Payment pending – DeskBreak unlocks as soon as Google Play confirms it.</string>
+    <string name="message_already_owned">You already own this – restoring your purchase.</string>
+    <string name="message_billing_network">No connection to Google Play. Please check your internet connection.</string>
+    <string name="message_billing_service">Google Play isn\'t responding right now. Please try again later.</string>
+    <string name="message_billing_unavailable">Purchases aren\'t available on this phone or with this account.</string>
+    <string name="message_billing_product">This option isn\'t available right now. Please try again later.</string>
+    <string name="message_billing_setup">The purchase couldn\'t be started. Please install DeskBreak from Google Play.</string>
+    <string name="message_billing_failed">The purchase didn\'t go through. Please try again.</string>
+    <string name="message_restored_lifetime">Purchase restored – DeskBreak is unlocked for good.</string>
+    <string name="message_restored_subscription">Subscription found – DeskBreak is unlocked.</string>
+    <string name="message_restore_nothing_found">No purchase found for the Google account on this phone.</string>
+    <string name="message_link_failed">Google Play couldn\'t be opened.</string>
+</resources>
