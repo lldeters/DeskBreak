@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     License and purchase (English, default; German in values-de). Prices always come from Google Play (%1$s), never
-    from these texts. Before a purchase the screen states price, billing period, automatic renewal and how to cancel.
+    from these texts. Before a purchase the screen states price, billing period, automatic renewal and how to cancel –
+    and, during the free trial, that a subscription is billed right away. No ownership or "forever" claims: the
+    one-time purchase unlocks the app, it does not sell it.
 -->
 <resources>
     <string name="title_unlock">Unlock DeskBreak</string>
@@ -35,16 +37,17 @@
     <string name="license_expired_detail">Unlock DeskBreak to get your move reminders back.</string>
     <string name="license_lifetime_label">Unlocked for good</string>
     <string name="license_lifetime_headline">Thank you!</string>
-    <string name="license_lifetime_detail">DeskBreak is yours – on your watch and your phone.</string>
+    <string name="license_lifetime_detail">Your one-time purchase unlocks DeskBreak on your watch and your phone.</string>
     <string name="license_subscription_label">Subscription active</string>
     <string name="license_subscription_headline">DeskBreak is unlocked</string>
-    <string name="license_subscription_detail">Renews monthly through Google Play until you cancel.</string>
+    <!-- Neutral on purpose: the app doesn't know whether the subscription was already cancelled -->
+    <string name="license_subscription_detail">Monthly subscription through Google Play. You can manage or cancel it there.</string>
 
     <!-- What unlocking brings -->
     <string name="license_benefit_reminders">Move reminders on your watch</string>
     <string name="license_benefit_devices">One purchase for watch and phone</string>
     <string name="license_benefit_support">Supports DeskBreak\'s development</string>
-    <string name="license_free_forever">Your history, export and backup always stay free.</string>
+    <string name="license_free_note">Your history, export and backup stay free – with or without a purchase.</string>
     <string name="license_included_title">What\'s included</string>
     <string name="license_included_reminders">Move reminders on your watch</string>
     <string name="license_included_devices">On your watch and your phone</string>
@@ -53,7 +56,7 @@
     <!-- Options -->
     <string name="license_choose_title">Choose how to unlock</string>
     <string name="license_option_lifetime">One-time purchase</string>
-    <string name="license_option_lifetime_hint">Pay once, yours forever</string>
+    <string name="license_option_lifetime_hint">Pay once, no subscription</string>
     <!-- Below the price of the one-time purchase -->
     <string name="license_option_lifetime_period">once</string>
     <string name="license_option_monthly">Monthly</string>
@@ -83,6 +86,8 @@
     <string name="license_buy_subscription">Subscribe for %1$s</string>
     <string name="license_summary_lifetime">One-time payment of %1$s. No subscription, nothing renews.</string>
     <string name="license_summary_subscription">%1$s. Renews automatically until you cancel – anytime in Google Play.</string>
+    <!-- Below the summary while the free trial runs and the subscription is selected (Google Play has no trial of its own) -->
+    <string name="license_trial_billing_today">Billing starts today – your free trial ends when you subscribe.</string>
     <string name="license_restore">Restore purchases</string>
     <string name="license_restoring">Checking purchases …</string>
     <string name="license_unlock">Unlock</string>

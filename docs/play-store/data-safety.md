@@ -36,7 +36,7 @@ Data safety section*) und dem Entwickler-Leitfaden
 | Einstellungen, Verlauf, Status, Lizenzstatus (Datenbank und DataStore auf der Uhr, lokaler App-Speicher auf dem Handy) | nein | nur auf dem Gerät – nicht angeben |
 | Schrittsensor, Off-Body-Sensor, „Nicht stören"/Schlafenszeit/Kinomodus | nein (nur ausgewertet, keine Rohdaten gespeichert) | nur auf dem Gerät – nicht angeben |
 | Abgleich Uhr ↔ Handy (Einstellungen, Verlauf bis 400 Tage, Lizenzstatus, Sicherungen) über die Wearable Data Layer API | ja, aber nur zum **eigenen anderen Gerät** derselben Person; per verschlüsseltem Bluetooth oder **Ende-zu-Ende-verschlüsselt** über Google-Server ([Doku](https://developer.android.com/training/wearables/data/overview): „All data transferred through Google Cloud is end-to-end encrypted"); nur dieselbe App mit derselben Signatur kann sie lesen | keine Erhebung (Ende-zu-Ende-Ausnahme, Entwickler kann nichts lesen), keine Weitergabe |
-| Käufe über Google Play Billing | Kauf und Zahlung laufen in Google Play; die App fragt auf dem Gerät nur ab, ob ein gültiger Kauf besteht, und schickt nichts an eigene Server | die App selbst erhebt nichts; Zahlungsdaten bleiben bei Google |
+| Käufe über Google Play Billing | Kauf und Zahlung laufen in Google Play; die App fragt über die Play-Store-App auf dem Gerät nur ab, ob ein gültiger Kauf besteht, und schickt nichts an eigene Server. Play Store bzw. Play-Dienste tauschen dabei Kauf- und technische Daten mit Google aus | die App selbst erhebt nichts; Verarbeitung durch Google als eigenständig Verantwortlicher, Zahlungsdaten bleiben bei Google (siehe 1.5) |
 | Android-Sicherung (`allowBackup="true"`) | ja, in die Sicherung des **eigenen Google-Kontos**, von Android verwaltet (bei gesetzter Displaysperre auf neueren Android-Versionen Ende-zu-Ende-verschlüsselt) | Systemfunktion, der Entwickler hat keinen Zugriff – üblicherweise nicht angegeben (siehe 1.4) |
 | CSV-Export und Sicherungsdatei | nur wenn die Person es auslöst, an einen selbst gewählten Ort (Android-Dateidialog) | vom Nutzer ausgelöste Übertragung – nicht angeben |
 | Absturzberichte (Android vitals) | sendet Android an Google, wenn die Person der Diagnose-Weitergabe zugestimmt hat | Funktion des Betriebssystems, kein SDK in der App – nicht angeben |
@@ -68,6 +68,23 @@ Datenübertragung" kommen oder möchtest du bewusst vorsichtig sein, ist diese A
 
 Empfehlung bleibt aber **„Nein"** (1.3), weil die Daten das Gerät nur Ende-zu-Ende-verschlüsselt zum eigenen
 zweiten Gerät verlassen und der Entwickler sie nie erhält.
+
+### 1.5 Google Play Billing: warum es trotzdem bei „Keine Daten erhoben" bleibt
+
+Die Billing-Bibliothek (`com.android.billingclient`, Version 9.1.0) ist ein SDK in der App, und Daten, die SDKs
+übertragen, zählen grundsätzlich zur App (1.1). Kauf und Kaufabfrage laufen aber über die **Play-Store-App bzw. die
+Google Play-Dienste** auf demselben Gerät: Die Bibliothek ruft deren Schnittstelle auf, und erst diese tauschen
+Kaufdaten (Produkt, Kaufzeitpunkt, Status des Abos) und technische Daten mit Google aus – beim Kauf, den die Person
+selbst auslöst, und bei der Abfrage bestehender Käufe beim Öffnen. Das geschieht im Rahmen von Google Play, mit
+**Google als eigenständig Verantwortlichem** nach dessen
+Datenschutzerklärung (so auch in der [Datenschutzerklärung](privacy-policy.md), Abschnitt 5). Es ist Verarbeitung
+durch Google, nicht durch DeskBreak: Die App schickt nichts an den Entwickler oder an Dritte, und der Entwickler
+erhält keine Zahlungs- oder Nutzungsdaten – nur die Bestellübersicht in der Play Console.
+
+**Prüfen:** Vor dem Einreichen in der Play-Console-Hilfe „Datensicherheit" und in Googles Angaben zu den eigenen
+SDKs (SDK-Index bzw. Datenangaben zur Play Billing Library) nachsehen, ob Google für die Billing-Bibliothek
+Datentypen nennt, die Apps selbst angeben sollen. Falls ja, diese übernehmen (vermutlich „Finanzinformationen >
+Kaufverlauf", wie in der vorsichtigen Variante 1.4). Nennt Google nichts, ist „Nein" (1.3) die ehrliche Antwort.
 
 ---
 
@@ -174,19 +191,23 @@ und setzt u. a. die Laufzeitberechtigung `ACTIVITY_RECOGNITION` voraus – die d
 - **Video-Link** (wird verlangt): kurzes, nicht gelistetes YouTube-Video, das zeigt: „Auto-Schritte" einschalten →
   laufende Benachrichtigung erscheint → ein paar Schritte gehen → Timer springt zurück / Pause im Verlauf.
 
-### 2.12 Exakte Alarme (`USE_EXACT_ALARM`)
+### 2.12 Exakte Alarme (`SCHEDULE_EXACT_ALARM`)
 
-Die Uhr-App deklariert `USE_EXACT_ALARM` (ab Android 13, automatisch erteilt) und bis Android 12L
-`SCHEDULE_EXACT_ALARM`. `USE_EXACT_ALARM` ist bei Google Play **eingeschränkt**: erlaubt nur, wenn exakte Alarme zur
-**Kernfunktion** gehören – laut Android-Doku und Play-Richtlinie Wecker-, **Timer**- und Kalender-Apps.
+Die Uhr-App deklariert nur `SCHEDULE_EXACT_ALARM` (ohne `maxSdkVersion`, also für alle Android-Versionen) und
+**nicht** mehr `USE_EXACT_ALARM`. Eingeschränkt ist bei Google Play nur `USE_EXACT_ALARM` (Wecker-, Timer- und
+Kalender-Apps, mit Erklärung in der Console). Für `SCHEDULE_EXACT_ALARM` ist **keine Erklärung zu eingeschränkten
+Berechtigungen nötig** – die Erlaubnis erteilt die Nutzerin bzw. der Nutzer selbst. **Prüfen:** Fragt die Console
+trotzdem nach exakten Alarmen, angeben, dass die Erlaubnis freiwillig ist und die App ohne sie funktioniert.
 
-- Fragt die Console nach (Erklärung zu Berechtigungen bzw. „Alarme und Erinnerungen"): angeben, dass DeskBreak ein
-  **Intervall-Timer** ist, dessen einzige Kernfunktion pünktliche, vom Nutzer eingestellte Erinnerungen sind
-  (z. B. alle 45 Minuten, plus Snooze), und dass verspätete Erinnerungen die App nutzlos machen würden.
-- **Risiko:** Die Einstufung als „Timer-App" liegt im Ermessen der Prüfung. Wird sie abgelehnt, auf
-  `SCHEDULE_EXACT_ALARM` für alle Android-Versionen umstellen (Code-Änderung im Manifest der Uhr). Die App hat
-  bereits einen ungenauen Ersatzweg und auf der Startseite den Eintrag „Exakte Alarme – Erlauben für pünktliche
-  Erinnerungen", über den Nutzer die Berechtigung erteilen können.
+So verhält sich die App:
+
+- **Wear OS 3 (Android 11):** keine Erlaubnis nötig, Alarme sind exakt.
+- **Wear OS 4 (Android 13):** bei der Installation erteilt, lässt sich aber entziehen.
+- **Ab Wear OS 5 (Android 14):** für neu installierte Apps standardmäßig **nicht** erteilt. Erlauben unter
+  „Wecker und Erinnerungen" (engl. *Alarms & reminders*); die Startseite der Uhr bietet dafür den Eintrag „Exakte
+  Alarme – Erlauben für pünktliche Erinnerungen".
+- Ohne Erlaubnis plant die App **ungenaue Alarme**: Erinnerungen kommen dann eventuell einige Minuten später, fallen
+  aber nicht aus. Wird die Erlaubnis erteilt, plant die App sofort exakt neu.
 
 ### 2.13 Weitere Berechtigungen
 

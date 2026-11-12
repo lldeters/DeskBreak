@@ -19,10 +19,25 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
+            <!-- singleTop: Ein Deep Link bei laufender App landet in onNewIntent statt in einer zweiten Activity. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!--
+                Deep Link deskbreak://unlock (DeepLinks.UNLOCK in :shared): „Am Handy freischalten" auf der Uhr öffnet
+                darüber per RemoteActivityHelper die Seite „DeskBreak freischalten". Öffnet nur diese Seite, ohne
+                Parameter und ohne etwas auszulösen – darf deshalb jede App bzw. jeder Browser aufrufen.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="deskbreak"
+                    android:host="unlock" />
             </intent-filter>
         </activity>
 
