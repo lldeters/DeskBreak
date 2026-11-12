@@ -54,7 +54,6 @@
     <!-- Leere Zustände -->
     <string name="empty_title">Noch keine Daten von der Uhr</string>
     <string name="empty_syncing">Warte auf die Uhr …</string>
-    <string name="history_empty_hint">Die letzten Wochen erscheinen hier, sobald die Uhr ihre Daten geschickt hat.</string>
 
     <!-- Status der Uhr -->
     <string name="status_title">Auf der Uhr</string>
@@ -128,9 +127,6 @@
         <item quantity="one">%1$d %% von %2$d Intervall</item>
         <item quantity="other">%1$d %% von %2$d Intervallen</item>
     </plurals>
-    <string name="history_days_title">Letzte 30 Tage</string>
-    <!-- %1$s = Datum -->
-    <string name="history_day_today">%1$s (heute)</string>
     <!-- %1$s = Pausen (z. B. „6 Pausen"), %2$d = verpasste Erinnerungen; „verpasst" ist unveränderlich -->
     <string name="history_day_detail" tools:ignore="PluralsCandidate">%1$s · %2$d verpasst</string>
     <string name="history_day_no_data">Keine Daten</string>
@@ -281,4 +277,24 @@
     <string name="connect_step_install">Installiere DeskBreak auf deiner Wear-OS-Uhr.</string>
     <string name="connect_step_open">Öffne DeskBreak einmal auf der Uhr.</string>
     <string name="connect_step_sync">Halte die Uhr in der Nähe des Handys und synchronisiere.</string>
+
+    <!-- Neu gestalteter Verlauf -->
+    <string name="history_range">%1$s – %2$s</string>
+    <string name="history_goal_days_value">%1$d / %2$d</string>
+    <string name="legend_free">Frei</string>
+    <string name="history_weekdays_title">Wochentage</string>
+    <string name="history_weekdays_subtitle">Ø Pausen pro Tag, letzte 5 Wochen</string>
+    <string name="history_weekdays_best">Am besten klappt es am %1$s</string>
+    <string name="cd_weekday">%1$s: im Schnitt %2$s Pausen, %3$s regelmäßig</string>
+    <string name="cd_weekday_empty">%1$s: keine Daten</string>
+    <string name="cd_hour" tools:ignore="PluralsCandidate">%1$d Uhr: %2$d Pausen, %3$d verpasst</string>
+    <string name="cd_hour_chart">Pausen und verpasste Erinnerungen je Stunde, letzte 30 Tage: %1$s</string>
+    <string name="history_week_this">Diese Woche</string>
+    <string name="history_week_last">Letzte Woche</string>
+    <string name="history_day_free">frei</string>
+    <!-- Menge = Tagesziel -->
+    <plurals name="history_goal_days_label">
+        <item quantity="one">Tage mit %d Pause oder mehr</item>
+        <item quantity="other">Tage mit %d Pausen oder mehr</item>
+    </plurals>
 </resources>

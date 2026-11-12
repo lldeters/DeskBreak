@@ -54,7 +54,6 @@
     <!-- Empty states -->
     <string name="empty_title">No data from the watch yet</string>
     <string name="empty_syncing">Waiting for the watch …</string>
-    <string name="history_empty_hint">The last weeks appear here once the watch has sent its data.</string>
 
     <!-- Watch status -->
     <string name="status_title">On the watch</string>
@@ -128,9 +127,6 @@
         <item quantity="one">%1$d %% of %2$d interval</item>
         <item quantity="other">%1$d %% of %2$d intervals</item>
     </plurals>
-    <string name="history_days_title">Last 30 days</string>
-    <!-- %1$s = date -->
-    <string name="history_day_today">%1$s (today)</string>
     <!-- %1$s = breaks (e.g. "6 breaks"), %2$d = missed reminders -->
     <string name="history_day_detail" tools:ignore="PluralsCandidate">%1$s · %2$d missed</string>
     <string name="history_day_no_data">No data</string>
@@ -281,4 +277,24 @@
     <string name="connect_step_install">Install DeskBreak on your Wear OS watch.</string>
     <string name="connect_step_open">Open DeskBreak on the watch once.</string>
     <string name="connect_step_sync">Keep the watch close to your phone and sync.</string>
+
+    <!-- Neu gestalteter Verlauf -->
+    <string name="history_range">%1$s – %2$s</string>
+    <string name="history_goal_days_value">%1$d / %2$d</string>
+    <string name="legend_free">Day off</string>
+    <string name="history_weekdays_title">Weekdays</string>
+    <string name="history_weekdays_subtitle">Average breaks per day, last 5 weeks</string>
+    <string name="history_weekdays_best">Your best day: %1$s</string>
+    <string name="cd_weekday">%1$s: on average %2$s breaks, %3$s regular</string>
+    <string name="cd_weekday_empty">%1$s: no data</string>
+    <string name="cd_hour" tools:ignore="PluralsCandidate">%1$d o\'clock: %2$d breaks, %3$d missed</string>
+    <string name="cd_hour_chart">Breaks and missed reminders per hour, last 30 days: %1$s</string>
+    <string name="history_week_this">This week</string>
+    <string name="history_week_last">Last week</string>
+    <string name="history_day_free">Day off</string>
+    <!-- Menge = Tagesziel -->
+    <plurals name="history_goal_days_label">
+        <item quantity="one">days with %d break or more</item>
+        <item quantity="other">days with %d breaks or more</item>
+    </plurals>
 </resources>

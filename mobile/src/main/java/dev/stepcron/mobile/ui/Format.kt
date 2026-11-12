@@ -37,6 +37,10 @@ object Formats {
     fun shortDate(date: LocalDate, locale: Locale): String =
         DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "EEEMMMd"), locale).format(date)
 
+    /** Tag und Monat, z. B. „Nov 24" bzw. „24. Nov.". */
+    fun dayMonth(date: LocalDate, locale: Locale): String =
+        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "MMMd"), locale).format(date)
+
     /** Datum ohne Wochentag, z. B. „Nov 24, 2026". */
     fun mediumDate(date: LocalDate, locale: Locale): String =
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).format(date)

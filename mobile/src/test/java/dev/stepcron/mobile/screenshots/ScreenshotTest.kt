@@ -44,6 +44,14 @@ class ScreenshotTest {
     fun history() = shot("history") { HistoryScreen(state = SampleData.state()) }
 
     @Test
+    @Config(qualifiers = "de-w411dp-h1900dp-xxhdpi")
+    fun historyGermanLong() = shot("history_de_long") { HistoryScreen(state = SampleData.state()) }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-night-xxhdpi")
+    fun historyDark() = shot("history_dark") { HistoryScreen(state = SampleData.state()) }
+
+    @Test
     @Config(qualifiers = "w411dp-h891dp-night-xxhdpi")
     fun todayDark() = shot("today_dark") { TodayScreen(state = SampleData.state(), actions = TodayActions()) }
 
