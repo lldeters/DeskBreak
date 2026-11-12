@@ -3,8 +3,8 @@
 <resources>
     <!-- Startbildschirm -->
     <plurals name="license_trial_hint">
-        <item quantity="one">Testphase: noch %d Tag</item>
-        <item quantity="other">Testphase: noch %d Tage</item>
+        <item quantity="one">Noch %d Testtag</item>
+        <item quantity="other">Noch %d Testtage</item>
     </plurals>
     <string name="license_expired_title">Testphase vorbei – Erinnerungen pausiert</string>
     <string name="license_expired_body">Verlauf und Statistik bleiben erhalten.</string>

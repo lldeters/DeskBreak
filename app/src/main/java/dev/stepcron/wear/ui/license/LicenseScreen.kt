@@ -53,12 +53,14 @@ fun LicenseScreen(
     onCheckPurchases: () -> Unit,
     onManageSubscription: () -> Unit,
 ) {
-    val listState = rememberScalingLazyListState(initialCenterItemIndex = 0)
+    // Wie üblich auf Wear OS steht der Stand (Eintrag 1) in der Mitte, der Titel darüber – so ist die erste Aktion
+    // schon zu sehen.
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = 1)
     Scaffold(positionIndicator = { PositionIndicator(scalingLazyListState = listState) }) {
         ScalingLazyColumn(
             modifier = Modifier.fillMaxSize(),
             state = listState,
-            autoCentering = AutoCenteringParams(itemIndex = 0),
+            autoCentering = AutoCenteringParams(itemIndex = 1),
         ) {
             item(key = "header") {
                 ListHeader { Text(stringResource(R.string.license_title), color = MaterialTheme.colors.primary) }

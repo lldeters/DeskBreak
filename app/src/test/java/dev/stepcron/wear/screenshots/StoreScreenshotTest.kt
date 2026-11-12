@@ -207,6 +207,7 @@ class StoreScreenshotTest {
             onAutoStepChange = {},
             onRequestPermissions = {},
             onOpenExactAlarmSettings = {},
+            onOpenLicense = {},
         )
     }
 
