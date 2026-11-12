@@ -9,7 +9,7 @@ import dev.stepcron.mobile.ui.theme.DeskBreakPhoneTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val repository get() = (application as DeskBreakPhoneApp).repository
+    private val app get() = application as DeskBreakPhoneApp
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,14 +21,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Im Vordergrund: Listener des Data Layers an und um einen frischen Stand bitten. */
+    /** Im Vordergrund: Listener des Data Layers an, um einen frischen Stand bitten und Käufe bei Play abfragen. */
     override fun onStart() {
         super.onStart()
-        repository.onForeground()
+        app.repository.onForeground()
+        app.license.onForeground()
     }
 
     override fun onStop() {
-        repository.onBackground()
+        app.repository.onBackground()
         super.onStop()
     }
 }

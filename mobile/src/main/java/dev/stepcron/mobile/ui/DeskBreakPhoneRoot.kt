@@ -37,9 +37,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.stepcron.mobile.R
 import dev.stepcron.mobile.ui.history.HistoryScreen
+import dev.stepcron.mobile.ui.license.UnlockScreen
 import dev.stepcron.mobile.ui.settings.SettingsScreen
 import dev.stepcron.mobile.ui.today.TodayActions
 import dev.stepcron.mobile.ui.today.TodayScreen
+import dev.stepcron.shared.license.LicenseStatus
 
 /** Die drei Seiten der Navigationsleiste. */
 private enum class Destination(
@@ -53,14 +55,22 @@ private enum class Destination(
     SETTINGS("settings", R.string.nav_settings, R.string.title_settings, R.drawable.ic_tune),
 }
 
-/** Gerüst der App: Titelleiste, Navigationsleiste unten, Snackbar für Meldungen. */
+/** Freischalten: eine Seite über den drei anderen (mit Zurück), erreichbar von Heute und Einstellungen. */
+private const val UNLOCK_ROUTE = "unlock"
+
+/**
+ * Gerüst der App: Titelleiste, Navigationsleiste unten, Snackbar für Meldungen. Auf der Seite zum Freischalten
+ * stehen stattdessen Zurück und deren Titel – ohne Navigationsleiste, damit nichts von der Entscheidung ablenkt.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewModel.Factory)) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val current = Destination.entries.firstOrNull { it.route == backStackEntry?.destination?.route } ?: Destination.TODAY
+    val route = backStackEntry?.destination?.route
+    val current = Destination.entries.firstOrNull { it.route == route } ?: Destination.TODAY
+    val onUnlock = route == UNLOCK_ROUTE
     val snackbarHostState = remember { SnackbarHostState() }
 
     val message = state.local.message
@@ -80,17 +90,34 @@ fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewMode
         }
     }
 
+    fun openUnlock() {
+        navController.navigate(UNLOCK_ROUTE) { launchSingleTop = true }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(current.title)) },
-                actions = { SyncAction(syncing = state.sync.syncing, onSync = viewModel::syncNow) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-            )
+            if (onUnlock) {
+                val unlocked = state.license.status is LicenseStatus.Unlocked
+                TopAppBar(
+                    title = { Text(stringResource(if (unlocked) R.string.title_license else R.string.title_unlock)) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.navigateUp() }) {
+                            Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.cd_navigate_back))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(stringResource(current.title)) },
+                    actions = { SyncAction(syncing = state.sync.syncing, onSync = viewModel::syncNow) },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+            }
         },
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+            if (!onUnlock) NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                 Destination.entries.forEach { destination ->
                     NavigationBarItem(
                         selected = destination == current,
@@ -119,11 +146,21 @@ fun DeskBreakPhoneRoot(viewModel: AppViewModel = viewModel(factory = AppViewMode
                         onResume = viewModel::endPause,
                         onEnable = { viewModel.setEnabled(true) },
                         onOpenSettings = { open(Destination.SETTINGS) },
+                        onOpenUnlock = ::openUnlock,
                     ),
                 )
             }
             composable(Destination.HISTORY.route) { HistoryScreen(state = state, onSyncNow = viewModel::syncNow) }
-            composable(Destination.SETTINGS.route) { SettingsScreen(state = state, actions = viewModel) }
+            composable(Destination.SETTINGS.route) {
+                SettingsScreen(
+                    state = state,
+                    actions = viewModel,
+                    onOpenUnlock = ::openUnlock,
+                    onRestorePurchases = viewModel::restorePurchases,
+                    onLinkFailed = viewModel::onLinkFailed,
+                )
+            }
+            composable(UNLOCK_ROUTE) { UnlockScreen(state = state.license, actions = viewModel) }
         }
     }
 }
@@ -153,5 +190,19 @@ private fun userMessageText(message: UserMessage): String = stringResource(
         UserMessage.BACKUP_TOO_LARGE -> R.string.message_backup_too_large
         UserMessage.READ_FAILED -> R.string.message_read_failed
         UserMessage.NO_FILE_APP -> R.string.message_no_file_app
+        UserMessage.PURCHASED_LIFETIME -> R.string.message_purchased_lifetime
+        UserMessage.PURCHASED_SUBSCRIPTION -> R.string.message_purchased_subscription
+        UserMessage.PURCHASE_PENDING -> R.string.message_purchase_pending
+        UserMessage.ALREADY_OWNED -> R.string.message_already_owned
+        UserMessage.BILLING_NETWORK -> R.string.message_billing_network
+        UserMessage.BILLING_SERVICE -> R.string.message_billing_service
+        UserMessage.BILLING_UNAVAILABLE -> R.string.message_billing_unavailable
+        UserMessage.BILLING_PRODUCT -> R.string.message_billing_product
+        UserMessage.BILLING_SETUP -> R.string.message_billing_setup
+        UserMessage.BILLING_FAILED -> R.string.message_billing_failed
+        UserMessage.RESTORED_LIFETIME -> R.string.message_restored_lifetime
+        UserMessage.RESTORED_SUBSCRIPTION -> R.string.message_restored_subscription
+        UserMessage.RESTORE_NOTHING_FOUND -> R.string.message_restore_nothing_found
+        UserMessage.LINK_FAILED -> R.string.message_link_failed
     },
 )

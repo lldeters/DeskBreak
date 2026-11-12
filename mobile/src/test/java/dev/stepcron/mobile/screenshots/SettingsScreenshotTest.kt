@@ -189,7 +189,7 @@ class SettingsScreenshotTest {
     }
 
     /** Tut nichts – für Bilder reicht der Zustand. */
-    private object NoActions : SettingsActions {
+    internal object NoActions : SettingsActions {
         override fun syncNow() = Unit
         override fun retrySettings() = Unit
         override fun setEnabled(enabled: Boolean) = Unit

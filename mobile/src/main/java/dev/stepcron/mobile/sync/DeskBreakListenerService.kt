@@ -13,6 +13,10 @@ import kotlinx.coroutines.runBlocking
  * /deskbreak/snapshot) werden gespeichert, Antworten auf eine Wiederherstellung (MESSAGE_RECEIVED für
  * /deskbreak/restore-result) an das Repository weitergereicht. Die Play Services rufen beides auf einem
  * Hintergrund-Thread auf; dort darf blockierend gewartet werden.
+ *
+ * Mit einem Snapshot kommt auch die Lizenz-Sicht der Uhr (übernimmt das Repository). Ist die eigene Play-Abfrage
+ * älter als einen Tag, fragt der Dienst Play neu und meldet das Ergebnis der Uhr – so bleibt ein Abo dort gültig,
+ * auch wenn die Handy-App selten geöffnet wird.
  */
 class DeskBreakListenerService : WearableListenerService() {
 
@@ -22,15 +26,23 @@ class DeskBreakListenerService : WearableListenerService() {
         // Einfrieren, bevor der Puffer nach diesem Aufruf freigegeben wird.
         val items = DataLayerGateway.snapshotItems(dataEvents)
         if (items.isEmpty()) return
+        var received = false
         try {
             runBlocking {
                 for (item in items) {
                     val bytes = app.gateway.readAsset(item, SyncPaths.SNAPSHOT_ASSET) ?: continue
                     app.repository.ingestSnapshot(bytes)
+                    received = true
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Snapshot nicht übernommen", e)
+        }
+        if (!received) return
+        try {
+            runBlocking { app.license.refreshPlayIfStale() }
+        } catch (e: Exception) {
+            Log.w(TAG, "Käufe nicht abgefragt", e)
         }
     }
 

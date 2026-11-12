@@ -67,11 +67,18 @@ private val BACKUP_MIME_TYPES = arrayOf("application/json", "text/plain", "appli
 
 /**
  * Einstellungen der Uhr, nach Zielen gruppiert: ob und wie oft erinnert wird, kurz pausieren, wann (Wochenplan),
- * wie die Uhr erinnert, Schritterkennung, Daten. Jede Änderung geht sofort an die Uhr; ob sie angekommen ist,
- * zeigt eine Statusanzeige am unteren Rand – nur solange etwas passiert.
+ * wie die Uhr erinnert, Schritterkennung, Daten und zuletzt die Lizenz. Jede Änderung geht sofort an die Uhr; ob
+ * sie angekommen ist, zeigt eine Statusanzeige am unteren Rand – nur solange etwas passiert.
  */
 @Composable
-fun SettingsScreen(state: AppUiState, actions: SettingsActions, modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    state: AppUiState,
+    actions: SettingsActions,
+    modifier: Modifier = Modifier,
+    onOpenUnlock: () -> Unit = {},
+    onRestorePurchases: () -> Unit = {},
+    onLinkFailed: () -> Unit = {},
+) {
     val settings = state.data.settings
     // Welche Datei-Aktion zuletzt gestartet wurde (für den Kreisel an der richtigen Zeile).
     var lastFileAction by rememberSaveable { mutableStateOf<FileAction?>(null) }
@@ -143,6 +150,16 @@ fun SettingsScreen(state: AppUiState, actions: SettingsActions, modifier: Modifi
                             launchSafely(actions) { restoreLauncher.launch(BACKUP_MIME_TYPES) }
                         },
                         onDismissRestore = actions::dismissRestoreResult,
+                    )
+                }
+            }
+            if (!state.loading && state.license.status != null) {
+                item(key = "license") {
+                    LicenseCard(
+                        license = state.license,
+                        onOpenUnlock = onOpenUnlock,
+                        onRestorePurchases = onRestorePurchases,
+                        onLinkFailed = onLinkFailed,
                     )
                 }
             }

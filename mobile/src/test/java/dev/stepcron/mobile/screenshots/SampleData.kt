@@ -1,11 +1,19 @@
 package dev.stepcron.mobile.screenshots
 
+import dev.stepcron.billing.BillingAvailability
+import dev.stepcron.billing.BillingOffer
+import dev.stepcron.billing.BillingState
 import dev.stepcron.mobile.settings.SettingsRules
 import dev.stepcron.mobile.stats.StatsCalculator
 import dev.stepcron.mobile.stats.WatchStatusCalculator
 import dev.stepcron.mobile.sync.SyncState
 import dev.stepcron.mobile.ui.AppUiState
 import dev.stepcron.mobile.ui.WatchData
+import dev.stepcron.mobile.ui.license.LicenseUiState
+import dev.stepcron.shared.license.LicenseRecord
+import dev.stepcron.shared.license.LicenseRules
+import dev.stepcron.shared.license.LicenseStatus
+import dev.stepcron.shared.license.Unlock
 import dev.stepcron.shared.sync.SyncDay
 import dev.stepcron.shared.sync.SyncEvent
 import dev.stepcron.shared.sync.SyncSettings
@@ -92,6 +100,34 @@ object SampleData {
             sync = sync,
         )
     }
+
+    // --- Lizenz ---
+
+    /** Testphase seit gut einem Tag: noch 2 Tage, endet übermorgen früh. */
+    val trial: LicenseStatus = LicenseRules.status(LicenseRecord(trialStartMillis = now - 26 * HOUR_MILLIS), now)
+
+    val expired: LicenseStatus = LicenseStatus.Expired(endedAtMillis = now - 3 * HOUR_MILLIS)
+
+    /** Angebote, wie Play sie liefert (Preise je nach Sprache formatiert, wie es Play tut). */
+    fun billingReady(
+        german: Boolean = false,
+        owned: Set<Unlock> = emptySet(),
+        pending: Set<Unlock> = emptySet(),
+    ): BillingState = BillingState(
+        availability = BillingAvailability.READY,
+        offers = mapOf(
+            Unlock.LIFETIME to BillingOffer(Unlock.LIFETIME, if (german) "5,00 €" else "€5.00"),
+            Unlock.SUBSCRIPTION to BillingOffer(Unlock.SUBSCRIPTION, if (german) "1,00 €" else "€1.00", billingPeriod = "P1M"),
+        ),
+        owned = owned,
+        pending = pending,
+        checkedAtMillis = now - 60_000L,
+    )
+
+    fun license(status: LicenseStatus = trial, billing: BillingState = billingReady(), restoring: Boolean = false) =
+        LicenseUiState(status = status, billing = billing, restoring = restoring, nowMillis = now)
+
+    private const val HOUR_MILLIS = 60 * 60_000L
 
     private fun millis(date: LocalDate, hour: Int, minute: Int): Long =
         LocalDateTime.of(date.year, date.month, date.dayOfMonth, hour, minute).atZone(zone).toInstant().toEpochMilli()

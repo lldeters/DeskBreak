@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Lizenz und Kauf (Deutsch; Englisch in values/). Preise kommen immer von Google Play (%1$s), nie aus diesen Texten.
+    Vor dem Kauf steht da: Preis, Zeitraum, automatische Verlängerung und wie man kündigt.
+-->
+<resources>
+    <string name="title_unlock">DeskBreak freischalten</string>
+    <string name="title_license">DeskBreak-Lizenz</string>
+    <string name="cd_navigate_back">Zurück</string>
+
+    <!-- Stand: Testphase -->
+    <string name="license_trial_label">Kostenlose Testphase</string>
+    <plurals name="license_trial_days_left">
+        <item quantity="one">Noch %d Tag</item>
+        <item quantity="other">Noch %d Tage</item>
+    </plurals>
+    <!-- Unter der Zahl im Ring -->
+    <plurals name="license_ring_days">
+        <item quantity="one">Tag</item>
+        <item quantity="other">Tage</item>
+    </plurals>
+    <plurals name="cd_trial_ring">
+        <item quantity="one">Noch %d Tag kostenlos testen</item>
+        <item quantity="other">Noch %d Tage kostenlos testen</item>
+    </plurals>
+    <!-- %1$s = Uhrzeit -->
+    <string name="license_trial_ends_today">Endet heute um %1$s</string>
+    <string name="license_trial_ends_tomorrow">Endet morgen um %1$s</string>
+    <!-- %1$s = Datum (z. B. „Do., 13. Nov."), %2$s = Uhrzeit -->
+    <string name="license_trial_ends_on">Endet am %1$s um %2$s</string>
+
+    <!-- Stand: Testphase vorbei, freigeschaltet -->
+    <string name="license_expired_label">Testphase beendet</string>
+    <string name="license_expired_headline">Deine Uhr erinnert dich nicht mehr</string>
+    <string name="license_expired_detail">Schalte DeskBreak frei, damit deine Uhr dich wieder an Bewegung erinnert.</string>
+    <string name="license_lifetime_label">Dauerhaft freigeschaltet</string>
+    <string name="license_lifetime_headline">Vielen Dank!</string>
+    <string name="license_lifetime_detail">DeskBreak gehört dir – auf deiner Uhr und deinem Handy.</string>
+    <string name="license_subscription_label">Abo aktiv</string>
+    <string name="license_subscription_headline">DeskBreak ist freigeschaltet</string>
+    <string name="license_subscription_detail">Verlängert sich monatlich über Google Play, bis du kündigst.</string>
+
+    <!-- Was die Freischaltung bringt -->
+    <string name="license_benefit_reminders">Bewegungserinnerungen auf der Uhr</string>
+    <string name="license_benefit_devices">Ein Kauf für Uhr und Handy</string>
+    <string name="license_benefit_support">Unterstützt die Weiterentwicklung</string>
+    <string name="license_free_forever">Verlauf, Export und Sicherung bleiben immer kostenlos.</string>
+    <string name="license_included_title">Das ist enthalten</string>
+    <string name="license_included_reminders">Bewegungserinnerungen auf der Uhr</string>
+    <string name="license_included_devices">Auf Uhr und Handy</string>
+    <string name="license_included_data">Verlauf, Auswertung, Export und Sicherung</string>
+
+    <!-- Möglichkeiten -->
+    <string name="license_choose_title">Wähle, wie du freischaltest</string>
+    <string name="license_option_lifetime">Einmalkauf</string>
+    <string name="license_option_lifetime_hint">Einmal zahlen, für immer deins</string>
+    <!-- Unter dem Preis des Einmalkaufs -->
+    <string name="license_option_lifetime_period">einmalig</string>
+    <string name="license_option_monthly">Monatlich</string>
+    <string name="license_option_monthly_hint">Jederzeit kündbar</string>
+    <!-- Abrechnungszeitraum des Abos, unter dessen Preis und dahinter („1,00 € pro Monat") -->
+    <plurals name="license_period_day">
+        <item quantity="one">pro Tag</item>
+        <item quantity="other">alle %d Tage</item>
+    </plurals>
+    <plurals name="license_period_week">
+        <item quantity="one">pro Woche</item>
+        <item quantity="other">alle %d Wochen</item>
+    </plurals>
+    <plurals name="license_period_month">
+        <item quantity="one">pro Monat</item>
+        <item quantity="other">alle %d Monate</item>
+    </plurals>
+    <plurals name="license_period_year">
+        <item quantity="one">pro Jahr</item>
+        <item quantity="other">alle %d Jahre</item>
+    </plurals>
+    <!-- %1$s = Preis von Google Play, %2$s = Zeitraum (z. B. „pro Monat") -->
+    <string name="license_price_with_period">%1$s %2$s</string>
+
+    <!-- Hauptaktion und was sie bedeutet; %1$s = Preis (beim Abo mit Zeitraum) -->
+    <string name="license_buy_lifetime">Für %1$s freischalten</string>
+    <string name="license_buy_subscription">Für %1$s abonnieren</string>
+    <string name="license_summary_lifetime">Einmalige Zahlung von %1$s. Kein Abo, nichts verlängert sich.</string>
+    <string name="license_summary_subscription">%1$s. Verlängert sich automatisch, bis du kündigst – jederzeit in Google Play.</string>
+    <string name="license_restore">Käufe wiederherstellen</string>
+    <string name="license_restoring">Käufe werden geprüft …</string>
+    <string name="license_unlock">Freischalten</string>
+    <string name="license_retry">Erneut versuchen</string>
+
+    <!-- Wenn gerade nicht gekauft werden kann -->
+    <string name="license_connecting">Verbindung zu Google Play …</string>
+    <string name="license_unavailable_title">Käufe sind hier nicht möglich</string>
+    <string name="license_unavailable_body">Zum Kaufen braucht es den Google Play Store und ein Google-Konto auf diesem Handy. Falls du DeskBreak aus einer anderen Quelle installiert hast, installiere es bitte über Google Play.</string>
+    <string name="license_error_title">Google Play ist nicht erreichbar</string>
+    <string name="license_error_network">Bitte prüfe deine Internetverbindung und versuche es noch einmal.</string>
+    <string name="license_error_service">Google Play antwortet gerade nicht. Bitte versuche es gleich noch einmal.</string>
+    <string name="license_error_generic">Die Kaufoptionen ließen sich nicht laden. Bitte versuche es noch einmal.</string>
+    <string name="license_products_missing_title">Kaufoptionen sind gerade nicht verfügbar</string>
+    <string name="license_products_missing_body">Bitte versuche es später noch einmal.</string>
+    <string name="license_pending">Zahlung ausstehend – DeskBreak wird freigeschaltet, sobald Google Play sie bestätigt.</string>
+    <string name="license_pending_button">Zahlung ausstehend</string>
+
+    <!-- Abo aktiv -->
+    <string name="license_manage_subscription">Abo verwalten</string>
+    <string name="license_switch_title">Lieber einmal zahlen?</string>
+    <string name="license_switch_body">Kaufe die einmalige Freischaltung und kündige danach dein Abo in Google Play, damit es sich nicht verlängert.</string>
+    <!-- %1$s = Preis des Einmalkaufs -->
+    <string name="license_switch_button">Einmalig für %1$s freischalten</string>
+
+    <!-- Kleingedrucktes -->
+    <string name="license_fine_print">Die Zahlung läuft über dein Google-Play-Konto. Das Abo verlängert sich automatisch jeden Monat, bis du es kündigst. Du kannst jederzeit in Google Play kündigen; DeskBreak bleibt bis zum Ende des bezahlten Zeitraums freigeschaltet.</string>
+    <string name="license_manage_link">Abos in Google Play verwalten</string>
+
+    <!-- Heute -->
+    <plurals name="license_banner_trial">
+        <item quantity="one">Testphase: noch %d Tag</item>
+        <item quantity="other">Testphase: noch %d Tage</item>
+    </plurals>
+    <string name="license_banner_action">Freischalten</string>
+    <string name="license_ended_card_title">Testphase beendet – deine Uhr erinnert dich nicht mehr</string>
+    <string name="license_ended_card_body">Schalte DeskBreak frei, damit deine Uhr dich wieder an Bewegung erinnert. Dein Verlauf bleibt erhalten.</string>
+    <string name="status_license_expired">Keine Erinnerungen</string>
+    <string name="status_license_expired_hint">Die kostenlose Testphase ist beendet</string>
+
+    <!-- Einstellungen -->
+    <string name="license_card_title">DeskBreak-Lizenz</string>
+    <plurals name="license_card_trial">
+        <item quantity="one">Kostenlose Testphase – noch %d Tag</item>
+        <item quantity="other">Kostenlose Testphase – noch %d Tage</item>
+    </plurals>
+    <string name="license_card_expired">Testphase beendet – die Uhr erinnert nicht mehr</string>
+    <string name="license_card_lifetime">Dauerhaft freigeschaltet – danke!</string>
+    <string name="license_card_subscription">Monatsabo aktiv</string>
+    <string name="license_card_unlock">DeskBreak freischalten</string>
+    <string name="license_card_unlock_hint">Einmalkauf oder monatlich, über Google Play</string>
+    <string name="license_card_details">Lizenzdetails</string>
+    <string name="license_card_details_hint">Was mit deiner Freischaltung enthalten ist</string>
+    <string name="license_card_details_hint_subscription">Auch: so wechselst du zum Einmalkauf</string>
+    <string name="license_card_manage_hint">Kündigen oder Zahlungsart ändern in Google Play</string>
+    <string name="license_card_restore_hint">Schon gekauft? Bei Google Play neu nachsehen</string>
+
+    <!-- Kurzmeldungen -->
+    <string name="message_purchased_lifetime">Vielen Dank! DeskBreak ist jetzt dauerhaft freigeschaltet.</string>
+    <string name="message_purchased_subscription">Vielen Dank! Dein Abo ist aktiv.</string>
+    <string name="message_purchase_pending">Zahlung ausstehend – DeskBreak wird freigeschaltet, sobald Google Play sie bestätigt.</string>
+    <string name="message_already_owned">Das hast du schon gekauft – dein Kauf wird wiederhergestellt.</string>
+    <string name="message_billing_network">Keine Verbindung zu Google Play. Bitte prüfe deine Internetverbindung.</string>
+    <string name="message_billing_service">Google Play antwortet gerade nicht. Bitte versuche es später noch einmal.</string>
+    <string name="message_billing_unavailable">Käufe sind auf diesem Handy oder mit diesem Konto nicht möglich.</string>
+    <string name="message_billing_product">Diese Möglichkeit ist gerade nicht verfügbar. Bitte versuche es später noch einmal.</string>
+    <string name="message_billing_setup">Der Kauf ließ sich nicht starten. Bitte installiere DeskBreak über Google Play.</string>
+    <string name="message_billing_failed">Der Kauf hat nicht geklappt. Bitte versuche es noch einmal.</string>
+    <string name="message_restored_lifetime">Kauf wiederhergestellt – DeskBreak ist dauerhaft freigeschaltet.</string>
+    <string name="message_restored_subscription">Abo gefunden – DeskBreak ist freigeschaltet.</string>
+    <string name="message_restore_nothing_found">Für das Google-Konto auf diesem Handy wurde kein Kauf gefunden.</string>
+    <string name="message_link_failed">Google Play ließ sich nicht öffnen.</string>
+</resources>

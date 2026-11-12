@@ -40,6 +40,17 @@ interface WatchGateway {
     /** Schickt eine Message an alle [nodeIds]; wirft nur, wenn sie bei keiner ankam. */
     suspend fun sendMessage(nodeIds: List<String>, path: String, data: ByteArray)
 
+    /**
+     * Schickt eine Message an die erreichbaren Uhren ([WatchNodes.targets]), z. B. die Lizenz-Sicht des Handys.
+     * Wirft [SyncException], wenn die Play Services fehlen, keine Uhr erreichbar ist oder sie bei keiner ankam.
+     */
+    suspend fun sendToWatches(path: String, data: ByteArray) {
+        checkAvailability()?.let { throw SyncException(it) }
+        val targets = findWatches().targets
+        if (targets.isEmpty()) throw SyncException(SyncProblem.NoWatch)
+        sendMessage(targets.map { it.id }, path, data)
+    }
+
     /** Legt die Sicherung als DataItem `RESTORE_PREFIX<restoreId>` mit Asset ab. */
     suspend fun putRestore(restoreId: String, backupBytes: ByteArray)
 
