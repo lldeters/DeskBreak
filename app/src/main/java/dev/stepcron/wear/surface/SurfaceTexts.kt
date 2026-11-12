@@ -27,6 +27,7 @@ internal class SurfaceTexts(private val context: Context, private val zone: Zone
 
         is SurfaceModel.DayDone -> context.getString(R.string.surface_done)
         SurfaceModel.Off -> context.getString(R.string.surface_off)
+        SurfaceModel.Locked -> context.getString(R.string.surface_locked)
         SurfaceModel.NoActiveDays -> context.getString(R.string.surface_no_days)
         SurfaceModel.Planning -> context.getString(R.string.surface_planning)
     }
@@ -46,6 +47,7 @@ internal class SurfaceTexts(private val context: Context, private val zone: Zone
                 context.getString(R.string.home_status_day_done_hint, formatClock(model.windowEndMillis, zone))
 
             SurfaceModel.Off -> context.getString(R.string.surface_off_caption)
+            SurfaceModel.Locked -> context.getString(R.string.surface_locked_caption)
             SurfaceModel.NoActiveDays -> context.getString(R.string.surface_no_days_caption)
             SurfaceModel.Planning -> context.getString(R.string.home_status_planning)
         }

@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.app.ActivityCompat
 import androidx.core.util.Consumer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -41,6 +42,8 @@ import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.service.ReminderNotifier
 import dev.stepcron.wear.ui.exercise.ExerciseScreen
 import dev.stepcron.wear.ui.home.HomeScreen
+import dev.stepcron.wear.ui.license.LicenseScreen
+import dev.stepcron.wear.ui.license.LicenseViewModel
 import dev.stepcron.wear.ui.pause.PauseScreen
 import dev.stepcron.wear.ui.pause.VacationScreen
 import dev.stepcron.wear.ui.settings.ReminderSettingsScreen
@@ -70,6 +73,7 @@ private object Routes {
     const val VACATION = "pause/vacation"
     const val ARG_EXERCISE = "index"
     const val EXERCISE = "exercise/{$ARG_EXERCISE}"
+    const val LICENSE = "license"
 
     fun day(day: DayOfWeek) = "schedule/${day.value}"
     fun dayStart(day: DayOfWeek) = "schedule/${day.value}/start"
@@ -192,6 +196,19 @@ fun DeskBreakNavHost(viewModel: ReminderViewModel) {
                         }
                     },
                     onOpenExactAlarmSettings = { SystemSettings.openExactAlarmSettings(context) },
+                    onOpenLicense = { navController.navigate(Routes.LICENSE) },
+                )
+            }
+            composable(Routes.LICENSE) {
+                // Eigenes ViewModel für die Dauer des Besuchs: Es fragt beim Öffnen bei Play nach.
+                val licenseViewModel: LicenseViewModel = viewModel(factory = LicenseViewModel.Factory)
+                val licenseState by licenseViewModel.uiState.collectAsStateWithLifecycle()
+                LicenseScreen(
+                    state = licenseState,
+                    onUnlockOnPhone = licenseViewModel::unlockOnPhone,
+                    onBuy = { unlock -> context.findActivity()?.let { licenseViewModel.buy(it, unlock) } },
+                    onCheckPurchases = licenseViewModel::checkPurchases,
+                    onManageSubscription = licenseViewModel::manageSubscriptionOnPhone,
                 )
             }
             composable(Routes.STATS) {

@@ -1,5 +1,6 @@
 package dev.stepcron.wear.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,6 +36,7 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyListState
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
+import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.ListHeader
 import androidx.wear.compose.material.MaterialTheme
@@ -43,6 +46,8 @@ import androidx.wear.compose.material.Switch
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
+import dev.stepcron.shared.license.LicenseStatus
+import dev.stepcron.shared.license.Unlock
 import dev.stepcron.wear.R
 import dev.stepcron.wear.domain.WeeklySchedule
 import dev.stepcron.wear.ui.HomeStatus
@@ -58,7 +63,10 @@ import dev.stepcron.wear.ui.settings.vibrationLabel
 import dev.stepcron.wear.ui.theme.DeskBreakTheme
 import kotlinx.coroutines.delay
 
-/** Hauptbildschirm: Status, Aktiv-Schalter, Timer-Reset, Statistik und Einstellungen. */
+/**
+ * Hauptbildschirm: Status, Aktiv-Schalter, Timer-Reset, Statistik und Einstellungen. Zur Freischaltung führen in der
+ * Testphase ein kleiner Hinweis unter dem Status, nach der Testphase eine Karte ganz oben und immer ein Eintrag unten.
+ */
 @Composable
 fun HomeScreen(
     state: HomeUiState,
@@ -74,6 +82,7 @@ fun HomeScreen(
     onAutoStepChange: (Boolean) -> Unit,
     onRequestPermissions: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
+    onOpenLicense: () -> Unit,
     listState: ScalingLazyListState = rememberScalingLazyListState(initialCenterItemIndex = 0),
 ) {
     val haptics = LocalHapticFeedback.current
@@ -95,7 +104,10 @@ fun HomeScreen(
     // Ohne aktiven Tag direkt unter dem Status zum Zeitplan führen (der reguläre Eintrag liegt weiter unten).
     val showScheduleShortcut = state.status == HomeStatus.NoActiveDays
     val paused = state.status is HomeStatus.PausedByUser
-    val showPauseChip = state.enabled && !showScheduleShortcut
+    // Ohne Lizenz ruhen die Erinnerungen ohnehin – eine Pause wäre ohne Wirkung.
+    val showPauseChip = state.enabled && !showScheduleShortcut && state.status != HomeStatus.Locked
+    val trialDaysLeft = (state.license as? LicenseStatus.Trial)?.daysLeft
+    val showLicenseChip = !state.loading && state.license != null
 
     // Die Uhrzeit kommt aus dem gemeinsamen Scaffold in DeskBreakNavHost. Bewusst ohne Vignette: Sie
     // dunkelt nur einen schmalen Randstreifen ab, kostet aber zwei bildschirmgroße Bitmaps, die beim
@@ -108,7 +120,19 @@ fun HomeScreen(
             state = listState,
             autoCentering = AutoCenteringParams(itemIndex = 0),
         ) {
-            item(key = "status") { StatusHeader(current) }
+            item(key = "status") { StatusHeader(current, onOpenLicense) }
+
+            if (trialDaysLeft != null) {
+                item(key = "license_hint") {
+                    CompactChip(
+                        onClick = onOpenLicense,
+                        label = {
+                            Text(pluralStringResource(R.plurals.license_trial_hint, trialDaysLeft, trialDaysLeft), maxLines = 1)
+                        },
+                        colors = ChipDefaults.secondaryChipColors(),
+                    )
+                }
+            }
 
             if (showScheduleShortcut) {
                 item(key = "schedule_shortcut") {
@@ -130,7 +154,7 @@ fun HomeScreen(
                         secondaryLabel = { Text(stringResource(R.string.home_permissions_secondary)) },
                         icon = { ChipIcon(R.drawable.ic_warning) },
                         colors = ChipDefaults.chipColors(
-                            backgroundColor = Color(0xFF3D2E0A),
+                            backgroundColor = WARNING_BACKGROUND,
                             contentColor = MaterialTheme.colors.secondary,
                             secondaryContentColor = MaterialTheme.colors.onSurface,
                             iconColor = MaterialTheme.colors.secondary,
@@ -306,12 +330,26 @@ fun HomeScreen(
                     )
                 }
             }
+
+            if (showLicenseChip) {
+                item(key = "license") {
+                    // Als fertiger Text: Die Slot-Lambdas entstehen so nur bei geändertem Text neu.
+                    val summary = licenseSummary(current.license)
+                    Chip(
+                        onClick = onOpenLicense,
+                        label = { Text(stringResource(R.string.license_home_label), maxLines = 1) },
+                        secondaryLabel = { Text(summary, maxLines = 2) },
+                        colors = ChipDefaults.secondaryChipColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun StatusHeader(state: HomeUiState) {
+private fun StatusHeader(state: HomeUiState, onOpenLicense: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -325,77 +363,143 @@ private fun StatusHeader(state: HomeUiState) {
             color = MaterialTheme.colors.primary,
         )
         Spacer(Modifier.height(2.dp))
-        when (val status = if (state.loading) HomeStatus.Planning else state.status) {
-            HomeStatus.Disabled -> {
-                Headline(stringResource(R.string.home_status_disabled))
-                Caption(stringResource(R.string.home_status_disabled_hint))
-            }
-
-            HomeStatus.NoActiveDays -> {
-                Headline(stringResource(R.string.home_status_no_active_days))
-                Caption(stringResource(R.string.home_status_no_active_days_hint))
-            }
-
-            HomeStatus.Planning -> Headline(stringResource(R.string.home_status_planning))
-
-            is HomeStatus.OffHours -> {
-                Headline(
-                    stringResource(if (status.freeToday) R.string.home_status_free_today else R.string.home_status_paused),
-                )
-                Caption(rememberResumeText(status.resumeAtMillis, status.daysUntilResume))
-            }
-
-            is HomeStatus.PausedByUser -> {
-                Headline(stringResource(R.string.home_status_user_paused))
-                Caption(rememberResumeText(status.resumeAtMillis, status.daysUntilResume))
-            }
-
-            is HomeStatus.Scheduled -> {
-                Caption(
-                    stringResource(
-                        if (status.snoozed) R.string.home_status_snoozed_until else R.string.home_status_next_reminder,
-                    ),
-                )
-                Text(
-                    text = formatClock(status.atMillis),
-                    style = MaterialTheme.typography.display3,
-                    color = MaterialTheme.colors.onSurface,
-                )
-                Caption(
-                    if (status.remainingMinutes <= 0L) {
-                        stringResource(R.string.home_status_remaining_now)
-                    } else {
-                        stringResource(R.string.home_status_remaining, status.remainingMinutes)
-                    },
-                )
-                Spacer(Modifier.height(5.dp))
-                IntervalProgressBar(
-                    progress = status.progress,
-                    color = if (status.snoozed) MaterialTheme.colors.secondary else MaterialTheme.colors.primary,
-                )
-            }
-
-            is HomeStatus.DayDone -> {
-                Headline(stringResource(R.string.home_status_day_done))
-                Caption(stringResource(R.string.home_status_day_done_hint, formatClock(status.windowEndMillis)))
-            }
-        }
-        val skipped = state.skippedReason
-        if (skipped != null && state.status is HomeStatus.Scheduled) {
-            Spacer(Modifier.height(4.dp))
-            Caption(stringResource(R.string.home_reminder_skipped, stringResource(skipReasonLabel(skipped))))
-        }
-        if (state.reminderPending) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.home_reminder_pending),
-                style = MaterialTheme.typography.caption2,
-                color = MaterialTheme.colors.secondary,
-                textAlign = TextAlign.Center,
-            )
+        if (state.licenseExpired && !state.loading) {
+            // Statt des Status: Ohne Freischaltung ruhen die Erinnerungen, ob ein- oder ausgeschaltet.
+            Spacer(Modifier.height(2.dp))
+            LicenseExpiredCard(onOpenLicense)
+        } else {
+            StatusLines(state)
         }
     }
 }
+
+/** Der Stand des Timers unter dem Titel (im Column von [StatusHeader]). */
+@Composable
+private fun StatusLines(state: HomeUiState) {
+    when (val status = if (state.loading) HomeStatus.Planning else state.status) {
+        // Mit abgelaufener Lizenz zeigt die Karte oben den Stand.
+        HomeStatus.Locked -> Unit
+
+        HomeStatus.Disabled -> {
+            Headline(stringResource(R.string.home_status_disabled))
+            Caption(stringResource(R.string.home_status_disabled_hint))
+        }
+
+        HomeStatus.NoActiveDays -> {
+            Headline(stringResource(R.string.home_status_no_active_days))
+            Caption(stringResource(R.string.home_status_no_active_days_hint))
+        }
+
+        HomeStatus.Planning -> Headline(stringResource(R.string.home_status_planning))
+
+        is HomeStatus.OffHours -> {
+            Headline(
+                stringResource(if (status.freeToday) R.string.home_status_free_today else R.string.home_status_paused),
+            )
+            Caption(rememberResumeText(status.resumeAtMillis, status.daysUntilResume))
+        }
+
+        is HomeStatus.PausedByUser -> {
+            Headline(stringResource(R.string.home_status_user_paused))
+            Caption(rememberResumeText(status.resumeAtMillis, status.daysUntilResume))
+        }
+
+        is HomeStatus.Scheduled -> {
+            Caption(
+                stringResource(
+                    if (status.snoozed) R.string.home_status_snoozed_until else R.string.home_status_next_reminder,
+                ),
+            )
+            Text(
+                text = formatClock(status.atMillis),
+                style = MaterialTheme.typography.display3,
+                color = MaterialTheme.colors.onSurface,
+            )
+            Caption(
+                if (status.remainingMinutes <= 0L) {
+                    stringResource(R.string.home_status_remaining_now)
+                } else {
+                    stringResource(R.string.home_status_remaining, status.remainingMinutes)
+                },
+            )
+            Spacer(Modifier.height(5.dp))
+            IntervalProgressBar(
+                progress = status.progress,
+                color = if (status.snoozed) MaterialTheme.colors.secondary else MaterialTheme.colors.primary,
+            )
+        }
+
+        is HomeStatus.DayDone -> {
+            Headline(stringResource(R.string.home_status_day_done))
+            Caption(stringResource(R.string.home_status_day_done_hint, formatClock(status.windowEndMillis)))
+        }
+    }
+    val skipped = state.skippedReason
+    if (skipped != null && state.status is HomeStatus.Scheduled) {
+        Spacer(Modifier.height(4.dp))
+        Caption(stringResource(R.string.home_reminder_skipped, stringResource(skipReasonLabel(skipped))))
+    }
+    if (state.reminderPending) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.home_reminder_pending),
+            style = MaterialTheme.typography.caption2,
+            color = MaterialTheme.colors.secondary,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/** Testphase vorbei: deutlich, mit dem Weg zur Freischaltung. */
+@Composable
+private fun LicenseExpiredCard(onOpenLicense: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(WARNING_BACKGROUND, RoundedCornerShape(20.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_lock),
+            contentDescription = null,
+            tint = MaterialTheme.colors.secondary,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = stringResource(R.string.license_expired_title),
+            style = MaterialTheme.typography.button,
+            color = MaterialTheme.colors.onSurface,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(2.dp))
+        Caption(stringResource(R.string.license_expired_body))
+        Spacer(Modifier.height(6.dp))
+        CompactChip(
+            onClick = onOpenLicense,
+            label = { Text(stringResource(R.string.license_expired_button), maxLines = 1) },
+            colors = ChipDefaults.primaryChipColors(),
+        )
+    }
+}
+
+/** Zweite Zeile des Eintrags „Freischaltung". */
+@Composable
+private fun licenseSummary(license: LicenseStatus?): String = when (license) {
+    null -> ""
+    is LicenseStatus.Trial -> pluralStringResource(R.plurals.license_trial_hint, license.daysLeft, license.daysLeft)
+    is LicenseStatus.Expired -> stringResource(R.string.license_home_expired)
+    is LicenseStatus.Unlocked -> stringResource(
+        when (license.unlock) {
+            Unlock.LIFETIME -> R.string.license_home_lifetime
+            Unlock.SUBSCRIPTION -> R.string.license_home_subscription
+        },
+    )
+}
+
+/** Hintergrund von Warnungen (Berechtigungen, abgelaufene Testphase). */
+private val WARNING_BACKGROUND = Color(0xFF3D2E0A)
 
 @Composable
 private fun ScheduleSummary(schedule: WeeklySchedule) {
@@ -474,6 +578,7 @@ private fun HomeScreenPreview() {
                 onAutoStepChange = {},
                 onRequestPermissions = {},
                 onOpenExactAlarmSettings = {},
+                onOpenLicense = {},
             )
         }
     }

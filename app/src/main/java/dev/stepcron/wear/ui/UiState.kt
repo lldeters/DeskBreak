@@ -1,5 +1,6 @@
 package dev.stepcron.wear.ui
 
+import dev.stepcron.shared.license.LicenseStatus
 import dev.stepcron.wear.data.db.MovementEvent
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
@@ -30,6 +31,9 @@ data class SystemStatus(
 /** Was der Status-Header auf dem Hauptbildschirm zeigt. */
 sealed interface HomeStatus {
     data object Disabled : HomeStatus
+
+    /** Erinnerungen sind an, aber die Testphase ist vorbei und nicht freigeschaltet: Sie ruhen bis zur Freischaltung. */
+    data object Locked : HomeStatus
 
     /** Erinnerungen sind an, aber im Zeitplan ist kein Tag aktiv. */
     data object NoActiveDays : HomeStatus
@@ -87,6 +91,8 @@ data class HomeUiState(
     val reminderPending: Boolean = false,
     val stepTrackingActive: Boolean = false,
     val system: SystemStatus = SystemStatus(),
+    /** Stand der Lizenz; `null`, solange er nicht bekannt ist (zählt dann wie aktiv). */
+    val license: LicenseStatus? = null,
 ) {
     val canDecreaseGoal: Boolean get() = dailyGoal > ReminderSettings.MIN_DAILY_GOAL
     val canIncreaseGoal: Boolean get() = dailyGoal < ReminderSettings.MAX_DAILY_GOAL
@@ -97,6 +103,9 @@ data class HomeUiState(
     val needsPermissions: Boolean
         get() = !system.notificationsGranted || (autoStepEnabled && !system.activityRecognitionGranted)
 
+    /** Testphase vorbei, nicht freigeschaltet. */
+    val licenseExpired: Boolean get() = license is LicenseStatus.Expired
+
     companion object {
         fun create(
             settings: ReminderSettings,
@@ -105,6 +114,7 @@ data class HomeUiState(
             system: SystemStatus,
             zone: ZoneId,
             todayMovements: Int? = null,
+            license: LicenseStatus? = null,
         ) = HomeUiState(
             loading = false,
             enabled = settings.enabled,
@@ -123,10 +133,11 @@ data class HomeUiState(
             dailyGoal = settings.dailyGoal,
             todayMovements = todayMovements,
             permissionsRequested = settings.permissionsRequested,
-            status = homeStatus(settings, state, nowMillis, zone),
-            reminderPending = settings.enabled && state.pendingReminderAt > 0L,
+            status = homeStatus(settings, state, nowMillis, zone, licensed = license?.isActive != false),
+            reminderPending = settings.enabled && license?.isActive != false && state.pendingReminderAt > 0L,
             stepTrackingActive = state.stepTrackingActive,
             system = system,
+            license = license,
         )
 
         private fun homeStatus(
@@ -134,8 +145,10 @@ data class HomeUiState(
             state: ReminderState,
             nowMillis: Long,
             zone: ZoneId,
+            licensed: Boolean,
         ): HomeStatus {
             if (!settings.enabled) return HomeStatus.Disabled
+            if (!licensed) return HomeStatus.Locked
             val schedule = settings.schedule
             val kind = state.nextAlarmKind
             return when {

@@ -51,6 +51,7 @@ class ReminderEngineTest {
     private val alerts = FakeAlerts()
     private val stepTracking = FakeStepTracking()
     private val deviceState = FakeDeviceState()
+    private val license = FakeLicenseCheck()
     private val log = FakeMovementLog()
     private var now = at("09:00")
     private var stateChanges = 0
@@ -67,6 +68,7 @@ class ReminderEngineTest {
             alerts = alerts,
             stepTracking = stepTracking,
             deviceState = deviceState,
+            licenseCheck = license,
             clock = { now },
             zoneProvider = { zone },
             dispatcher = Dispatchers.Unconfined,
@@ -749,6 +751,99 @@ class ReminderEngineTest {
 
         assertEquals(at("10:00"), state().cycleStartAt)
         assertEquals(PlannedAlarm(at("10:45"), REMINDER), alarms.planned)
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Lizenz
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    fun `after the trial a due alarm shows no reminder and cancels the alarm`() = runBlocking {
+        engine.setEnabled(true)
+        license.active = false
+        fireNextAlarm() // 09:45
+
+        assertNull(alerts.shownFor)
+        assertEquals(0, alerts.vibrations)
+        assertNull(alarms.planned)
+        assertEquals(0L, state().nextAlarmAt)
+        assertNull(state().nextAlarmKind)
+        assertFalse(stepTracking.running)
+        assertTrue(log.events.isEmpty())
+        // Die Einstellung bleibt: Nach dem Freischalten geht es von selbst weiter.
+        assertTrue(repository.currentSettings().enabled)
+    }
+
+    @Test
+    fun `after the trial a resync plans nothing and stops step tracking`() = runBlocking {
+        engine.setEnabled(true)
+        assertTrue(stepTracking.running)
+        license.active = false
+        now = at("09:20")
+        engine.resync()
+
+        assertNull(alarms.planned)
+        assertFalse(stepTracking.running)
+
+        // Auch Einschalten, Intervall, Pause und Neustart planen nichts.
+        engine.setEnabled(false)
+        engine.setEnabled(true)
+        engine.setIntervalMinutes(30)
+        engine.pauseUntil(at("10:00"))
+        engine.resume()
+        engine.restoreAfterBoot()
+        assertNull(alarms.planned)
+        assertFalse(stepTracking.running)
+        assertTrue(repository.currentSettings().enabled)
+    }
+
+    @Test
+    fun `unlocking again plans reminders on the next resync`() = runBlocking {
+        engine.setEnabled(true)
+        license.active = false
+        engine.resync()
+        assertNull(alarms.planned)
+
+        license.active = true
+        now = at("09:30")
+        engine.resync()
+
+        // Ein frischer Zyklus ab dem Freischalten.
+        assertEquals(PlannedAlarm(at("10:15"), REMINDER), alarms.planned)
+        assertEquals(at("09:30"), state().cycleStartAt)
+        assertTrue(stepTracking.running)
+    }
+
+    @Test
+    fun `an open reminder from the trial is closed without counting as missed`() = runBlocking {
+        engine.setEnabled(true)
+        fireNextAlarm() // 09:45, offen
+        assertEquals(at("09:45"), alerts.shownFor)
+
+        license.active = false
+        fireNextAlarm() // 10:30
+
+        assertNull(alerts.shownFor)
+        assertEquals(0L, state().pendingReminderAt)
+        assertTrue(log.events.isEmpty())
+        assertNull(alarms.planned)
+    }
+
+    @Test
+    fun `after the trial moving still counts but plans nothing`() = runBlocking {
+        engine.setEnabled(true)
+        license.active = false
+        engine.resync()
+
+        now = at("09:10")
+        engine.onWalkDetected()
+        engine.onManualReset()
+        engine.onReminderSnoozed()
+
+        // Der Verlauf bleibt nutzbar: „Jetzt bewegt" zählt, die (nicht laufende) Schritterkennung nicht.
+        assertEquals(listOf(MANUAL_RESET to at("09:10")), log.events)
+        assertNull(alarms.planned)
+        assertFalse(stepTracking.running)
     }
 
     // ---------------------------------------------------------------------------------------------

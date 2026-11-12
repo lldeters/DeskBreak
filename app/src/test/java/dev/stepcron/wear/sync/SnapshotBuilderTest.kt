@@ -1,5 +1,8 @@
 package dev.stepcron.wear.sync
 
+import dev.stepcron.shared.license.LicenseInfo
+import dev.stepcron.shared.license.LicenseRecord
+import dev.stepcron.shared.license.Unlock
 import dev.stepcron.shared.sync.SyncCodec
 import dev.stepcron.shared.sync.SyncEvent
 import dev.stepcron.shared.sync.SyncStatus
@@ -71,9 +74,19 @@ class SnapshotBuilderTest {
                 pendingReminderAt = harness.at("09:30"),
             )
         }
+        harness.licenseRepository.update {
+            LicenseRecord(
+                trialStartMillis = harness.at("08:00"),
+                ownUnlock = Unlock.SUBSCRIPTION.name,
+                ownCheckedAtMillis = harness.at("09:00"),
+                peerUnlock = Unlock.LIFETIME.name,
+                peerCheckedAtMillis = harness.at("09:30"),
+            )
+        }
         val builder = SnapshotBuilder(
             settingsRepository = harness.settingsRepository,
             history = MovementRepository { dao },
+            licenseRepository = harness.licenseRepository,
             clock = { harness.now },
             zoneProvider = { zone },
         )
@@ -100,7 +113,29 @@ class SnapshotBuilderTest {
             ),
             snapshot.events,
         )
+        // Nur die eigene Sicht der Uhr, nicht die weitergereichte des Handys.
+        assertEquals(
+            LicenseInfo(
+                trialStartMillis = harness.at("08:00"),
+                unlock = Unlock.SUBSCRIPTION.name,
+                checkedAtMillis = harness.at("09:00"),
+            ),
+            snapshot.license,
+        )
         // So geht er übers Netz.
         assertEquals(snapshot, SyncCodec.decodeSnapshot(SyncCodec.encodeSnapshot(snapshot)))
+    }
+
+    @Test
+    fun `without a stored license the snapshot reports an unstarted trial`() = runBlocking {
+        val builder = SnapshotBuilder(
+            settingsRepository = harness.settingsRepository,
+            history = MovementRepository { FakeMovementDao() },
+            licenseRepository = harness.licenseRepository,
+            clock = { harness.now },
+            zoneProvider = { zone },
+        )
+
+        assertEquals(LicenseInfo(), builder.build().license)
     }
 }

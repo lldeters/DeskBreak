@@ -1,5 +1,6 @@
 package dev.stepcron.wear.surface
 
+import dev.stepcron.shared.license.LicenseStatus
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
 import dev.stepcron.wear.ui.HomeStatus
@@ -18,6 +19,9 @@ sealed interface SurfaceModel {
 
     /** Erinnerungen sind ausgeschaltet. */
     data object Off : SurfaceModel
+
+    /** Testphase vorbei, nicht freigeschaltet: keine Erinnerungen, ein Tipp öffnet die App zum Freischalten. */
+    data object Locked : SurfaceModel
 
     /** Erinnerungen sind an, aber im Zeitplan ist kein Tag aktiv. */
     data object NoActiveDays : SurfaceModel
@@ -54,12 +58,20 @@ sealed interface SurfaceModel {
     ) : SurfaceModel
 
     companion object {
-        fun create(settings: ReminderSettings, state: ReminderState, nowMillis: Long, zone: ZoneId): SurfaceModel {
+        /** [license] `null`: unbekannt, zählt wie aktiv. */
+        fun create(
+            settings: ReminderSettings,
+            state: ReminderState,
+            nowMillis: Long,
+            zone: ZoneId,
+            license: LicenseStatus? = null,
+        ): SurfaceModel {
             // Berechtigungen spielen für die Anzeige hier keine Rolle.
-            val home = HomeUiState.create(settings, state, nowMillis, SystemStatus(), zone)
+            val home = HomeUiState.create(settings, state, nowMillis, SystemStatus(), zone, license = license)
             val pending = home.reminderPending
             return when (val status = home.status) {
                 HomeStatus.Disabled -> Off
+                HomeStatus.Locked -> Locked
                 HomeStatus.NoActiveDays -> NoActiveDays
                 HomeStatus.Planning -> Planning
                 is HomeStatus.OffHours -> OffHours(status.resumeAtMillis, status.daysUntilResume, status.freeToday, pending)

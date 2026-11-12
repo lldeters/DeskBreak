@@ -33,6 +33,10 @@ import java.time.ZoneId
  *
  * Alle Einstiegspunkte dürfen vom Main-Thread aufgerufen werden: Die Arbeit (Binder-Aufrufe an
  * AlarmManager und ActivityManager, DataStore, Room) läuft auf [dispatcher], damit sie keine Frames kostet.
+ *
+ * Ohne gültige Lizenz ([licenseCheck]: Testphase vorbei, nicht freigeschaltet) gelten Erinnerungen als ausgeschaltet –
+ * kein Alarm, keine Erinnerung, keine Schritterkennung. Die gespeicherte Einstellung bleibt, wie sie ist; nach dem
+ * Freischalten genügt ein [resync], und es geht weiter. Verlauf und „Jetzt bewegt" bleiben nutzbar.
  */
 class ReminderEngine(
     private val settingsRepository: SettingsRepository,
@@ -41,6 +45,7 @@ class ReminderEngine(
     private val alerts: ReminderAlerts,
     private val stepTracking: StepTracking,
     private val deviceState: DeviceState,
+    private val licenseCheck: LicenseCheck,
     private val clock: () -> Long = System::currentTimeMillis,
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -66,10 +71,9 @@ class ReminderEngine(
 
     suspend fun onAlarmFired(kind: AlarmKind?): Unit = locked {
         val now = clock()
-        var settings = settingsRepository.currentSettings()
+        var settings = currentSettingsLocked(now)
         if (!settings.enabled) {
-            cancelScheduleLocked()
-            syncStepTrackerLocked(now, settings)
+            stopLocked(now, settings)
             return@locked
         }
         if (settings.isPausedAt(now)) {
@@ -195,7 +199,7 @@ class ReminderEngine(
     suspend fun onReminderSnoozed(): Unit = locked {
         alerts.cancelReminder()
         val now = clock()
-        val settings = settingsRepository.currentSettings()
+        val settings = currentSettingsLocked(now)
         val state = settingsRepository.currentState()
         if (state.pendingReminderAt == 0L) return@locked
         movementLog.log(MovementEventType.SNOOZED, now, settings.intervalMinutes)
@@ -229,7 +233,7 @@ class ReminderEngine(
 
     private suspend fun manualResetLocked() {
         val now = clock()
-        val settings = settingsRepository.currentSettings()
+        val settings = currentSettingsLocked(now)
         val state = settingsRepository.currentState()
         val hadPending = state.pendingReminderAt > 0L
         if (hadPending) alerts.cancelReminder()
@@ -250,7 +254,7 @@ class ReminderEngine(
      */
     suspend fun onWalkDetected(): Unit = locked {
         val now = clock()
-        val settings = settingsRepository.currentSettings()
+        val settings = currentSettingsLocked(now)
         if (!settings.wantsStepTracking(now, zoneProvider())) return@locked
         val state = settingsRepository.currentState()
         val lastActivity = maxOf(state.lastWalkDetectedAt, state.lastMovementAt)
@@ -286,7 +290,7 @@ class ReminderEngine(
     suspend fun setEnabled(enabled: Boolean): Unit = locked {
         val now = clock()
         // Eine Pause gehört zu eingeschalteten Erinnerungen: Aus- und wieder Einschalten startet ohne sie.
-        val settings = settingsRepository.updateSettings { it.copy(enabled = enabled, pausedUntil = 0L) }
+        val settings = updateSettingsLocked(now) { it.copy(enabled = enabled, pausedUntil = 0L) }
         if (enabled) {
             settingsRepository.updateState {
                 // Den Zyklus startet der Abgleich: im Fenster jetzt, sonst am nächsten Fensterbeginn.
@@ -304,8 +308,9 @@ class ReminderEngine(
     }
 
     suspend fun setIntervalMinutes(minutes: Int): Unit = locked {
-        val settings = settingsRepository.updateSettings { it.copy(intervalMinutes = minutes) }
-        resyncLocked(clock(), settings)
+        val now = clock()
+        val settings = updateSettingsLocked(now) { it.copy(intervalMinutes = minutes) }
+        resyncLocked(now, settings)
     }
 
     /**
@@ -318,10 +323,10 @@ class ReminderEngine(
         val zone = zoneProvider()
         // Konsistent, weil alle Änderungen am Wochenplan durch diesen Mutex laufen.
         val before = settingsRepository.currentSettings().schedule
-        val settings = settingsRepository.updateSettings { it.copy(schedule = transform(it.schedule)) }
+        val settings = updateSettingsLocked(now) { it.copy(schedule = transform(it.schedule)) }
         if (!settings.enabled || settings.isPausedAt(now)) {
-            // Ausgeschaltet bzw. pausiert: Übergänge des heutigen Fensters spielen keine Rolle, nach einer Pause
-            // beginnt ohnehin ein frischer Zyklus.
+            // Ausgeschaltet (auch ohne Lizenz) bzw. pausiert: Übergänge des heutigen Fensters spielen keine Rolle, nach
+            // einer Pause beginnt ohnehin ein frischer Zyklus.
             resyncLocked(now, settings)
             return@locked
         }
@@ -362,7 +367,7 @@ class ReminderEngine(
      */
     suspend fun pauseUntil(untilMillis: Long): Unit = locked {
         val now = clock()
-        val settings = settingsRepository.updateSettings { it.copy(pausedUntil = untilMillis.coerceAtLeast(0L)) }
+        val settings = updateSettingsLocked(now) { it.copy(pausedUntil = untilMillis.coerceAtLeast(0L)) }
         alerts.cancelReminder()
         // Ohne laufenden Zyklus beginnt nach der Pause in jedem Fall ein frischer (Alarm oder Abgleich).
         settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L, cycleStartAt = 0L) }
@@ -372,7 +377,7 @@ class ReminderEngine(
     /** Pause vorzeitig beenden: Im Fenster beginnt jetzt ein frischer Zyklus. */
     suspend fun resume(): Unit = locked {
         val now = clock()
-        val settings = settingsRepository.updateSettings { it.copy(pausedUntil = 0L) }
+        val settings = updateSettingsLocked(now) { it.copy(pausedUntil = 0L) }
         settingsRepository.updateState { it.copy(cycleStartAt = 0L, snoozeUntil = 0L) }
         resyncLocked(now, settings)
     }
@@ -404,21 +409,26 @@ class ReminderEngine(
     }
 
     suspend fun setAutoStepEnabled(enabled: Boolean): Unit = locked {
-        val settings = settingsRepository.updateSettings { it.copy(autoStepEnabled = enabled) }
-        syncStepTrackerLocked(clock(), settings)
+        val now = clock()
+        val settings = updateSettingsLocked(now) { it.copy(autoStepEnabled = enabled) }
+        syncStepTrackerLocked(now, settings)
     }
 
-    /** Gleicht Alarm und Schritterkennung mit dem gespeicherten Zustand ab (App-Start, Zeitänderung …). */
+    /**
+     * Gleicht Alarm und Schritterkennung mit dem gespeicherten Zustand ab (App-Start, Zeitänderung, Lizenz aktiv bzw.
+     * inaktiv geworden …).
+     */
     suspend fun resync(): Unit = locked {
-        resyncLocked(clock(), settingsRepository.currentSettings())
+        val now = clock()
+        resyncLocked(now, currentSettingsLocked(now))
     }
 
     /** Nach Neustart/Update: Alarm aus dem DataStore wiederherstellen. */
     suspend fun restoreAfterBoot(): Unit = locked {
         val now = clock()
-        val settings = settingsRepository.currentSettings()
+        val settings = currentSettingsLocked(now)
         if (!settings.enabled) {
-            syncStepTrackerLocked(now, settings)
+            stopLocked(now, settings)
             return@locked
         }
         val state = settingsRepository.currentState()
@@ -446,8 +456,7 @@ class ReminderEngine(
      */
     private suspend fun resyncLocked(now: Long, settings: ReminderSettings) {
         if (!settings.enabled) {
-            cancelScheduleLocked()
-            syncStepTrackerLocked(now, settings)
+            stopLocked(now, settings)
             return
         }
         val zone = zoneProvider()
@@ -481,6 +490,36 @@ class ReminderEngine(
         )
         syncStepTrackerLocked(now, settings)
     }
+
+    /**
+     * Ausgeschaltet bzw. ohne gültige Lizenz: kein Alarm und keine Schritterkennung. Eine noch offene Erinnerung
+     * (z. B. von kurz vor dem Ende der Testphase) wird geschlossen, ohne als verpasst zu zählen – wie beim Ausschalten;
+     * ein laufender Zyklus endet, nach dem Ein- bzw. Freischalten beginnt ein frischer. Nach dem Ausschalten ist das
+     * alles schon so, dann ändert sich hier nichts.
+     */
+    private suspend fun stopLocked(now: Long, settings: ReminderSettings) {
+        cancelScheduleLocked()
+        val state = settingsRepository.currentState()
+        if (state.pendingReminderAt > 0L) alerts.cancelReminder()
+        if (state.pendingReminderAt != 0L || state.snoozeUntil != 0L || state.cycleStartAt != 0L) {
+            settingsRepository.updateState { it.copy(pendingReminderAt = 0L, snoozeUntil = 0L, cycleStartAt = 0L) }
+        }
+        syncStepTrackerLocked(now, settings)
+    }
+
+    /**
+     * Die Einstellungen, wie die Engine sie anwendet: ohne gültige Lizenz mit ausgeschalteten Erinnerungen. Gespeichert
+     * bleibt [ReminderSettings.enabled] unverändert.
+     */
+    private suspend fun licensed(settings: ReminderSettings, now: Long): ReminderSettings =
+        if (settings.enabled && !licenseCheck.isActive(now)) settings.copy(enabled = false) else settings
+
+    private suspend fun currentSettingsLocked(now: Long): ReminderSettings =
+        licensed(settingsRepository.currentSettings(), now)
+
+    /** Wie [SettingsRepository.updateSettings], liefert aber die angewandten Einstellungen ([licensed]). */
+    private suspend fun updateSettingsLocked(now: Long, transform: (ReminderSettings) -> ReminderSettings): ReminderSettings =
+        licensed(settingsRepository.updateSettings(transform), now)
 
     private suspend fun startCycleLocked(now: Long, settings: ReminderSettings) {
         settingsRepository.updateState { it.copy(cycleStartAt = now, snoozeUntil = 0L) }

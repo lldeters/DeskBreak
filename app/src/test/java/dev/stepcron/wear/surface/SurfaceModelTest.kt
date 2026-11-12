@@ -1,5 +1,7 @@
 package dev.stepcron.wear.surface
 
+import dev.stepcron.shared.license.LicenseStatus
+import dev.stepcron.shared.license.Unlock
 import dev.stepcron.wear.data.settings.ReminderSettings
 import dev.stepcron.wear.data.settings.ReminderState
 import dev.stepcron.wear.domain.AlarmKind
@@ -103,5 +105,38 @@ class SurfaceModelTest {
         // Eine abgelaufene Pause spielt keine Rolle mehr.
         val over = enabled.copy(pausedUntil = at("09:00"))
         assertFalse(SurfaceModel.create(over, ReminderState(), at("10:00"), zone) is SurfaceModel.PausedByUser)
+    }
+
+    @Test
+    fun `after the trial the surfaces are locked instead of counting down`() {
+        val state = ReminderState(nextAlarmAt = at("10:45"), nextAlarmKind = AlarmKind.REMINDER, cycleStartAt = at("10:00"))
+        val expired = LicenseStatus.Expired(endedAtMillis = at("09:00"))
+
+        assertEquals(SurfaceModel.Locked, SurfaceModel.create(enabled, state, at("10:15"), zone, expired))
+        // Auch eine noch offene Erinnerung oder ein freier Tag ändert daran nichts.
+        val pending = state.copy(pendingReminderAt = at("10:00"))
+        val locked = SurfaceModel.create(enabled, pending, at("10:15"), zone, expired)
+        assertEquals(SurfaceModel.Locked, locked)
+        assertFalse(locked.reminderPending)
+        assertEquals(SurfaceModel.Locked, SurfaceModel.create(enabled, ReminderState(), at("10:00", "2026-11-14"), zone, expired))
+    }
+
+    @Test
+    fun `switched off reminders stay off after the trial`() {
+        val expired = LicenseStatus.Expired(endedAtMillis = at("09:00"))
+        assertEquals(SurfaceModel.Off, SurfaceModel.create(ReminderSettings(enabled = false), ReminderState(), at("10:00"), zone, expired))
+    }
+
+    @Test
+    fun `during the trial and when unlocked the surfaces count down as usual`() {
+        val state = ReminderState(nextAlarmAt = at("10:45"), nextAlarmKind = AlarmKind.REMINDER, cycleStartAt = at("10:00"))
+        listOf(
+            null,
+            LicenseStatus.Trial(endsAtMillis = at("12:00", "2026-11-11"), daysLeft = 3),
+            LicenseStatus.Unlocked(Unlock.LIFETIME),
+            LicenseStatus.Unlocked(Unlock.SUBSCRIPTION),
+        ).forEach { license ->
+            assertTrue("$license", SurfaceModel.create(enabled, state, at("10:15"), zone, license) is SurfaceModel.Countdown)
+        }
     }
 }

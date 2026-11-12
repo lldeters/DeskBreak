@@ -48,6 +48,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Käufe und Angebote bei Play neu abfragen, z. B. nach einem Kauf auf dem Handy.
+        appContainer.refreshBilling()
+    }
+
     override fun onResume() {
         super.onResume()
         // Unabhängig von der Komposition: Berechtigungen neu lesen und Timer abgleichen

@@ -49,3 +49,11 @@ interface DeviceState {
     /** Ob die Uhr getragen wird; `null`, wenn sich das nicht feststellen lässt. */
     suspend fun isWorn(): Boolean?
 }
+
+/**
+ * Ob DeskBreak gerade erinnern darf: in der Testphase oder freigeschaltet (siehe dev.stepcron.shared.license). Ohne
+ * gültige Lizenz verhält sich die Engine wie bei ausgeschalteten Erinnerungen, ohne die Einstellung zu ändern.
+ */
+fun interface LicenseCheck {
+    suspend fun isActive(nowMillis: Long): Boolean
+}

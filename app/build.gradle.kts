@@ -107,6 +107,8 @@ dependencies {
     implementation(project(":billing"))
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
+    // Freischaltung: die Play-Store-Seite der App auf dem Handy öffnen.
+    implementation(libs.androidx.wear.remote.interactions)
 
     // Erzeugt das Baseline-Profil auf einer verbundenen Uhr: ./gradlew :app:generateBaselineProfile
     baselineProfile(project(":baselineprofile"))

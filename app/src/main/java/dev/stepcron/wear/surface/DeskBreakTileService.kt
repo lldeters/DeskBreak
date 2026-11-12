@@ -29,7 +29,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Kachel: Countdown bis zur nächsten Bewegungspause bzw. der aktuelle Status, dazu „Jetzt bewegt"
- * (setzt den Timer zurück, ohne die App zu öffnen). Ein Tipp auf den Text öffnet die App.
+ * (setzt den Timer zurück, ohne die App zu öffnen). Ein Tipp auf den Text öffnet die App – ohne gültige Lizenz auch
+ * der Chip, zum Freischalten.
  */
 class DeskBreakTileService : TileService() {
 
@@ -46,6 +47,7 @@ class DeskBreakTileService : TileService() {
                 container.settingsRepository.currentState(),
                 now,
                 ZoneId.systemDefault(),
+                container.watchLicense.status(now),
             )
             TileLayout(this@DeskBreakTileService, requestParams.deviceConfiguration).tile(model, now, didReset)
         }
@@ -111,14 +113,17 @@ private class TileLayout(private val context: Context, private val device: Devic
         val caption = if (didReset) context.getString(R.string.surface_reset_done) else texts.caption(model)
         return LayoutElementBuilders.Column.Builder()
             .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(openAppClickable()).build())
-            .addContent(text(texts.headline(model, nowMillis), Typography.TYPOGRAPHY_DISPLAY3, ON_SURFACE))
+            // „Freischalten" ist für die große Schrift zu lang.
+            .addContent(text(texts.headline(model, nowMillis), headlineTypography(model), ON_SURFACE))
             .addContent(text(caption, Typography.TYPOGRAPHY_CAPTION2, ON_SURFACE_VARIANT, maxLines = 2))
             .build()
     }
 
     private fun chip(model: SurfaceModel, nowMillis: Long): LayoutElementBuilders.LayoutElement {
         val (label, clickable) = when (model) {
-            SurfaceModel.Off, SurfaceModel.NoActiveDays -> context.getString(R.string.tile_open) to openAppClickable()
+            SurfaceModel.Off, SurfaceModel.NoActiveDays, SurfaceModel.Locked ->
+                context.getString(R.string.tile_open) to openAppClickable()
+
             is SurfaceModel.PausedByUser ->
                 context.getString(R.string.tile_resume) to reloadClickable(DeskBreakTileService.RESUME_CLICK_PREFIX + nowMillis)
 
@@ -128,6 +133,9 @@ private class TileLayout(private val context: Context, private val device: Devic
             .setChipColors(ChipColors.primaryChipColors(colors))
             .build()
     }
+
+    private fun headlineTypography(model: SurfaceModel): Int =
+        if (model == SurfaceModel.Locked) Typography.TYPOGRAPHY_TITLE1 else Typography.TYPOGRAPHY_DISPLAY3
 
     /** Aktion in der Kachel selbst: Der Host lädt sie mit [id] als letztem Klick neu. */
     private fun reloadClickable(id: String): ModifiersBuilders.Clickable =

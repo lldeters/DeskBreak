@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Unlocking: free trial, one-time purchase or monthly subscription via Google Play. German is in values-de. -->
+<resources>
+    <!-- Home screen -->
+    <plurals name="license_trial_hint">
+        <item quantity="one">Trial: %d day left</item>
+        <item quantity="other">Trial: %d days left</item>
+    </plurals>
+    <string name="license_expired_title">Trial ended – reminders paused</string>
+    <string name="license_expired_body">History and stats stay available.</string>
+    <string name="license_expired_button">Unlock</string>
+    <string name="license_home_label">Unlock</string>
+    <string name="license_home_expired">Trial ended</string>
+    <string name="license_home_lifetime">Unlocked for good</string>
+    <string name="license_home_subscription">Monthly subscription active</string>
+
+    <!-- Unlock screen -->
+    <string name="license_title">Unlock</string>
+    <string name="license_status_trial">Free trial</string>
+    <plurals name="license_status_trial_days">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <string name="license_status_trial_hint">Then unlock once or monthly.</string>
+    <string name="license_status_expired">Trial ended</string>
+    <string name="license_status_expired_hint">Reminders are paused. History and stats stay available.</string>
+    <string name="license_status_thanks">Thank you!</string>
+    <string name="license_status_lifetime">Unlocked for good</string>
+    <string name="license_status_subscription">Monthly subscription active</string>
+
+    <string name="license_unlock_on_phone">Unlock on phone</string>
+    <string name="license_unlock_on_phone_secondary">Opens Google Play</string>
+    <string name="license_phone_opening">Opening …</string>
+    <string name="license_phone_opened">Continue on your phone</string>
+    <string name="license_phone_failed">Phone not reachable</string>
+
+    <string name="license_buy_header">Buy on the watch</string>
+    <!-- %1$s = price from Google Play, e.g. "€5.00" -->
+    <string name="license_buy_lifetime">One-time %1$s</string>
+    <string name="license_buy_lifetime_secondary">Unlock for good</string>
+    <!-- %1$s = price from Google Play, e.g. "€1.00" -->
+    <string name="license_buy_monthly">%1$s / month</string>
+    <string name="license_buy_monthly_secondary">Monthly subscription</string>
+    <string name="license_cancel_anytime">The subscription can be cancelled anytime in Google Play.</string>
+
+    <string name="license_check">Check purchases</string>
+    <string name="license_check_secondary">After buying on the phone</string>
+    <string name="license_checking">Checking …</string>
+    <string name="license_manage_subscription">Manage subscription</string>
+    <string name="license_manage_subscription_secondary">Opens on the phone</string>
+
+    <string name="license_notice_pending">Payment pending – Google Play will confirm it.</string>
+    <string name="license_notice_unreachable">Google Play is not reachable. Try again later.</string>
+    <string name="license_notice_failed">Purchase not possible right now.</string>
+
+    <!-- Tile and complication -->
+    <string name="surface_locked">Unlock</string>
+    <string name="surface_locked_caption">Trial ended</string>
+</resources>

@@ -2,20 +2,58 @@ package dev.stepcron.billing
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
+import com.android.billingclient.api.AcknowledgePurchaseParams
+import com.android.billingclient.api.BillingClient
+import com.android.billingclient.api.BillingClient.BillingResponseCode
+import com.android.billingclient.api.BillingClientStateListener
+import com.android.billingclient.api.BillingFlowParams
+import com.android.billingclient.api.BillingResult
+import com.android.billingclient.api.PendingPurchasesParams
+import com.android.billingclient.api.ProductDetails
+import com.android.billingclient.api.Purchase
+import com.android.billingclient.api.QueryProductDetailsParams
+import com.android.billingclient.api.QueryPurchasesParams
+import com.android.billingclient.api.acknowledgePurchase
+import com.android.billingclient.api.queryProductDetails
+import com.android.billingclient.api.queryPurchasesAsync
+import dev.stepcron.shared.license.LicenseProducts
 import dev.stepcron.shared.license.Unlock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * [BillingGateway] mit der Google Play Billing Library.
+ * [BillingGateway] mit der Google Play Billing Library (Version 9).
  *
- * PLATZHALTER: Verbindet sich noch nicht mit Play (bleibt [BillingAvailability.CONNECTING]). Die echte Umsetzung
- * folgt; Signatur und Verhalten laut [BillingGateway] bleiben.
+ * - Verbindet sich erst in [refresh] (und nach einem Verbindungsverlust von selbst neu), fragt dann die Angebote
+ *   ([LicenseProducts.LIFETIME] als In-App-Produkt, [LicenseProducts.SUBSCRIPTION] mit dem Basis-Abo
+ *   [LicenseProducts.MONTHLY_BASE_PLAN]) und die Käufe beider Produktarten ab.
+ * - [BillingState.owned] setzt nur eine erfolgreiche Abfrage beider Produktarten (bzw. ein abgeschlossener Kauf,
+ *   der dazukommt); scheitert eine, bleibt der bisherige Stand und [BillingState.problem] nennt den Grund.
+ * - Bezahlte Käufe werden bestätigt (acknowledge); scheitert das, versucht es die nächste Abfrage erneut. Bis dahin
+ *   zählen sie schon als gekauft – Play erstattet erst nach drei Tagen ohne Bestätigung.
+ * - Ohne Play (Robolectric, Emulator ohne Play Store, Uhr ohne Play Billing) bleibt alles bei
+ *   [BillingAvailability.UNAVAILABLE]; keine Ausnahme verlässt diese Klasse.
+ *
+ * Die Library ruft ihre Rückrufe auf dem Main-Thread auf; Verbindung und Abfragen laufen deshalb ebenfalls dort
+ * (nur asynchrone Aufrufe, nichts blockiert). Der [state] wird nur atomar ([MutableStateFlow.update]) geändert.
  *
  * @param scope lebt so lange wie die App (für Verbindung, Abfragen und das Bestätigen von Käufen).
  */
@@ -33,9 +71,375 @@ class PlayBillingGateway(
     private val _events = MutableSharedFlow<PurchaseEvent>(extraBufferCapacity = 8)
     override val events: Flow<PurchaseEvent> = _events.asSharedFlow()
 
-    override suspend fun refresh() = Unit
+    /** Verbinden und Abfragen nacheinander, damit eine ältere Antwort nie eine neuere überschreibt. */
+    private val refreshMutex = Mutex()
 
-    override fun launchPurchase(activity: Activity, unlock: Unlock): Boolean = false
+    /** Kaufbare Produkte aus den letzten erfolgreichen Abfragen – für den Kaufdialog. */
+    @Volatile
+    private var products: Map<Unlock, Purchasable> = emptyMap()
 
-    override fun close() = Unit
+    /** Zuletzt geöffneter Kaufdialog: „bereits gekauft" meldet Play ohne die Käufe selbst. */
+    @Volatile
+    private var launchedUnlock: Unlock? = null
+
+    @Volatile
+    private var closed = false
+
+    /** Selbstständige Neuverbindungen seit der letzten vollständigen Abfrage. */
+    private val reconnects = AtomicInteger(0)
+
+    /** Zählt Ergebnisse des Kaufdialogs – eine Abfrage, die schon vorher lief, kennt den neuen Kauf vielleicht nicht. */
+    private val purchaseUpdates = AtomicInteger(0)
+
+    /** Käufe, deren Bestätigung gerade läuft (Purchase-Token). */
+    private val acknowledging: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    private val clientDelegate = lazy { createClient() }
+
+    /** `null`, wenn sich die Library hier nicht einrichten lässt. */
+    private val client: BillingClient? by clientDelegate
+
+    override suspend fun refresh() {
+        if (closed) return
+        refreshMutex.withLock {
+            try {
+                withContext(Dispatchers.Main.immediate) { refreshLocked() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Unerwartete Ausnahme der Library oder kein Main-Thread (Tests): nie abstürzen.
+                Log.w(TAG, "Abfrage bei Play fehlgeschlagen", e)
+                _state.update { it.copy(availability = BillingAvailability.ERROR, problem = BillingProblem.UNKNOWN) }
+            }
+        }
+    }
+
+    override fun launchPurchase(activity: Activity, unlock: Unlock): Boolean {
+        val current = _state.value
+        val client = if (closed) null else client
+        if (client == null || current.availability != BillingAvailability.READY) return false
+        val owned = current.owned.orEmpty()
+        // Mit dem Einmalkauf ist ein Abo überflüssig – Play würde es trotzdem verkaufen.
+        if (unlock in owned || (unlock == Unlock.SUBSCRIPTION && Unlock.LIFETIME in owned)) {
+            _state.update { it.copy(problem = BillingProblem.ALREADY_OWNED) }
+            return false
+        }
+        val product = products[unlock]
+        if (product == null) {
+            _state.update { it.copy(problem = BillingProblem.PRODUCT_UNAVAILABLE) }
+            return false
+        }
+        launchedUnlock = unlock
+        val result = try {
+            val productParams = BillingFlowParams.ProductDetailsParams.newBuilder()
+                .setProductDetails(product.details)
+                .apply { product.chosen.offerToken?.takeIf { it.isNotEmpty() }?.let { setOfferToken(it) } }
+                .build()
+            client.launchBillingFlow(
+                activity,
+                BillingFlowParams.newBuilder().setProductDetailsParamsList(listOf(productParams)).build(),
+            )
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Kaufdialog nicht geöffnet", e)
+            _state.update { it.copy(problem = BillingProblem.UNKNOWN) }
+            return false
+        }
+        return when (val code = result.responseCode) {
+            BillingResponseCode.OK -> {
+                _state.update { it.copy(problem = null) }
+                true
+            }
+
+            BillingResponseCode.ITEM_ALREADY_OWNED -> {
+                _state.update { it.copy(problem = BillingProblem.ALREADY_OWNED) }
+                scope.launch { confirmOwned(unlock) }
+                false
+            }
+
+            else -> {
+                Log.w(TAG, "Kaufdialog abgelehnt: $code ${result.debugMessage}")
+                _state.update {
+                    it.copy(
+                        availability = BillingMapping.availabilityAfter(code, it.availability),
+                        problem = BillingMapping.problemFor(code),
+                    )
+                }
+                false
+            }
+        }
+    }
+
+    override fun close() {
+        closed = true
+        if (!clientDelegate.isInitialized()) return
+        try {
+            clientDelegate.value?.endConnection()
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Verbindung zu Play nicht sauber beendet", e)
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Verbindung und Abfragen
+    // ---------------------------------------------------------------------------------------------
+
+    private fun createClient(): BillingClient? = try {
+        BillingClient.newBuilder(appContext)
+            .setListener(::onPurchasesUpdated)
+            .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+            .enableAutoServiceReconnection()
+            .build()
+    } catch (e: RuntimeException) {
+        Log.w(TAG, "Play Billing lässt sich nicht einrichten", e)
+        null
+    }
+
+    private suspend fun refreshLocked() {
+        val client = client
+        if (client == null) {
+            _state.update {
+                it.copy(availability = BillingAvailability.UNAVAILABLE, problem = BillingProblem.BILLING_UNAVAILABLE)
+            }
+            return
+        }
+        val setup = connect(client)
+        if (setup != BillingResponseCode.OK) {
+            Log.i(TAG, "Keine Verbindung zu Play: $setup")
+            _state.update {
+                it.copy(
+                    availability = BillingMapping.availabilityAfter(setup, BillingAvailability.ERROR),
+                    problem = BillingMapping.problemFor(setup) ?: BillingProblem.UNKNOWN,
+                )
+            }
+            return
+        }
+
+        // Ohne Abo-Unterstützung (manche Geräte) kann es hier kein Abo geben; der Einmalkauf zählt trotzdem.
+        val subscriptionsSupported = client.isFeatureSupported(BillingClient.FeatureType.SUBSCRIPTIONS)
+            .responseCode != BillingResponseCode.FEATURE_NOT_SUPPORTED
+
+        val updatesBefore = purchaseUpdates.get()
+        val (purchasesCode, queried) = queryPurchases(client, subscriptionsSupported)
+        // Kam währenddessen ein Kauf herein, gilt dessen Stand; die Abfrage danach (siehe onPurchased) ist vollständig.
+        val summary = queried?.takeIf { purchaseUpdates.get() == updatesBefore }
+        val offersCode = queryOffers(client, subscriptionsSupported)
+        val failure = listOf(purchasesCode, offersCode).firstOrNull { it != BillingResponseCode.OK }
+            ?: BillingResponseCode.OK
+        // Erst eine vollständige Abfrage beendet die Folge selbstständiger Neuverbindungen (kein Endlos-Versuch).
+        if (failure == BillingResponseCode.OK) reconnects.set(0) else Log.i(TAG, "Abfrage bei Play unvollständig: $failure")
+        val now = clock()
+        _state.update { current ->
+            current.copy(
+                availability = BillingMapping.availabilityAfter(failure, BillingAvailability.READY),
+                offers = products.mapValues { it.value.chosen.offer },
+                owned = summary?.owned ?: current.owned,
+                pending = summary?.pending ?: current.pending,
+                checkedAtMillis = if (summary != null) now else current.checkedAtMillis,
+                problem = BillingMapping.problemFor(failure),
+            )
+        }
+        if (queried != null) acknowledgeAll(client, queried.toAcknowledge)
+    }
+
+    /** Verbindet sich, falls nötig; liefert den Antwortcode der Einrichtung. */
+    private suspend fun connect(client: BillingClient): Int {
+        if (client.isReady) return BillingResponseCode.OK
+        val setup = CompletableDeferred<Int>()
+        client.startConnection(
+            object : BillingClientStateListener {
+                override fun onBillingSetupFinished(result: BillingResult) {
+                    setup.complete(result.responseCode)
+                }
+
+                override fun onBillingServiceDisconnected() {
+                    // Vor dem Abschluss gescheitert – sonst später verloren: dann neu verbinden.
+                    if (!setup.complete(BillingResponseCode.SERVICE_DISCONNECTED)) onDisconnected()
+                }
+            },
+        )
+        return withTimeoutOrNull(CONNECT_TIMEOUT_MILLIS) { setup.await() } ?: TIMED_OUT
+    }
+
+    private fun onDisconnected() {
+        _state.update {
+            if (it.availability == BillingAvailability.READY) it.copy(availability = BillingAvailability.CONNECTING) else it
+        }
+        val attempt = reconnects.incrementAndGet()
+        if (closed || attempt > MAX_RECONNECTS) return
+        scope.launch {
+            delay(RECONNECT_DELAY_MILLIS * attempt)
+            refresh()
+        }
+    }
+
+    /**
+     * Käufe beider Produktarten. Die Zusammenfassung nur, wenn beide Abfragen gelangen; sonst `null` und der Code
+     * der fehlgeschlagenen.
+     */
+    private suspend fun queryPurchases(client: BillingClient, subscriptionsSupported: Boolean): Pair<Int, PurchaseSummary?> {
+        val purchases = mutableListOf<Purchase>()
+        val types = buildList {
+            add(BillingClient.ProductType.INAPP)
+            if (subscriptionsSupported) add(BillingClient.ProductType.SUBS)
+        }
+        for (type in types) {
+            val params = QueryPurchasesParams.newBuilder().setProductType(type).build()
+            val result = withTimeoutOrNull(QUERY_TIMEOUT_MILLIS) { client.queryPurchasesAsync(params) }
+                ?: return TIMED_OUT to null
+            val code = result.billingResult.responseCode
+            if (code != BillingResponseCode.OK) return code to null
+            purchases += result.purchasesList
+        }
+        return BillingResponseCode.OK to BillingMapping.summarize(purchases.map { it.toSnapshot() })
+    }
+
+    /**
+     * Angebote beider Produkte; ersetzt [products] je Produkt nur nach einer erfolgreichen Abfrage. Liefert den Code
+     * der ersten fehlgeschlagenen Abfrage bzw. OK.
+     */
+    private suspend fun queryOffers(client: BillingClient, subscriptionsSupported: Boolean): Int {
+        val updated = products.toMutableMap()
+        var failure = BillingResponseCode.OK
+        val queries = buildList {
+            add(Triple(Unlock.LIFETIME, BillingClient.ProductType.INAPP, ::lifetimeOf))
+            if (subscriptionsSupported) add(Triple(Unlock.SUBSCRIPTION, BillingClient.ProductType.SUBS, ::subscriptionOf))
+        }
+        if (!subscriptionsSupported) updated.remove(Unlock.SUBSCRIPTION)
+        for ((unlock, type, purchasable) in queries) {
+            val productId = LicenseProducts.productId(unlock)
+            val params = QueryProductDetailsParams.newBuilder()
+                .setProductList(
+                    listOf(QueryProductDetailsParams.Product.newBuilder().setProductId(productId).setProductType(type).build()),
+                )
+                .build()
+            val result = withTimeoutOrNull(QUERY_TIMEOUT_MILLIS) { client.queryProductDetails(params) }
+            val code = result?.billingResult?.responseCode ?: TIMED_OUT
+            if (code != BillingResponseCode.OK) {
+                if (failure == BillingResponseCode.OK) failure = code
+                continue
+            }
+            // Fehlt das Produkt in der Antwort, ist es in der Play Console (noch) nicht aktiv.
+            val details = result?.productDetailsList.orEmpty().firstOrNull { it.productId == productId }
+            val offer = details?.let(purchasable)
+            if (offer != null) updated[unlock] = offer else updated.remove(unlock)
+        }
+        products = updated
+        return failure
+    }
+
+    private fun lifetimeOf(details: ProductDetails): Purchasable? {
+        val chosen = BillingMapping.chooseOneTime(
+            offers = details.oneTimePurchaseOfferDetailsList.orEmpty().map { it.toInfo() },
+            fallback = details.oneTimePurchaseOfferDetails?.toInfo(),
+        ) ?: return null
+        return Purchasable(details, chosen)
+    }
+
+    private fun subscriptionOf(details: ProductDetails): Purchasable? {
+        val offers = details.subscriptionOfferDetails.orEmpty().map { offer ->
+            SubscriptionOfferInfo(
+                basePlanId = offer.basePlanId,
+                offerId = offer.offerId,
+                offerToken = offer.offerToken,
+                phases = offer.pricingPhases.pricingPhaseList.map { phase ->
+                    PricingPhaseInfo(phase.formattedPrice, phase.billingPeriod, phase.recurrenceMode)
+                },
+            )
+        }
+        return BillingMapping.chooseSubscription(offers)?.let { Purchasable(details, it) }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Kaufablauf
+    // ---------------------------------------------------------------------------------------------
+
+    /** Ergebnis des Kaufdialogs (Main-Thread). */
+    private fun onPurchasesUpdated(result: BillingResult, purchases: List<Purchase>?) {
+        when (val code = result.responseCode) {
+            BillingResponseCode.OK -> onPurchased(purchases.orEmpty())
+            BillingResponseCode.USER_CANCELED -> {
+                _state.update { it.copy(problem = null) }
+                _events.tryEmit(PurchaseEvent.Cancelled)
+            }
+
+            BillingResponseCode.ITEM_ALREADY_OWNED -> scope.launch { confirmOwned(launchedUnlock) }
+            else -> {
+                Log.w(TAG, "Kauf fehlgeschlagen: $code ${result.debugMessage}")
+                val problem = BillingMapping.problemFor(code) ?: BillingProblem.UNKNOWN
+                _state.update {
+                    it.copy(availability = BillingMapping.availabilityAfter(code, it.availability), problem = problem)
+                }
+                _events.tryEmit(PurchaseEvent.Failed(problem))
+            }
+        }
+    }
+
+    private fun onPurchased(purchases: List<Purchase>) {
+        val summary = BillingMapping.summarize(purchases.map { it.toSnapshot() })
+        purchaseUpdates.incrementAndGet()
+        _state.update { BillingMapping.afterPurchaseUpdate(it, summary, clock()) }
+        summary.owned.forEach { _events.tryEmit(PurchaseEvent.Purchased(it)) }
+        summary.pending.forEach { _events.tryEmit(PurchaseEvent.Pending(it)) }
+        scope.launch {
+            client?.let { withContext(Dispatchers.Main.immediate) { acknowledgeAll(it, summary.toAcknowledge) } }
+            // Das Gesamtbild (z. B. ein inzwischen abgelaufenes Abo) neu abfragen.
+            refresh()
+        }
+    }
+
+    /** Play meldet „bereits gekauft": Käufe neu einlesen und den Kauf melden, falls er jetzt zu sehen ist. */
+    private suspend fun confirmOwned(attempted: Unlock?) {
+        refresh()
+        val owned = _state.value.owned.orEmpty()
+        val unlock = attempted?.takeIf { it in owned } ?: Unlock.best(owned)
+        _events.emit(if (unlock != null) PurchaseEvent.Purchased(unlock) else PurchaseEvent.Failed(BillingProblem.ALREADY_OWNED))
+    }
+
+    /** Bestätigt bezahlte Käufe; ein Fehlschlag wird bei der nächsten Abfrage wiederholt. */
+    private suspend fun acknowledgeAll(client: BillingClient, tokens: List<String>) {
+        for (token in tokens) {
+            if (!acknowledging.add(token)) continue
+            try {
+                val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build()
+                val result = withTimeoutOrNull(QUERY_TIMEOUT_MILLIS) { client.acknowledgePurchase(params) }
+                if (result?.responseCode != BillingResponseCode.OK) {
+                    Log.w(TAG, "Kauf nicht bestätigt (${result?.responseCode}); nächster Versuch bei der nächsten Abfrage")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Kauf nicht bestätigt", e)
+            } finally {
+                acknowledging.remove(token)
+            }
+        }
+    }
+
+    /** Ein kaufbares Produkt: die Details von Play (für den Kaufdialog) und das gewählte Angebot. */
+    private class Purchasable(val details: ProductDetails, val chosen: ChosenOffer)
+
+    private companion object {
+        const val TAG = "PlayBillingGateway"
+        const val CONNECT_TIMEOUT_MILLIS = 20_000L
+        const val QUERY_TIMEOUT_MILLIS = 30_000L
+        const val RECONNECT_DELAY_MILLIS = 2_000L
+        const val MAX_RECONNECTS = 3
+
+        /** Antwortet Play nicht rechtzeitig, gilt das wie ein Netzwerkfehler (vorübergehend, neu versuchen). */
+        const val TIMED_OUT = BillingResponseCode.NETWORK_ERROR
+
+        fun Purchase.toSnapshot() = PurchaseSnapshot(
+            products = products,
+            state = purchaseState,
+            acknowledged = isAcknowledged,
+            token = purchaseToken,
+        )
+
+        fun ProductDetails.OneTimePurchaseOfferDetails.toInfo() = OneTimeOfferInfo(
+            formattedPrice = formattedPrice,
+            offerId = offerId,
+            offerToken = offerToken,
+            rental = rentalDetails != null,
+        )
+    }
 }

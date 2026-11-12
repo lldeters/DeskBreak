@@ -25,8 +25,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Komplikation fürs Zifferblatt: Countdown bis zur nächsten Bewegungspause (das Zifferblatt zählt selbst
- * herunter, ohne Aktualisierungen) bzw. der aktuelle Status. Als Fortschrittsring wächst der Wert über das
- * laufende Intervall. Ein Tipp öffnet die App.
+ * herunter, ohne Aktualisierungen) bzw. der aktuelle Status – ohne gültige Lizenz „Freischalten". Als
+ * Fortschrittsring wächst der Wert über das laufende Intervall. Ein Tipp öffnet die App.
  */
 class DeskBreakComplicationService : SuspendingComplicationDataSourceService() {
 
@@ -38,6 +38,7 @@ class DeskBreakComplicationService : SuspendingComplicationDataSourceService() {
             container.settingsRepository.currentState(),
             now,
             ZoneId.systemDefault(),
+            container.watchLicense.status(now),
         )
         return ComplicationContent(applicationContext).data(request.complicationType, model, now)
     }

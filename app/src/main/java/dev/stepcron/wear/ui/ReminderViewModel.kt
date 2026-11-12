@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import dev.stepcron.shared.license.LicenseRecord
+import dev.stepcron.shared.license.LicenseRules
 import dev.stepcron.wear.DeskBreakApp
 import dev.stepcron.wear.Permissions
 import dev.stepcron.wear.data.DemoDataSeeder
@@ -54,6 +56,8 @@ class ReminderViewModel(
     private val alarmScheduler: AlarmScheduler,
     /** Für die Probevibration beim Wechsel der Stärke. */
     private val alerts: ReminderAlerts,
+    /** Lizenz der Uhr (Testphase, Freischaltung) für Hinweise auf dem Hauptbildschirm. */
+    private val licenseRecord: Flow<LicenseRecord>,
     /** Nach Änderungen an der Historie (Demo-Daten, Löschen), z. B. für den Abgleich mit dem Handy. */
     private val onHistoryChanged: () -> Unit = {},
 ) : ViewModel() {
@@ -93,11 +97,14 @@ class ReminderViewModel(
         settingsRepository.state,
         ticker,
         systemStatus.filterNotNull(),
-        todayMovements,
-    ) { settings, state, _, system, movements ->
+        // Lizenz mit: Ihr kleiner DataStore ist so schnell gelesen wie die Einstellungen, und Hinweis bzw. Karte sind
+        // so gleich im ersten Bild statt kurz danach.
+        combine(todayMovements, licenseRecord) { movements, license -> movements to license },
+    ) { settings, state, _, system, (movements, license) ->
         // Der Ticker löst nur die Neuberechnung aus; gerechnet wird mit der aktuellen Uhrzeit,
         // sonst wäre der Countdown direkt nach einem Reset um bis zu einen Tick zu lang.
-        HomeUiState.create(settings, state, System.currentTimeMillis(), system, zone, movements)
+        val now = System.currentTimeMillis()
+        HomeUiState.create(settings, state, now, system, zone, movements, LicenseRules.status(license, now))
     }
         // Berechnung (inkl. der einmaligen Zeitzonen-Initialisierung von java.time) nicht im UI-Thread.
         .flowOn(Dispatchers.Default)
@@ -302,6 +309,7 @@ class ReminderViewModel(
                     demoDataSeeder = container.demoDataSeeder,
                     alarmScheduler = container.alarmScheduler,
                     alerts = container.notifier,
+                    licenseRecord = container.licenseRepository.record,
                     // Erst beim Aufruf auflösen: Der Abgleich wird beim App-Start nicht gebraucht.
                     onHistoryChanged = { container.watchSync.requestPublish() },
                 )

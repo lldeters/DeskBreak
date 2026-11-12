@@ -41,6 +41,7 @@ class WatchSyncTest {
         val builder = SnapshotBuilder(
             settingsRepository = harness.settingsRepository,
             history = MovementRepository { FakeMovementDao() },
+            licenseRepository = harness.licenseRepository,
             clock = { harness.now },
             zoneProvider = { harness.zone },
         )

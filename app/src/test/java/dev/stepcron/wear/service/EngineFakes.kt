@@ -77,3 +77,10 @@ internal class FakeMovementLog : MovementLog {
         return events.size.toLong()
     }
 }
+
+internal class FakeLicenseCheck : LicenseCheck {
+    /** Testphase oder freigeschaltet. */
+    var active = true
+
+    override suspend fun isActive(nowMillis: Long): Boolean = active
+}

@@ -1,16 +1,22 @@
 package dev.stepcron.wear.sync
 
+import dev.stepcron.shared.license.LicenseRules
 import dev.stepcron.shared.sync.SyncCodec
 import dev.stepcron.shared.sync.SyncSnapshot
 import dev.stepcron.wear.data.MovementHistory
+import dev.stepcron.wear.data.license.LicenseRepository
 import dev.stepcron.wear.data.settings.SettingsRepository
 import dev.stepcron.wear.domain.toLocalDate
 import java.time.ZoneId
 
-/** Stellt den Stand der Uhr fürs Handy zusammen: Einstellungen, Status und die Historie der letzten Tage. */
+/**
+ * Stellt den Stand der Uhr fürs Handy zusammen: Einstellungen, Status, die Historie der letzten Tage und die
+ * Lizenz-Sicht der Uhr (Testbeginn und eigene Play-Abfrage).
+ */
 class SnapshotBuilder(
     private val settingsRepository: SettingsRepository,
     private val history: MovementHistory,
+    private val licenseRepository: LicenseRepository,
     private val clock: () -> Long = System::currentTimeMillis,
     private val zoneProvider: () -> ZoneId = ZoneId::systemDefault,
 ) {
@@ -24,6 +30,7 @@ class SnapshotBuilder(
             settings = SyncMapping.toSyncSettings(settingsRepository.currentSettings()),
             status = SyncMapping.toSyncStatus(settingsRepository.currentState()),
             events = history.eventsSince(historyStart(now, zone)).map(SyncMapping::toSyncEvent),
+            license = LicenseRules.infoFor(licenseRepository.current()),
         )
     }
 

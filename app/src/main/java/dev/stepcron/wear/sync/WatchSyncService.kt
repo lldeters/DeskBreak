@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataItem
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
+import dev.stepcron.shared.license.LicenseCodec
 import dev.stepcron.shared.sync.SyncCodec
 import dev.stepcron.shared.sync.SyncPaths
 import dev.stepcron.wear.AppContainer
@@ -16,7 +17,7 @@ import kotlinx.coroutines.withTimeout
 
 /**
  * Empfängt Nachrichten und Wiederherstellungen der Handy-App über den Wearable Data Layer. Dünner Adapter: Die Arbeit
- * machen [WatchSync], [SettingsUpdateApplier] und [BackupRestorer].
+ * machen [WatchSync], [SettingsUpdateApplier], [BackupRestorer] und die Lizenz der Uhr.
  *
  * Die Rückrufe laufen auf einem Hintergrund-Thread des Dienstes; die Arbeit läuft dort blockierend mit Zeitlimit.
  * Kein Fehler darf den Dienst abstürzen lassen – er wird protokolliert.
@@ -36,6 +37,17 @@ class WatchSyncService : WearableListenerService() {
                     container.settingsUpdateApplier.apply(update)
                 }
                 // Auch ohne Änderung: Das Handy sieht so den tatsächlichen (bereinigten) Stand.
+                container.watchSync.publishNow()
+            }
+            SyncPaths.LICENSE -> handle("Lizenz", MESSAGE_TIMEOUT_MILLIS) {
+                val info = LicenseCodec.decodeInfo(event.data)
+                if (info == null) {
+                    Log.w(TAG, "Unlesbare Lizenz vom Handy übergangen")
+                } else {
+                    // Speichert, gleicht die Erinnerungen ab, falls die Lizenz dadurch aktiv bzw. inaktiv wird.
+                    container.watchLicense.applyPeerInfo(info)
+                }
+                // Die Sicht der Uhr zurück (frühester Testbeginn, eigene Play-Abfrage).
                 container.watchSync.publishNow()
             }
             else -> Log.d(TAG, "Unbekannte Nachricht ${event.path}")

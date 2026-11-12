@@ -50,8 +50,12 @@ class StepTrackerService : Service() {
         }
         // Bei einem Neustart durch das System (START_STICKY) die Bedingungen erneut prüfen.
         scope.launch {
-            val settings = appContainer.settingsRepository.currentSettings()
-            if (!shouldRun(this@StepTrackerService, settings, System.currentTimeMillis(), ZoneId.systemDefault())) {
+            val container = appContainer
+            val now = System.currentTimeMillis()
+            val settings = container.settingsRepository.currentSettings()
+            // Ohne gültige Lizenz erinnert die Engine nicht und erkennt auch keine Schritte.
+            val licensed = container.watchLicense.isActive(now)
+            if (!licensed || !shouldRun(this@StepTrackerService, settings, now, ZoneId.systemDefault())) {
                 stopSelfAndForgetStart()
             }
         }
