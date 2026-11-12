@@ -347,7 +347,7 @@ private fun WeekCard(dashboard: Dashboard) {
             LegendSwatch(color = colors.doneSoft, label = stringResource(R.string.legend_breaks))
             LegendSwatch(color = colors.done, label = stringResource(R.string.legend_goal_reached))
             LegendSwatch(color = colors.missed, label = stringResource(R.string.legend_missed))
-            LegendSwatch(color = colors.guide, label = stringResource(R.string.legend_goal_line, dashboard.dailyGoal))
+            LegendSwatch(color = colors.guide, label = stringResource(R.string.legend_goal_line, dashboard.dailyGoal), dashedLine = true)
         }
     }
 }

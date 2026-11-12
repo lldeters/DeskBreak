@@ -282,11 +282,27 @@ fun <T> SegmentedChoice(
     }
 }
 
-/** Kleines Farbfeld für Legenden. */
+/** Kleines Farbfeld für Legenden; [dashedLine] zeichnet stattdessen eine gestrichelte Linie (z. B. Tagesziel). */
 @Composable
-fun LegendSwatch(color: Color, label: String, modifier: Modifier = Modifier, outline: Color? = null) {
+fun LegendSwatch(
+    color: Color,
+    label: String,
+    modifier: Modifier = Modifier,
+    outline: Color? = null,
+    dashedLine: Boolean = false,
+) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Canvas(modifier = Modifier.size(12.dp)) {
+        Canvas(modifier = Modifier.size(width = if (dashedLine) 16.dp else 12.dp, height = 12.dp)) {
+            if (dashedLine) {
+                drawLine(
+                    color = color,
+                    start = androidx.compose.ui.geometry.Offset(0f, size.height / 2f),
+                    end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2f),
+                    strokeWidth = 1.5.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx())),
+                )
+                return@Canvas
+            }
             val radius = CornerRadius(3.dp.toPx())
             drawRoundRect(color = color, cornerRadius = radius)
             if (outline != null) {
