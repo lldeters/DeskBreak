@@ -51,6 +51,14 @@ interface WatchGateway {
         sendMessage(targets.map { it.id }, path, data)
     }
 
+    /**
+     * Legt die Lizenz-Sicht des Handys ([data], LicenseCodec.encodeInfo) als DataItem `LICENSE` ab (dringend). Der Data
+     * Layer hält es vor und stellt es jeder Uhr zu, sobald sie verbunden ist – auch nach längerer Trennung, anders als
+     * eine Message. Gleicher Inhalt erneut abgelegt löst bei der Uhr nichts aus. Wirft [SyncException], wenn es nicht
+     * geht (z. B. ohne Play Services).
+     */
+    suspend fun putLicense(data: ByteArray)
+
     /** Legt die Sicherung als DataItem `RESTORE_PREFIX<restoreId>` mit Asset ab. */
     suspend fun putRestore(restoreId: String, backupBytes: ByteArray)
 

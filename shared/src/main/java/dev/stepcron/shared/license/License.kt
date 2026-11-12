@@ -72,6 +72,11 @@ data class LicenseRecord(
     val peerUnlock: String? = null,
     /** Wann das andere Gerät seine Freischaltung zuletzt bei Play bestätigt hat (laut seiner Meldung). */
     val peerCheckedAtMillis: Long = 0L,
+    /**
+     * Die letzte eigene Play-Abfrage fand einen offenen Kauf: Zahlung steht noch aus oder der Kauf ist noch nicht bei
+     * Play bestätigt (acknowledge). Dann bald erneut abfragen – unbestätigte Käufe erstattet Play nach drei Tagen.
+     */
+    val ownOpenPurchase: Boolean = false,
 )
 
 /** Meldung an das andere Gerät: die eigene Sicht (Testbeginn und eigene Play-Abfrage). */

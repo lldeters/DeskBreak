@@ -46,9 +46,13 @@ import java.util.concurrent.atomic.AtomicInteger
  *   ([LicenseProducts.LIFETIME] als In-App-Produkt, [LicenseProducts.SUBSCRIPTION] mit dem Basis-Abo
  *   [LicenseProducts.MONTHLY_BASE_PLAN]) und die Käufe beider Produktarten ab.
  * - [BillingState.owned] setzt nur eine erfolgreiche Abfrage beider Produktarten (bzw. ein abgeschlossener Kauf,
- *   der dazukommt); scheitert eine, bleibt der bisherige Stand und [BillingState.problem] nennt den Grund.
+ *   der dazukommt); scheitert eine, bleibt der bisherige Stand und [BillingState.problem] nennt den Grund. Die Käufe
+ *   kommen gleich nach ihrer Abfrage in den [state], die Angebote danach – so verzögert oder verwirft die Wartezeit
+ *   auf die Angebote kein Kauf-Ergebnis, und ein Kauf während der Abfrage wird nie vom älteren Stand überschrieben.
  * - Bezahlte Käufe werden bestätigt (acknowledge); scheitert das, versucht es die nächste Abfrage erneut. Bis dahin
- *   zählen sie schon als gekauft – Play erstattet erst nach drei Tagen ohne Bestätigung.
+ *   zählen sie schon als gekauft ([BillingState.unacknowledged]) – Play erstattet erst nach drei Tagen ohne
+ *   Bestätigung.
+ * - Ein [refresh] dauert höchstens [MAX_REFRESH_MILLIS]; jeder Schritt hat seine eigene Zeitgrenze.
  * - Ohne Play (Robolectric, Emulator ohne Play Store, Uhr ohne Play Billing) bleibt alles bei
  *   [BillingAvailability.UNAVAILABLE]; keine Ausnahme verlässt diese Klasse.
  *
@@ -93,6 +97,10 @@ class PlayBillingGateway(
 
     /** Käufe, deren Bestätigung gerade läuft (Purchase-Token). */
     private val acknowledging: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Die zuletzt begonnene eigene Einrichtung der Verbindung (startConnection); abgeschlossen bzw. `null` = keine. */
+    @Volatile
+    private var ownSetup: CompletableDeferred<Int>? = null
 
     private val clientDelegate = lazy { createClient() }
 
@@ -202,13 +210,13 @@ class PlayBillingGateway(
             }
             return
         }
-        val setup = connect(client)
-        if (setup != BillingResponseCode.OK) {
-            Log.i(TAG, "Keine Verbindung zu Play: $setup")
+        val setupCode = connect(client)
+        if (setupCode != BillingResponseCode.OK) {
+            Log.i(TAG, "Keine Verbindung zu Play: $setupCode")
             _state.update {
                 it.copy(
-                    availability = BillingMapping.availabilityAfter(setup, BillingAvailability.ERROR),
-                    problem = BillingMapping.problemFor(setup) ?: BillingProblem.UNKNOWN,
+                    availability = BillingMapping.availabilityAfter(setupCode, BillingAvailability.ERROR),
+                    problem = BillingMapping.problemFor(setupCode) ?: BillingProblem.UNKNOWN,
                 )
             }
             return
@@ -220,44 +228,92 @@ class PlayBillingGateway(
 
         val updatesBefore = purchaseUpdates.get()
         val (purchasesCode, queried) = queryPurchases(client, subscriptionsSupported)
-        // Kam währenddessen ein Kauf herein, gilt dessen Stand; die Abfrage danach (siehe onPurchased) ist vollständig.
-        val summary = queried?.takeIf { purchaseUpdates.get() == updatesBefore }
+        // Gleich übernehmen, nicht erst nach den Angeboten (die dauern, und ein Abbruch dort verwürfe das Ergebnis).
+        // Kam seit Beginn der Abfrage ein Kauf herein, gilt dessen Stand; die Abfrage danach (siehe onPurchased) ist
+        // vollständig. Geprüft wird im selben atomaren Schritt, in dem geschrieben wird.
+        val now = clock()
+        _state.update { current ->
+            val summary = queried?.takeIf { purchaseUpdates.get() == updatesBefore }
+            BillingMapping.afterPurchaseQuery(current, purchasesCode, summary, now)
+        }
+        // Vor den Angeboten: Ohne Bestätigung erstattet Play den Kauf nach drei Tagen.
+        if (queried != null) acknowledgeAll(client, queried)
+
         val offersCode = queryOffers(client, subscriptionsSupported)
         val failure = listOf(purchasesCode, offersCode).firstOrNull { it != BillingResponseCode.OK }
             ?: BillingResponseCode.OK
         // Erst eine vollständige Abfrage beendet die Folge selbstständiger Neuverbindungen (kein Endlos-Versuch).
         if (failure == BillingResponseCode.OK) reconnects.set(0) else Log.i(TAG, "Abfrage bei Play unvollständig: $failure")
-        val now = clock()
         _state.update { current ->
             current.copy(
                 availability = BillingMapping.availabilityAfter(failure, BillingAvailability.READY),
                 offers = products.mapValues { it.value.chosen.offer },
-                owned = summary?.owned ?: current.owned,
-                pending = summary?.pending ?: current.pending,
-                checkedAtMillis = if (summary != null) now else current.checkedAtMillis,
                 problem = BillingMapping.problemFor(failure),
             )
         }
-        if (queried != null) acknowledgeAll(client, queried.toAcknowledge)
     }
 
-    /** Verbindet sich, falls nötig; liefert den Antwortcode der Einrichtung. */
-    private suspend fun connect(client: BillingClient): Int {
-        if (client.isReady) return BillingResponseCode.OK
-        val setup = CompletableDeferred<Int>()
-        client.startConnection(
-            object : BillingClientStateListener {
-                override fun onBillingSetupFinished(result: BillingResult) {
-                    setup.complete(result.responseCode)
-                }
+    /**
+     * Verbindet sich, falls nötig; liefert den Antwortcode der Einrichtung (nach [CONNECT_TIMEOUT_MILLIS]: [TIMED_OUT]).
+     *
+     * Entscheidend ist [BillingClient.getConnectionState], nicht `isReady`: Mit automatischer Neuverbindung meldet
+     * Billing 9 `isReady` immer, und jede Abfrage müsste sich erst selbst verbinden (isFeatureSupported wartete dafür
+     * blockierend auf dem Main-Thread). Läuft schon eine Einrichtung – die eigene, deren Aktualisierung abgebrochen
+     * wurde, oder eine Neuverbindung der Library –, wird auf sie gewartet statt startConnection erneut aufzurufen (das
+     * ergäbe sofort einen falschen DEVELOPER_ERROR, siehe [BillingMapping.connectStep]). Ein Abbruch hier lässt die
+     * Einrichtung weiterlaufen; die nächste Aktualisierung wartet dann auf deren Ergebnis.
+     */
+    private suspend fun connect(client: BillingClient): Int =
+        withTimeoutOrNull(CONNECT_TIMEOUT_MILLIS) { awaitConnection(client) } ?: TIMED_OUT
 
-                override fun onBillingServiceDisconnected() {
-                    // Vor dem Abschluss gescheitert – sonst später verloren: dann neu verbinden.
-                    if (!setup.complete(BillingResponseCode.SERVICE_DISCONNECTED)) onDisconnected()
+    private suspend fun awaitConnection(client: BillingClient): Int {
+        while (true) {
+            val running = ownSetup?.takeIf { it.isActive }
+            val setup = when (BillingMapping.connectStep(client.connectionState, ownSetupRunning = running != null)) {
+                ConnectStep.CONNECTED -> return BillingResponseCode.OK
+                ConnectStep.AWAIT_OWN_SETUP -> running!!
+                ConnectStep.START -> startSetup(client)
+                ConnectStep.WAIT_FOR_LIBRARY -> {
+                    delay(SETUP_POLL_MILLIS)
+                    continue
                 }
-            },
-        )
-        return withTimeoutOrNull(CONNECT_TIMEOUT_MILLIS) { setup.await() } ?: TIMED_OUT
+            }
+            // In kurzen Abschnitten warten und dazwischen neu entscheiden: Gibt die Library auf, ohne zu antworten,
+            // bleibt so keine Aktualisierung an einer Einrichtung hängen, die nie fertig wird.
+            val code = withTimeoutOrNull(SETUP_POLL_MILLIS) { setup.await() } ?: continue
+            // „Verbindet schon": Die Library kam mit ihrer eigenen Neuverbindung zuvor – auf die warten.
+            if (code == BillingResponseCode.DEVELOPER_ERROR &&
+                client.connectionState == BillingClient.ConnectionState.CONNECTING
+            ) {
+                continue
+            }
+            return code
+        }
+    }
+
+    /** Beginnt die Einrichtung; das Ergebnis kommt über den gelieferten (und in [ownSetup] gemerkten) Wert. */
+    private fun startSetup(client: BillingClient): CompletableDeferred<Int> {
+        val result = CompletableDeferred<Int>()
+        ownSetup = result
+        try {
+            client.startConnection(
+                object : BillingClientStateListener {
+                    override fun onBillingSetupFinished(billingResult: BillingResult) {
+                        result.complete(billingResult.responseCode)
+                    }
+
+                    override fun onBillingServiceDisconnected() {
+                        // Vor dem Abschluss gescheitert – sonst später verloren: dann neu verbinden.
+                        if (!result.complete(BillingResponseCode.SERVICE_DISCONNECTED)) onDisconnected()
+                    }
+                },
+            )
+        } catch (e: RuntimeException) {
+            // Nicht begonnen: Keine spätere Aktualisierung darf auf diese Einrichtung warten.
+            result.cancel()
+            throw e
+        }
+        return result
     }
 
     private fun onDisconnected() {
@@ -381,7 +437,7 @@ class PlayBillingGateway(
         summary.owned.forEach { _events.tryEmit(PurchaseEvent.Purchased(it)) }
         summary.pending.forEach { _events.tryEmit(PurchaseEvent.Pending(it)) }
         scope.launch {
-            client?.let { withContext(Dispatchers.Main.immediate) { acknowledgeAll(it, summary.toAcknowledge) } }
+            client?.let { withContext(Dispatchers.Main.immediate) { acknowledgeAll(it, summary) } }
             // Das Gesamtbild (z. B. ein inzwischen abgelaufenes Abo) neu abfragen.
             refresh()
         }
@@ -395,47 +451,69 @@ class PlayBillingGateway(
         _events.emit(if (unlock != null) PurchaseEvent.Purchased(unlock) else PurchaseEvent.Failed(BillingProblem.ALREADY_OWNED))
     }
 
-    /** Bestätigt bezahlte Käufe; ein Fehlschlag wird bei der nächsten Abfrage wiederholt. */
-    private suspend fun acknowledgeAll(client: BillingClient, tokens: List<String>) {
-        for (token in tokens) {
-            if (!acknowledging.add(token)) continue
+    /**
+     * Bestätigt die bezahlten Käufe aus [summary]; ein Fehlschlag wird bei der nächsten Abfrage wiederholt. Erst wenn
+     * alle bestätigt sind, gelten sie in [state] nicht mehr als unbestätigt (eine Bestätigung, die gerade anderswo
+     * läuft, zählt hier nicht – die meldet ihr eigener Aufruf).
+     */
+    private suspend fun acknowledgeAll(client: BillingClient, summary: PurchaseSummary) {
+        if (summary.toAcknowledge.isEmpty()) return
+        var allConfirmed = true
+        for (token in summary.toAcknowledge) {
+            if (!acknowledging.add(token)) {
+                allConfirmed = false
+                continue
+            }
             try {
                 val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build()
                 val result = withTimeoutOrNull(QUERY_TIMEOUT_MILLIS) { client.acknowledgePurchase(params) }
                 if (result?.responseCode != BillingResponseCode.OK) {
+                    allConfirmed = false
                     Log.w(TAG, "Kauf nicht bestätigt (${result?.responseCode}); nächster Versuch bei der nächsten Abfrage")
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                allConfirmed = false
                 Log.w(TAG, "Kauf nicht bestätigt", e)
             } finally {
                 acknowledging.remove(token)
             }
         }
+        if (allConfirmed) _state.update { BillingMapping.afterAcknowledged(it, summary.unacknowledged) }
     }
 
     /** Ein kaufbares Produkt: die Details von Play (für den Kaufdialog) und das gewählte Angebot. */
     private class Purchasable(val details: ProductDetails, val chosen: ChosenOffer)
 
-    private companion object {
-        const val TAG = "PlayBillingGateway"
-        const val CONNECT_TIMEOUT_MILLIS = 20_000L
-        const val QUERY_TIMEOUT_MILLIS = 30_000L
-        const val RECONNECT_DELAY_MILLIS = 2_000L
-        const val MAX_RECONNECTS = 3
+    companion object {
+        private const val TAG = "PlayBillingGateway"
+        private const val CONNECT_TIMEOUT_MILLIS = 20_000L
+        private const val QUERY_TIMEOUT_MILLIS = 30_000L
+        private const val RECONNECT_DELAY_MILLIS = 2_000L
+        private const val MAX_RECONNECTS = 3
+
+        /** So oft wird nachgesehen, ob eine Neuverbindung der Library inzwischen entschieden ist. */
+        private const val SETUP_POLL_MILLIS = 250L
+
+        /**
+         * Obergrenze für ein [refresh], sobald es an der Reihe ist: Verbinden, je zwei Kauf- und Angebots-Abfragen und
+         * eine Bestätigung mit ihren eigenen Zeitgrenzen, dazu Reserve. Wer auf [refresh] wartet, sollte mindestens so
+         * lange warten – sonst verwirft er womöglich ein Ergebnis, das gleich gekommen wäre.
+         */
+        const val MAX_REFRESH_MILLIS = CONNECT_TIMEOUT_MILLIS + 5 * QUERY_TIMEOUT_MILLIS + 10_000L
 
         /** Antwortet Play nicht rechtzeitig, gilt das wie ein Netzwerkfehler (vorübergehend, neu versuchen). */
-        const val TIMED_OUT = BillingResponseCode.NETWORK_ERROR
+        private const val TIMED_OUT = BillingResponseCode.NETWORK_ERROR
 
-        fun Purchase.toSnapshot() = PurchaseSnapshot(
+        private fun Purchase.toSnapshot() = PurchaseSnapshot(
             products = products,
             state = purchaseState,
             acknowledged = isAcknowledged,
             token = purchaseToken,
         )
 
-        fun ProductDetails.OneTimePurchaseOfferDetails.toInfo() = OneTimeOfferInfo(
+        private fun ProductDetails.OneTimePurchaseOfferDetails.toInfo() = OneTimeOfferInfo(
             formattedPrice = formattedPrice,
             offerId = offerId,
             offerToken = offerToken,

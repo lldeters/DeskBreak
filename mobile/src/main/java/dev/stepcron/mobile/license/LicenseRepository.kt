@@ -4,6 +4,7 @@ import dev.stepcron.billing.BillingAvailability
 import dev.stepcron.billing.BillingGateway
 import dev.stepcron.billing.BillingProblem
 import dev.stepcron.billing.BillingState
+import dev.stepcron.billing.PlayBillingGateway
 import dev.stepcron.mobile.sync.LicenseLink
 import dev.stepcron.mobile.sync.WatchGateway
 import dev.stepcron.shared.license.LicenseCodec
@@ -28,6 +29,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Zeitgrenzen der Lizenz-Abfragen; in Tests kürzer. */
 data class LicenseTiming(
@@ -36,12 +38,20 @@ data class LicenseTiming(
      * ankommt) – so bleibt ein Abo auf der Uhr gültig, auch wenn die Handy-App selten geöffnet wird.
      */
     val staleAfterMillis: Long = LicenseRules.DAY_MILLIS,
+    /**
+     * Bei einem offenen Kauf (Zahlung ausstehend oder noch nicht bestätigt, [LicenseRecord.ownOpenPurchase]) gilt die
+     * eigene Play-Abfrage schon nach dieser Zeit als alt: Play erstattet unbestätigte Käufe nach drei Tagen.
+     */
+    val openPurchaseStaleAfterMillis: Long = 60 * 60_000L,
     /** Frühestens nach dieser Zeit ein neuer Versuch im Hintergrund, wenn Play gerade nicht antwortet. */
     val backgroundRetryMillis: Long = 60 * 60_000L,
-    /** So lange darf eine Play-Abfrage im Hintergrund bzw. bei „Käufe wiederherstellen" dauern. */
-    val playTimeoutMillis: Long = 20_000L,
+    /**
+     * So lange darf eine Play-Abfrage im Hintergrund bzw. bei „Käufe wiederherstellen" dauern – nicht kürzer, als das
+     * Gateway selbst höchstens braucht, sonst ginge ein Ergebnis verloren, das gleich gekommen wäre.
+     */
+    val playTimeoutMillis: Long = PlayBillingGateway.MAX_REFRESH_MILLIS,
     /** So lange darf das Melden an die Uhr im Hintergrund dauern. */
-    val sendTimeoutMillis: Long = 15_000L,
+    val sendTimeoutMillis: Long = 30_000L,
 )
 
 /** Ergebnis von „Käufe wiederherstellen". */
@@ -62,11 +72,14 @@ sealed interface PurchaseCheck {
  *
  * - Beim ersten Start beginnt die Testphase ([LicenseRules.withTrialStarted]).
  * - Nach jeder erfolgreichen Play-Abfrage ([BillingState.owned] gesetzt, neues [BillingState.checkedAtMillis])
- *   kommt das Ergebnis in den Stand ([LicenseRules.withOwnCheck]) und geht als Message [SyncPaths.LICENSE] an die Uhr.
+ *   kommt das Ergebnis in den Stand ([LicenseRules.withOwnCheck]) und geht an die Uhr: als DataItem
+ *   [SyncPaths.LICENSE], das der Data Layer auch einer gerade getrennten Uhr später zustellt (z. B. nach einem Kauf
+ *   außer Reichweite), und als Message an die verbundenen Uhren.
  * - Die Sicht der Uhr kommt mit jedem Snapshot ([onWatchLicense], [LicenseRules.withPeerInfo]).
  *
- * Fehler beim Melden an die Uhr sind nicht schlimm: Die Sicht des Handys geht mit jedem Abgleich wieder mit. Lebt so
- * lange wie der App-Prozess.
+ * Fehler beim Melden an die Uhr sind nicht schlimm: Das DataItem wird bei jedem Start erneut abgelegt (gleicher Inhalt
+ * löst bei der Uhr nichts aus), und die Sicht des Handys geht mit jedem Abgleich wieder mit. Lebt so lange wie der
+ * App-Prozess.
  */
 class LicenseRepository(
     private val store: LicenseStore,
@@ -85,11 +98,11 @@ class LicenseRepository(
 
     private val loaded = CompletableDeferred<Unit>()
 
-    /** Schützt Lesen-Ändern-Speichern des Stands und [appliedCheckAtMillis]. */
+    /** Schützt Lesen-Ändern-Speichern des Stands und [appliedCheck]. */
     private val mutex = Mutex()
 
-    /** [BillingState.checkedAtMillis] des zuletzt übernommenen Play-Ergebnisses (nur in diesem Prozess). */
-    private var appliedCheckAtMillis: Long? = null
+    /** Das zuletzt übernommene Play-Ergebnis (nur in diesem Prozess). */
+    private var appliedCheck: AppliedCheck? = null
 
     private val lock = Any()
     private var refreshJob: Job? = null
@@ -101,6 +114,12 @@ class LicenseRepository(
     /** Ein Verbraucher meldet nacheinander immer den neuesten Stand an die Uhr (Wünsche dazwischen fallen zusammen). */
     private val sendRequests = Channel<Unit>(Channel.CONFLATED)
 
+    /** Ein Wunsch an [sendRequests] soll auch eine Message an die verbundenen Uhren schicken (nicht nur das DataItem). */
+    private val messageRequested = AtomicBoolean(false)
+
+    /** Meldungen an die Uhr nacheinander, jede mit dem dann aktuellen Stand – nie ein älterer nach einem neueren. */
+    private val publishMutex = Mutex()
+
     init {
         scope.launch { load() }
         scope.launch {
@@ -109,10 +128,7 @@ class LicenseRepository(
             billing.state.collect { state -> if (applyBilling(state)) requestSend() }
         }
         scope.launch {
-            for (request in sendRequests) {
-                val info = _record.value?.let(LicenseRules::infoFor) ?: continue
-                sendNow(info)
-            }
+            for (request in sendRequests) publishLatest(message = messageRequested.getAndSet(false))
         }
     }
 
@@ -131,8 +147,10 @@ class LicenseRepository(
             _record.value = record
         }
         loaded.complete(Unit)
-        // Testphase gerade begonnen (bzw. Beginn korrigiert): der Uhr gleich Bescheid geben.
-        if (record.trialStartMillis != stored?.trialStartMillis) requestSend()
+        // Testphase gerade begonnen (bzw. Beginn korrigiert): der Uhr gleich Bescheid geben. Sonst nur das DataItem
+        // sicherstellen (fehlte es, etwa nach einem Update oder einem Fehler beim letzten Ablegen, sähe eine Uhr, die
+        // gerade nicht verbunden ist, die Freischaltung nie); unverändert löst es bei der Uhr nichts aus.
+        requestSend(message = record.trialStartMillis != stored?.trialStartMillis)
     }
 
     suspend fun awaitLoaded() = loaded.await()
@@ -180,8 +198,10 @@ class LicenseRepository(
         val before = _record.value ?: return false
         val now = clock()
         val age = now - before.ownCheckedAtMillis
+        // Ein offener Kauf soll rechtzeitig bestätigt werden (bzw. nach der Zahlung gelten): dann früher nachfragen.
+        val staleAfter = if (before.ownOpenPurchase) timing.openPurchaseStaleAfterMillis else timing.staleAfterMillis
         // Eine Abfrage aus der „Zukunft" (Uhrzeit zurückgestellt) gilt als alt.
-        val fresh = before.ownCheckedAtMillis > 0L && age in 0 until timing.staleAfterMillis
+        val fresh = before.ownCheckedAtMillis > 0L && age in 0 until staleAfter
         val retryTooSoon = lastBackgroundAttemptAtMillis > 0L &&
             now - lastBackgroundAttemptAtMillis in 0 until timing.backgroundRetryMillis
         if (fresh || retryTooSoon) return false
@@ -189,23 +209,25 @@ class LicenseRepository(
         withTimeoutOrNull(timing.playTimeoutMillis) { billing.refresh() }
         applyBilling(billing.state.value)
         val info = _record.value?.let(LicenseRules::infoFor) ?: return true
-        if (info != LicenseRules.infoFor(before)) withTimeoutOrNull(timing.sendTimeoutMillis) { sendNow(info) }
+        if (info != LicenseRules.infoFor(before)) withTimeoutOrNull(timing.sendTimeoutMillis) { publishLatest(message = true) }
         return true
     }
 
     /**
-     * Übernimmt ein erfolgreiches Play-Ergebnis, das noch nicht übernommen wurde. Liefert `true`, wenn sich die
-     * Meldung an die Uhr dadurch geändert hat (bei jeder neuen Abfrage: deren Zeitpunkt).
+     * Übernimmt ein erfolgreiches Play-Ergebnis, das noch nicht übernommen wurde (auch, wenn sich nur geändert hat, ob
+     * ein Kauf offen ist). Liefert `true`, wenn sich die Meldung an die Uhr dadurch geändert hat (bei jeder neuen
+     * Abfrage: deren Zeitpunkt).
      */
     private suspend fun applyBilling(state: BillingState): Boolean {
         val owned = state.owned ?: return false
         awaitLoaded()
         val (old, new) = mutex.withLock {
             val current = _record.value ?: return false
-            if (state.checkedAtMillis == appliedCheckAtMillis) return false
-            appliedCheckAtMillis = state.checkedAtMillis
+            val check = AppliedCheck(state.checkedAtMillis, state.hasOpenPurchase)
+            if (check == appliedCheck) return false
+            appliedCheck = check
             val checkedAt = state.checkedAtMillis.takeIf { it > 0L } ?: clock()
-            val updated = LicenseRules.withOwnCheck(current, owned, checkedAt)
+            val updated = LicenseRules.withOwnCheck(current, owned, checkedAt, openPurchase = state.hasOpenPurchase)
             if (updated != current) {
                 persist(updated)
                 _record.value = updated
@@ -221,7 +243,7 @@ class LicenseRepository(
         awaitLoaded()
         mutex.withLock {
             val current = _record.value ?: return
-            val updated = LicenseRules.withPeerInfo(current, info)
+            val updated = LicenseRules.withPeerInfo(current, info, clock())
             if (updated != current) {
                 persist(updated)
                 _record.value = updated
@@ -235,19 +257,33 @@ class LicenseRepository(
         return _record.value?.let(LicenseRules::infoFor)
     }
 
-    private fun requestSend() {
+    /** Meldet den aktuellen Stand im Hintergrund an die Uhr; mit [message] auch per Message (sonst nur das DataItem). */
+    private fun requestSend(message: Boolean = true) {
+        if (message) messageRequested.set(true)
         sendRequests.trySend(Unit)
     }
 
-    /** Meldet [info] an die Uhr; `false`, wenn das gerade nicht ging (keine Uhr, Play Services fehlen …). */
-    private suspend fun sendNow(info: LicenseInfo): Boolean = try {
-        watch.sendToWatches(SyncPaths.LICENSE, LicenseCodec.encodeInfo(info))
-        true
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        // Nicht schlimm: Die Sicht des Handys geht mit dem nächsten Abgleich wieder mit.
-        false
+    /**
+     * Meldet den dann aktuellen Stand an die Uhr: zuerst als DataItem (bleibt liegen, bis die Uhr wieder verbunden ist),
+     * mit [message] zusätzlich per Message an die gerade verbundenen Uhren (kommt sofort an). Fehler sind nicht schlimm
+     * (keine Uhr, Play Services fehlen …): Das DataItem wird beim nächsten Start erneut abgelegt, und die Sicht des
+     * Handys geht mit dem nächsten Abgleich wieder mit.
+     */
+    private suspend fun publishLatest(message: Boolean) = publishMutex.withLock {
+        val info = _record.value?.let(LicenseRules::infoFor) ?: return@withLock
+        val bytes = LicenseCodec.encodeInfo(info)
+        attempt { watch.putLicense(bytes) }
+        if (message) attempt { watch.sendToWatches(SyncPaths.LICENSE, bytes) }
+    }
+
+    private suspend fun attempt(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Siehe publishLatest: beim nächsten Anlass erneut.
+        }
     }
 
     /** Unter [mutex] aufrufen. */
@@ -266,4 +302,7 @@ class LicenseRepository(
         BillingAvailability.ERROR -> BillingProblem.SERVICE_UNAVAILABLE
         else -> null
     }
+
+    /** Ein übernommenes Play-Ergebnis: Zeitpunkt der Abfrage und ob dabei ein Kauf offen war. */
+    private data class AppliedCheck(val checkedAtMillis: Long, val openPurchase: Boolean)
 }

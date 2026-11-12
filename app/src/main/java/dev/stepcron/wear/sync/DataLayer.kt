@@ -58,6 +58,21 @@ class DataLayer(context: Context) : SnapshotChannel {
         }
     }
 
+    /**
+     * Daten der DataItems [SyncPaths.LICENSE] (je Handy eines; LicenseCodec.encodeInfo) – die Lizenz-Sicht der Handys,
+     * auch wenn gerade keines verbunden ist. Gelesen werden alle DataItems der App (wenige) und nach dem Pfad gefiltert,
+     * so hängt nichts davon ab, wie die Play-Dienste eine URI ohne Knoten-ID auslegen.
+     */
+    suspend fun readPhoneLicenses(): List<ByteArray> {
+        val buffer = dataClient.dataItems.await()
+        // Der Puffer gilt nur bis release(): Einträge vorher einfrieren.
+        return try {
+            buffer.filter { it.uri.path == SyncPaths.LICENSE }.mapNotNull { it.freeze().data }
+        } finally {
+            buffer.release()
+        }
+    }
+
     /** Löscht die DataItems unter [uri] (mit Knoten-ID als Host: nur die dieses Knotens) im ganzen Netz. */
     suspend fun delete(uri: Uri) {
         dataClient.deleteDataItems(uri).await()

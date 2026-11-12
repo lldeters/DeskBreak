@@ -14,8 +14,10 @@ import kotlinx.serialization.Serializable
  * - Eine Sicherung spielt das Handy als DataItem unter [RESTORE_PREFIX]`<id>` mit dem Asset [RESTORE_ASSET]
  *   ([SyncBackup]) zurück; die Uhr antwortet mit der Message [RESTORE_RESULT] ([RestoreResult]) und löscht
  *   das DataItem.
- * - Lizenz: Das Handy meldet seine Sicht per Message [LICENSE] ([LicenseInfo], siehe LicenseCodec), die Uhr ihre
- *   im Snapshot ([SyncSnapshot.license]).
+ * - Lizenz: Das Handy meldet seine Sicht ([LicenseInfo], siehe LicenseCodec) als DataItem [LICENSE] – der Data Layer
+ *   hält es vor und stellt es zu, sobald die Uhr wieder verbunden ist, etwa nach einem Kauf auf dem Handy außer
+ *   Reichweite – und zusätzlich per Message [LICENSE] an die gerade verbundenen Uhren. Die Uhr meldet ihre Sicht im
+ *   Snapshot ([SyncSnapshot.license]).
  */
 object SyncPaths {
     const val SNAPSHOT = "/deskbreak/snapshot"
@@ -28,7 +30,11 @@ object SyncPaths {
     const val RESTORE_ASSET = "backup"
     const val RESTORE_RESULT = "/deskbreak/restore-result"
 
-    /** Handy → Uhr: [LicenseInfo] des Handys (Testbeginn, eigene Play-Abfrage). */
+    /**
+     * Handy → Uhr: [LicenseInfo] des Handys (Testbeginn, eigene Play-Abfrage) als Message und als DataItem (dringend,
+     * die Bytes von LicenseCodec.encodeInfo als Daten des DataItems, kein Asset). Das DataItem meldet der Data Layer nur
+     * bei geändertem Inhalt – gleicher Stand erneut abgelegt löst nichts aus.
+     */
     const val LICENSE = "/deskbreak/license"
 
     /** Capabilities (res/values/wear.xml der jeweiligen App), über die sich die Geräte finden. */

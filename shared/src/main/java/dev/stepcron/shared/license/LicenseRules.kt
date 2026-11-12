@@ -18,6 +18,13 @@ object LicenseRules {
      */
     const val SUBSCRIPTION_TRUST_MILLIS = 35 * DAY_MILLIS
 
+    /**
+     * So weit darf ein Zeitpunkt einer Play-Abfrage in der Zukunft liegen und trotzdem gelten (etwas abweichende
+     * Uhrzeit der Geräte). Was weiter vorausliegt, stammt von einer falsch gestellten Uhr und darf weder ein Abo auf
+     * Jahre bestätigen noch spätere, richtige Meldungen blockieren.
+     */
+    const val CLOCK_TOLERANCE_MILLIS = DAY_MILLIS
+
     /** Stand der Lizenz zum Zeitpunkt [nowMillis]. Eine noch nicht begonnene Testphase zählt als volle Testphase. */
     fun status(record: LicenseRecord, nowMillis: Long): LicenseStatus {
         effectiveUnlock(record, nowMillis)?.let { return LicenseStatus.Unlocked(it) }
@@ -47,20 +54,32 @@ object LicenseRules {
     }
 
     /**
-     * Ergebnis einer erfolgreichen Play-Abfrage auf diesem Gerät: [owned] sind die gefundenen, bestätigten Käufe
-     * (leer = nichts gekauft bzw. Abo abgelaufen). Eine fehlgeschlagene Abfrage ändert nichts – dafür diese
-     * Funktion nicht aufrufen.
+     * Ergebnis einer erfolgreichen Play-Abfrage auf diesem Gerät: [owned] sind die gefundenen, bezahlten Käufe
+     * (leer = nichts gekauft bzw. Abo abgelaufen); [openPurchase], wenn Play dabei einen offenen Kauf meldete (Zahlung
+     * ausstehend oder noch nicht bestätigt, siehe [LicenseRecord.ownOpenPurchase]). Eine fehlgeschlagene Abfrage
+     * ändert nichts – dafür diese Funktion nicht aufrufen.
      */
-    fun withOwnCheck(record: LicenseRecord, owned: Collection<Unlock>, nowMillis: Long): LicenseRecord =
-        record.copy(ownUnlock = Unlock.best(owned)?.name, ownCheckedAtMillis = nowMillis)
+    fun withOwnCheck(
+        record: LicenseRecord,
+        owned: Collection<Unlock>,
+        nowMillis: Long,
+        openPurchase: Boolean = false,
+    ): LicenseRecord = record.copy(
+        ownUnlock = Unlock.best(owned)?.name,
+        ownCheckedAtMillis = nowMillis,
+        ownOpenPurchase = openPurchase,
+    )
 
     /**
      * Meldung [info] des anderen Geräts übernehmen: frühester Testbeginn beider Geräte; dessen Freischaltung,
-     * sofern die Meldung nicht älter ist als die zuletzt übernommene (Nachrichten können sich überholen).
+     * sofern die Meldung nicht älter ist als die zuletzt übernommene (Nachrichten können sich überholen). Liegt die
+     * zuletzt übernommene mehr als [CLOCK_TOLERANCE_MILLIS] nach [nowMillis] (Uhr des anderen Geräts ging vor), gilt
+     * jede neue Meldung – sonst hielte die falsche Zeit den alten Stand fest, etwa ein längst gekündigtes Abo.
      */
-    fun withPeerInfo(record: LicenseRecord, info: LicenseInfo): LicenseRecord {
+    fun withPeerInfo(record: LicenseRecord, info: LicenseInfo, nowMillis: Long): LicenseRecord {
         val trialStart = listOf(record.trialStartMillis, info.trialStartMillis).filter { it > 0L }.minOrNull() ?: 0L
-        val newer = info.checkedAtMillis >= record.peerCheckedAtMillis
+        val storedFromTheFuture = record.peerCheckedAtMillis > nowMillis + CLOCK_TOLERANCE_MILLIS
+        val newer = info.checkedAtMillis >= record.peerCheckedAtMillis || storedFromTheFuture
         return record.copy(
             trialStartMillis = trialStart,
             peerUnlock = if (newer) Unlock.fromName(info.unlock)?.name else record.peerUnlock,
@@ -78,8 +97,13 @@ object LicenseRules {
     private fun trusted(unlock: Unlock?, checkedAtMillis: Long, nowMillis: Long): Unlock? = when (unlock) {
         null -> null
         Unlock.LIFETIME -> unlock
-        // Liegt die Bestätigung in der Zukunft (Uhrzeit zurückgestellt), gilt sie noch.
-        Unlock.SUBSCRIPTION -> unlock.takeIf { checkedAtMillis > 0L && nowMillis - checkedAtMillis <= SUBSCRIPTION_TRUST_MILLIS }
+        // Etwas in der Zukunft (Uhrzeit leicht verstellt) gilt noch, weit voraus nicht: Sonst bestätigte eine falsch
+        // gestellte Uhr ein Abo auf Jahre. Die Geräte fragen dann bald selbst neu (Abfrage aus der „Zukunft" gilt als alt).
+        Unlock.SUBSCRIPTION -> unlock.takeIf {
+            checkedAtMillis > 0L &&
+                checkedAtMillis <= nowMillis + CLOCK_TOLERANCE_MILLIS &&
+                nowMillis - checkedAtMillis <= SUBSCRIPTION_TRUST_MILLIS
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package dev.stepcron.billing
 
 import com.android.billingclient.api.BillingClient.BillingResponseCode
+import com.android.billingclient.api.BillingClient.ConnectionState
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import dev.stepcron.shared.license.LicenseProducts
@@ -28,6 +29,8 @@ internal data class PurchaseSummary(
     val pending: Set<Unlock> = emptySet(),
     /** Tokens der bezahlten, aber noch nicht bestätigten Käufe. */
     val toAcknowledge: List<String> = emptyList(),
+    /** Freischaltungen dieser Käufe ([toAcknowledge]). */
+    val unacknowledged: Set<Unlock> = emptySet(),
 )
 
 /** Eine Preisphase eines Abo-Angebots. */
@@ -64,6 +67,21 @@ internal data class ChosenOffer(
     /** Token für den Kaufdialog; `null` = das Standard-Angebot des Produkts. */
     val offerToken: String?,
 )
+
+/** Nächster Schritt beim Verbinden mit Play (siehe [BillingMapping.connectStep]). */
+internal enum class ConnectStep {
+    /** Verbunden – weiter mit den Abfragen. */
+    CONNECTED,
+
+    /** Die eigene, schon begonnene Einrichtung läuft noch: auf deren Ergebnis warten. */
+    AWAIT_OWN_SETUP,
+
+    /** Die Library verbindet sich gerade selbst (automatische Neuverbindung): warten, bis das entschieden ist. */
+    WAIT_FOR_LIBRARY,
+
+    /** Nicht verbunden: Einrichtung beginnen (startConnection). */
+    START,
+}
 
 internal object BillingMapping {
 
@@ -110,25 +128,35 @@ internal object BillingMapping {
         val owned = mutableSetOf<Unlock>()
         val pending = mutableSetOf<Unlock>()
         val toAcknowledge = mutableListOf<String>()
+        val unacknowledged = mutableSetOf<Unlock>()
         for (purchase in purchases) {
             val unlocks = purchase.products.mapNotNull(LicenseProducts::unlockFor)
             if (unlocks.isEmpty()) continue
             when (purchase.state) {
                 Purchase.PurchaseState.PURCHASED -> {
                     owned += unlocks
-                    if (!purchase.acknowledged && purchase.token.isNotEmpty()) toAcknowledge += purchase.token
+                    if (!purchase.acknowledged && purchase.token.isNotEmpty()) {
+                        toAcknowledge += purchase.token
+                        unacknowledged += unlocks
+                    }
                 }
 
                 Purchase.PurchaseState.PENDING -> pending += unlocks
             }
         }
-        return PurchaseSummary(owned = owned, pending = pending - owned, toAcknowledge = toAcknowledge.distinct())
+        return PurchaseSummary(
+            owned = owned,
+            pending = pending - owned,
+            toAcknowledge = toAcknowledge.distinct(),
+            unacknowledged = unacknowledged,
+        )
     }
 
     /**
      * [state] nach einem abgeschlossenen bzw. begonnenen Kauf ([summary] aus dem Kaufdialog): Bezahltes kommt zu
      * [BillingState.owned] hinzu (auch vor der ersten vollständigen Abfrage – ein Kauf ist eine Bestätigung von Play)
-     * und gilt als jetzt bestätigt; Offenes kommt zu [BillingState.pending]. Ohne beides bleibt [state] unverändert.
+     * und gilt als jetzt bestätigt; Offenes kommt zu [BillingState.pending], noch nicht Bestätigtes zu
+     * [BillingState.unacknowledged] (bis [afterAcknowledged]). Ohne Bezahltes und Offenes bleibt [state] unverändert.
      */
     fun afterPurchaseUpdate(state: BillingState, summary: PurchaseSummary, nowMillis: Long): BillingState {
         if (summary.owned.isEmpty() && summary.pending.isEmpty()) return state
@@ -136,9 +164,50 @@ internal object BillingMapping {
         return state.copy(
             owned = if (bought) state.owned.orEmpty() + summary.owned else state.owned,
             pending = state.pending - summary.owned + summary.pending,
+            unacknowledged = state.unacknowledged + summary.unacknowledged,
             checkedAtMillis = if (bought) nowMillis else state.checkedAtMillis,
             problem = null,
         )
+    }
+
+    /**
+     * [state] gleich nach der Kauf-Abfrage einer Aktualisierung – noch vor den Angeboten, damit deren Wartezeit das
+     * Ergebnis nicht verzögert oder (bei einem Abbruch) verwirft. [code] ist das Ergebnis der Abfrage, [summary] ihre
+     * Zusammenfassung; `null`, wenn sie fehlschlug oder inzwischen ein Kauf hereinkam (dann gilt dessen Stand, die
+     * Abfrage danach ist vollständig). Mit [summary] ersetzt sie Käufe und Zeitpunkt, sonst bleiben diese.
+     */
+    fun afterPurchaseQuery(state: BillingState, code: Int, summary: PurchaseSummary?, nowMillis: Long): BillingState =
+        state.copy(
+            availability = availabilityAfter(code, BillingAvailability.READY),
+            owned = summary?.owned ?: state.owned,
+            pending = summary?.pending ?: state.pending,
+            unacknowledged = summary?.unacknowledged ?: state.unacknowledged,
+            checkedAtMillis = if (summary != null) nowMillis else state.checkedAtMillis,
+            problem = problemFor(code),
+        )
+
+    /** [state], nachdem die Käufe zu [confirmed] bei Play bestätigt wurden. */
+    fun afterAcknowledged(state: BillingState, confirmed: Set<Unlock>): BillingState =
+        if (confirmed.isEmpty() || state.unacknowledged.none { it in confirmed }) {
+            state
+        } else {
+            state.copy(unacknowledged = state.unacknowledged - confirmed)
+        }
+
+    /**
+     * Was beim Verbinden als Nächstes zu tun ist, nach [connectionState] des BillingClient ([ConnectionState]) und ob
+     * die eigene, früher begonnene Einrichtung noch auf ihr Ergebnis wartet ([ownSetupRunning]).
+     *
+     * Ein zweites startConnection, während die Library noch verbindet, beantwortet Billing 9 sofort mit
+     * DEVELOPER_ERROR („Client is already in the process of connecting") – das wäre ein falscher Einrichtungsfehler.
+     * Solange sie verbindet, wird deshalb gewartet: auf die eigene Einrichtung (z. B. die einer abgebrochenen
+     * Aktualisierung) bzw. auf die Neuverbindung der Library. Nur ein getrennter (oder beendeter) Client wird neu
+     * eingerichtet – auch wenn die eigene Einrichtung nie geantwortet hat; beendet meldet die Library selbst einen Fehler.
+     */
+    fun connectStep(connectionState: Int, ownSetupRunning: Boolean): ConnectStep = when (connectionState) {
+        ConnectionState.CONNECTED -> ConnectStep.CONNECTED
+        ConnectionState.CONNECTING -> if (ownSetupRunning) ConnectStep.AWAIT_OWN_SETUP else ConnectStep.WAIT_FOR_LIBRARY
+        else -> ConnectStep.START
     }
 
     /**

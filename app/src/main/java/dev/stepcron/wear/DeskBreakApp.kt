@@ -5,7 +5,9 @@ import android.content.Context
 import android.util.Log
 import dev.stepcron.billing.BillingGateway
 import dev.stepcron.billing.PlayBillingGateway
+import dev.stepcron.shared.license.LicenseCodec
 import dev.stepcron.shared.license.Unlock
+import dev.stepcron.shared.sync.SyncPaths
 import dev.stepcron.wear.data.DemoDataSeeder
 import dev.stepcron.wear.data.MovementRepository
 import dev.stepcron.wear.data.db.DeskBreakDatabase
@@ -31,6 +33,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class DeskBreakApp : Application() {
 
@@ -106,24 +109,47 @@ class AppContainer(context: Context) {
     }
 
     /**
-     * Beim Prozessstart: die Testphase beginnen (auch bei Installationen von vor der Freischaltung) und jede erfolgreiche
-     * Play-Abfrage der Uhr in die Lizenz übernehmen – die meldet sie dem Handy und gleicht die Erinnerungen ab.
+     * Beim Prozessstart: die Testphase beginnen (auch bei Installationen von vor der Freischaltung), eine fällige
+     * Play-Abfrage anstoßen, die Lizenz-Sicht des Handys nachlesen und jede erfolgreiche Play-Abfrage der Uhr in die
+     * Lizenz übernehmen – die meldet sie dem Handy und gleicht die Erinnerungen ab.
      */
     fun startLicense() {
-        appScope.launch { logFailure("Testphase beginnen") { watchLicense.startTrial() } }
+        appScope.launch {
+            logFailure("Testphase beginnen") { watchLicense.startTrial() }
+            logFailure("Play-Abfrage anstoßen") { watchLicense.checkPlayIfDue() }
+        }
+        appScope.launch { logFailure("Lizenz des Handys nachlesen") { catchUpPhoneLicense() } }
         appScope.launch {
             billing.state
-                .mapNotNull { state -> state.owned?.let { owned -> CheckedPurchases(owned, state.checkedAtMillis) } }
-                // Jede neue erfolgreiche Abfrage genau einmal (gleicher Stand zur gleichen Zeit ist dieselbe).
+                .mapNotNull { state ->
+                    state.owned?.let { owned -> CheckedPurchases(owned, state.checkedAtMillis, state.hasOpenPurchase) }
+                }
+                // Jede neue erfolgreiche Abfrage genau einmal (gleicher Stand zur gleichen Zeit ist dieselbe); ein danach
+                // bestätigter Kauf ändert nur noch, ob einer offen ist.
                 .distinctUntilChanged()
                 .collect { check ->
-                    logFailure("Play-Abfrage übernehmen") { watchLicense.applyOwnCheck(check.owned, check.checkedAtMillis) }
+                    logFailure("Play-Abfrage übernehmen") {
+                        watchLicense.applyOwnCheck(check.owned, check.checkedAtMillis, check.openPurchase)
+                    }
                 }
         }
     }
 
-    /** Eine erfolgreiche Play-Abfrage dieser Uhr. */
-    private data class CheckedPurchases(val owned: Set<Unlock>, val checkedAtMillis: Long)
+    /**
+     * Liest die Lizenz-Sicht der Handys aus dem Data Layer (DataItem [SyncPaths.LICENSE]) und übernimmt sie. Sonst
+     * stellt sie der WatchSyncService zu, sobald sie sich ändert; das hier holt nach, was dabei verloren ging (z. B.
+     * während eines Updates der App). Unveränderte Stände ändern nichts.
+     */
+    private suspend fun catchUpPhoneLicense() {
+        val items = withTimeoutOrNull(PHONE_LICENSE_TIMEOUT_MILLIS) { dataLayer.readPhoneLicenses() } ?: return
+        for (bytes in items) {
+            val info = LicenseCodec.decodeInfo(bytes) ?: continue
+            watchLicense.applyPeerInfo(info)
+        }
+    }
+
+    /** Eine erfolgreiche Play-Abfrage dieser Uhr; [openPurchase]: ein Kauf ist noch offen (bald erneut fragen). */
+    private data class CheckedPurchases(val owned: Set<Unlock>, val checkedAtMillis: Long, val openPurchase: Boolean)
 
     /** Arbeit im [appScope]: Ein Fehler (z. B. DataStore) wird protokolliert und darf die App nicht beenden. */
     private suspend fun logFailure(what: String, block: suspend () -> Unit) {
@@ -138,6 +164,9 @@ class AppContainer(context: Context) {
 
     private companion object {
         const val TAG = "AppContainer"
+
+        /** So lange darf das Nachlesen der Lizenz des Handys dauern (lokaler Aufruf der Play-Dienste). */
+        const val PHONE_LICENSE_TIMEOUT_MILLIS = 10_000L
     }
 }
 

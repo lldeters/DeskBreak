@@ -128,6 +128,12 @@ class DataLayerGateway(context: Context, private val scope: CoroutineScope) : Wa
         if (delivered == 0) throw lastError ?: SyncException(SyncProblem.NoWatch)
     }
 
+    override suspend fun putLicense(data: ByteArray) {
+        // Die Bytes direkt als Daten des DataItems (klein, kein Asset); die Uhr liest sie mit DataItem.getData().
+        val request = PutDataRequest.create(SyncPaths.LICENSE).setData(data).setUrgent()
+        call(PUT_TIMEOUT_MILLIS) { dataClient.putDataItem(request) }
+    }
+
     override suspend fun putRestore(restoreId: String, backupBytes: ByteArray) {
         val request = PutDataMapRequest.create(SyncPaths.RESTORE_PREFIX + restoreId).apply {
             dataMap.putAsset(SyncPaths.RESTORE_ASSET, Asset.createFromBytes(backupBytes))

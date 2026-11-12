@@ -1,9 +1,11 @@
 package dev.stepcron.mobile.license
 
+import dev.stepcron.billing.BillingAvailability
 import dev.stepcron.billing.BillingProblem
 import dev.stepcron.mobile.sync.SyncException
 import dev.stepcron.mobile.sync.SyncProblem
 import dev.stepcron.mobile.sync.SyncRepositoryTest
+import dev.stepcron.mobile.sync.WatchNodes
 import dev.stepcron.shared.license.LicenseCodec
 import dev.stepcron.shared.license.LicenseInfo
 import dev.stepcron.shared.license.LicenseRecord
@@ -71,6 +73,9 @@ class LicenseRepositoryTest {
     private fun licenseMessages(): List<LicenseInfo> =
         gateway.sent.filter { it.path == SyncPaths.LICENSE }.map { LicenseCodec.decodeInfo(it.data)!! }
 
+    /** Was das Handy als DataItem abgelegt hat (der letzte Eintrag gilt). */
+    private fun licenseItems(): List<LicenseInfo> = gateway.licenseItems.map { LicenseCodec.decodeInfo(it)!! }
+
     // --- Testphase ---
 
     @Test
@@ -81,12 +86,16 @@ class LicenseRepositoryTest {
         assertEquals(START, LicenseStore(dir).read()?.trialStartMillis)
         eventually { licenseMessages().isNotEmpty() }
         assertEquals(LicenseInfo(trialStartMillis = START), licenseMessages().single())
+        assertEquals(LicenseInfo(trialStartMillis = START), licenseItems().single())
     }
 
     @Test
     fun laterStartsKeepTheTrialStartAndStayQuiet() {
         val repository = repository(LicenseRecord(trialStartMillis = START - LicenseRules.DAY_MILLIS))
         assertEquals(START - LicenseRules.DAY_MILLIS, repository.record.value?.trialStartMillis)
+        // Nur das DataItem wird (unverändert) erneut abgelegt – falls es fehlte; bei der Uhr löst das nichts aus.
+        eventually { licenseItems().isNotEmpty() }
+        assertEquals(LicenseInfo(trialStartMillis = START - LicenseRules.DAY_MILLIS), licenseItems().single())
         Thread.sleep(QUIET_MILLIS)
         assertTrue(licenseMessages().isEmpty())
     }
@@ -166,6 +175,64 @@ class LicenseRepositoryTest {
     }
 
     @Test
+    fun aPurchaseReachesAWatchOutOfRangeLaterAsDataItem() {
+        // Kauf auf dem Handy, die Uhr ist gerade nicht verbunden: Die Message geht ins Leere, das DataItem bleibt.
+        gateway.nodes = WatchNodes(withApp = emptyList(), connected = emptyList())
+        val repository = repository(LicenseRecord(trialStartMillis = START - 5 * LicenseRules.DAY_MILLIS))
+        now.addAndGet(1_000L)
+        billing.purchased(Unlock.LIFETIME)
+        awaitValue(repository.record) { it?.ownUnlock == Unlock.LIFETIME.name }
+        eventually { licenseItems().lastOrNull()?.unlock == Unlock.LIFETIME.name }
+        assertEquals(LicenseInfo(START - 5 * LicenseRules.DAY_MILLIS, Unlock.LIFETIME.name, START + 1_000L), licenseItems().last())
+        assertTrue(licenseMessages().isEmpty())
+    }
+
+    @Test
+    fun theDataItemAlwaysEndsWithTheLatestState() {
+        val repository = repository(LicenseRecord(trialStartMillis = START))
+        // Mehrere Ergebnisse kurz hintereinander: Das zuletzt abgelegte DataItem ist das neueste.
+        repeat(5) { round ->
+            now.addAndGet(1_000L)
+            billing.purchased(if (round % 2 == 0) Unlock.SUBSCRIPTION else Unlock.LIFETIME)
+            awaitValue(repository.record) { it?.ownCheckedAtMillis == now.get() }
+        }
+        val latest = LicenseRules.infoFor(repository.record.value!!)
+        eventually { licenseItems().lastOrNull() == latest }
+        Thread.sleep(QUIET_MILLIS)
+        assertEquals(latest, licenseItems().last())
+    }
+
+    @Test
+    fun aFailedDataItemDoesNotStopTheMessage() {
+        gateway.putLicenseError = SyncException(SyncProblem.WearApiUnavailable)
+        val repository = repository(LicenseRecord(trialStartMillis = START))
+        billing.purchased(Unlock.SUBSCRIPTION)
+        awaitValue(repository.record) { it?.ownUnlock == Unlock.SUBSCRIPTION.name }
+        eventually { licenseMessages().any { it.unlock == Unlock.SUBSCRIPTION.name } }
+        assertTrue(licenseItems().isEmpty())
+    }
+
+    @Test
+    fun aPurchaseResultIsKeptWhenTheRestOfTheRefreshTakesLonger() = runBlocking {
+        // Play liefert die Käufe, die Angebote dauern länger als die Wartezeit: Das Ergebnis zählt trotzdem.
+        val repository = repository(LicenseRecord(trialStartMillis = START))
+        billing.afterAnswerMillis = 5 * timing.playTimeoutMillis
+        billing.owns(Unlock.LIFETIME)
+        assertEquals(PurchaseCheck.Found(Unlock.LIFETIME), repository.checkPurchases())
+        assertEquals(Unlock.LIFETIME.name, repository.record.value?.ownUnlock)
+    }
+
+    @Test
+    fun aStaleCheckKeepsAPurchaseResultWhenTheRestOfTheRefreshTakesLonger() = runBlocking {
+        val repository = repository(LicenseRecord(trialStartMillis = START, ownCheckedAtMillis = START - 2 * LicenseRules.DAY_MILLIS))
+        billing.afterAnswerMillis = 5 * timing.playTimeoutMillis
+        billing.owns(Unlock.SUBSCRIPTION)
+        assertTrue(repository.refreshPlayIfStale())
+        assertEquals(START, repository.record.value?.ownCheckedAtMillis)
+        assertTrue(licenseItems().any { it.unlock == Unlock.SUBSCRIPTION.name && it.checkedAtMillis == START })
+    }
+
+    @Test
     fun checkPurchasesReportsWhatPlayFound() = runBlocking {
         val repository = repository(LicenseRecord(trialStartMillis = START))
         billing.owns(Unlock.LIFETIME, Unlock.SUBSCRIPTION)
@@ -205,6 +272,50 @@ class LicenseRepositoryTest {
     }
 
     @Test
+    fun anOpenPurchaseIsRememberedAndCheckedAgainAfterAnHour() = runBlocking {
+        val repository = repository(LicenseRecord(trialStartMillis = START - 5 * LicenseRules.DAY_MILLIS))
+        // Barzahlung im Laden steht noch aus.
+        billing.owns(pending = setOf(Unlock.LIFETIME))
+        repository.refreshPlay()
+        val open = awaitValue(repository.record) { it?.ownOpenPurchase == true }!!
+        assertEquals(open, LicenseStore(dir).read())
+        val refreshes = billing.refreshes.get()
+
+        // Sonst erst nach einem Tag, bei einem offenen Kauf schon nach einer Stunde.
+        now.addAndGet(30 * 60_000L)
+        assertFalse(repository.refreshPlayIfStale())
+        now.addAndGet(31 * 60_000L)
+        billing.owns(Unlock.LIFETIME)
+        assertTrue(repository.refreshPlayIfStale())
+        assertEquals(refreshes + 1, billing.refreshes.get())
+        val paid = repository.record.value!!
+        assertFalse(paid.ownOpenPurchase)
+        assertEquals(LicenseStatus.Unlocked(Unlock.LIFETIME), LicenseRules.status(paid, now.get()))
+        assertTrue(licenseItems().any { it.unlock == Unlock.LIFETIME.name })
+    }
+
+    @Test
+    fun aConfirmedPurchaseIsNoLongerOpen() {
+        val repository = repository(LicenseRecord(trialStartMillis = START))
+        // Bezahlt, die Bestätigung bei Play steht noch aus …
+        billing.state.value = billing.state.value.copy(
+            availability = BillingAvailability.READY,
+            owned = setOf(Unlock.LIFETIME),
+            unacknowledged = setOf(Unlock.LIFETIME),
+            checkedAtMillis = START,
+        )
+        awaitValue(repository.record) { it?.ownOpenPurchase == true }
+        eventually { licenseMessages().size == 1 }
+        // … und ist jetzt erledigt (gleiche Abfrage): nicht mehr offen, aber keine neue Meldung an die Uhr.
+        billing.state.value = billing.state.value.copy(unacknowledged = emptySet())
+        val done = awaitValue(repository.record) { it?.ownOpenPurchase == false }!!
+        assertEquals(Unlock.LIFETIME.name, done.ownUnlock)
+        assertEquals(done, LicenseStore(dir).read())
+        Thread.sleep(QUIET_MILLIS)
+        assertEquals(1, licenseMessages().size)
+    }
+
+    @Test
     fun failingPlayIsNotAskedAgainRightAway() = runBlocking {
         val repository = repository(LicenseRecord(trialStartMillis = START))
         billing.fails(BillingProblem.SERVICE_UNAVAILABLE)
@@ -232,6 +343,18 @@ class LicenseRepositoryTest {
         assertEquals(LicenseInfo(trialStartMillis = START - LicenseRules.DAY_MILLIS), repository.licenseForWatch())
         Thread.sleep(QUIET_MILLIS)
         assertTrue(licenseMessages().isEmpty())
+    }
+
+    @Test
+    fun aWatchReportFromAClockFarAheadDoesNotFreezeTheWatchState() = runBlocking {
+        val repository = repository(LicenseRecord(trialStartMillis = START - 10 * LicenseRules.DAY_MILLIS))
+        // Die Uhr ging ein Jahr vor und meldete ein Abo – das zählt nicht, und spätere Meldungen gelten wieder.
+        repository.onWatchLicense(LicenseInfo(unlock = Unlock.SUBSCRIPTION.name, checkedAtMillis = START + 365 * LicenseRules.DAY_MILLIS))
+        assertTrue(LicenseRules.status(repository.record.value!!, now.get()) is LicenseStatus.Expired)
+        repository.onWatchLicense(LicenseInfo(unlock = null, checkedAtMillis = START))
+        assertEquals(START, repository.record.value?.peerCheckedAtMillis)
+        repository.onWatchLicense(LicenseInfo(unlock = Unlock.SUBSCRIPTION.name, checkedAtMillis = START + 10L))
+        assertEquals(LicenseStatus.Unlocked(Unlock.SUBSCRIPTION), LicenseRules.status(repository.record.value!!, now.get()))
     }
 
     private companion object {

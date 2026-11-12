@@ -16,8 +16,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 
 /**
- * Empfängt Nachrichten und Wiederherstellungen der Handy-App über den Wearable Data Layer. Dünner Adapter: Die Arbeit
- * machen [WatchSync], [SettingsUpdateApplier], [BackupRestorer] und die Lizenz der Uhr.
+ * Empfängt Nachrichten, Wiederherstellungen und die Lizenz-Sicht der Handy-App (Message und DataItem
+ * [SyncPaths.LICENSE]) über den Wearable Data Layer. Dünner Adapter: Die Arbeit machen [WatchSync],
+ * [SettingsUpdateApplier], [BackupRestorer] und die Lizenz der Uhr.
  *
  * Die Rückrufe laufen auf einem Hintergrund-Thread des Dienstes; die Arbeit läuft dort blockierend mit Zeitlimit.
  * Kein Fehler darf den Dienst abstürzen lassen – er wird protokolliert.
@@ -39,27 +40,36 @@ class WatchSyncService : WearableListenerService() {
                 // Auch ohne Änderung: Das Handy sieht so den tatsächlichen (bereinigten) Stand.
                 container.watchSync.publishNow()
             }
-            SyncPaths.LICENSE -> handle("Lizenz", MESSAGE_TIMEOUT_MILLIS) {
-                val info = LicenseCodec.decodeInfo(event.data)
-                if (info == null) {
-                    Log.w(TAG, "Unlesbare Lizenz vom Handy übergangen")
-                } else {
-                    // Speichert, gleicht die Erinnerungen ab, falls die Lizenz dadurch aktiv bzw. inaktiv wird.
-                    container.watchLicense.applyPeerInfo(info)
-                }
-                // Die Sicht der Uhr zurück (frühester Testbeginn, eigene Play-Abfrage).
-                container.watchSync.publishNow()
-            }
+            SyncPaths.LICENSE -> handle("Lizenz", MESSAGE_TIMEOUT_MILLIS) { applyPhoneLicense(event.data) }
             else -> Log.d(TAG, "Unbekannte Nachricht ${event.path}")
         }
     }
 
     override fun onDataChanged(events: DataEventBuffer) {
         // Der Puffer gilt nur während dieses Aufrufs: die betroffenen Einträge vorab einfrieren.
-        val restores = events
-            .filter { it.type == DataEvent.TYPE_CHANGED && SyncMapping.restoreId(it.dataItem.uri.path) != null }
-            .map { it.dataItem.freeze() }
+        val changed = events.filter { it.type == DataEvent.TYPE_CHANGED }.map { it.dataItem }
+        val licenses = changed.filter { it.uri.path == SyncPaths.LICENSE }.map { it.freeze() }
+        val restores = changed.filter { SyncMapping.restoreId(it.uri.path) != null }.map { it.freeze() }
+        // Die Lizenz des Handys als DataItem kommt auch nach längerer Trennung an (z. B. Kauf auf dem Handy, während
+        // die Uhr außer Reichweite war); die Message dazu ging dann ins Leere.
+        licenses.forEach { item -> handle("Lizenz", MESSAGE_TIMEOUT_MILLIS) { applyPhoneLicense(item.data) } }
         restores.forEach { item -> handle("Wiederherstellung", RESTORE_TIMEOUT_MILLIS) { restore(item) } }
+    }
+
+    /**
+     * Lizenz-Sicht des Handys ([data] von Message oder DataItem [SyncPaths.LICENSE]) übernehmen und die Sicht der Uhr
+     * zurückmelden. Kommt dieselbe Meldung auf beiden Wegen, ändert die zweite nichts mehr.
+     */
+    private suspend fun applyPhoneLicense(data: ByteArray?) {
+        val info = data?.let(LicenseCodec::decodeInfo)
+        if (info == null) {
+            Log.w(TAG, "Unlesbare Lizenz vom Handy übergangen")
+        } else {
+            // Speichert, gleicht die Erinnerungen ab, falls die Lizenz dadurch aktiv bzw. inaktiv wird.
+            container.watchLicense.applyPeerInfo(info)
+        }
+        // Die Sicht der Uhr zurück (frühester Testbeginn, eigene Play-Abfrage).
+        container.watchSync.publishNow()
     }
 
     /** Sicherung lesen und einspielen, DataItem löschen, dem Handy antworten und den neuen Stand veröffentlichen. */

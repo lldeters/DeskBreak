@@ -136,6 +136,11 @@
                     android:host="*"
                     android:pathPrefix="/deskbreak/restore/"
                     android:scheme="wear" />
+                <!-- Lizenz-Sicht des Handys (wird auch nach längerer Trennung noch zugestellt) -->
+                <data
+                    android:host="*"
+                    android:path="/deskbreak/license"
+                    android:scheme="wear" />
             </intent-filter>
         </service>
 

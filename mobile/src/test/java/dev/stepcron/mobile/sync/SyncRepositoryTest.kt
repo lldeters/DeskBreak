@@ -364,6 +364,15 @@ class SyncRepositoryTest {
             if (path == SyncPaths.REQUEST_SYNC) onRequestSync?.invoke()
         }
 
+        /** Inhalte der abgelegten Lizenz-DataItems, in Reihenfolge (der letzte ist der gültige). */
+        val licenseItems = CopyOnWriteArrayList<ByteArray>()
+        var putLicenseError: SyncException? = null
+
+        override suspend fun putLicense(data: ByteArray) {
+            putLicenseError?.let { throw it }
+            licenseItems += data
+        }
+
         override suspend fun putRestore(restoreId: String, backupBytes: ByteArray) {
             putIds += restoreId
             onPutRestore?.invoke(restoreId, backupBytes)

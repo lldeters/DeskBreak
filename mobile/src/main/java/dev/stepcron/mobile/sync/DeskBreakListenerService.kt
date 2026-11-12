@@ -15,7 +15,8 @@ import kotlinx.coroutines.runBlocking
  * Hintergrund-Thread auf; dort darf blockierend gewartet werden.
  *
  * Mit einem Snapshot kommt auch die Lizenz-Sicht der Uhr (übernimmt das Repository). Ist die eigene Play-Abfrage
- * älter als einen Tag, fragt der Dienst Play neu und meldet das Ergebnis der Uhr – so bleibt ein Abo dort gültig,
+ * älter als einen Tag (bei einem offenen Kauf: eine Stunde), fragt der Dienst Play neu und meldet das Ergebnis der
+ * Uhr – so bleibt ein Abo dort gültig, ein erstatteter Kauf endet, und ein offener Kauf wird rechtzeitig bestätigt,
  * auch wenn die Handy-App selten geöffnet wird.
  */
 class DeskBreakListenerService : WearableListenerService() {

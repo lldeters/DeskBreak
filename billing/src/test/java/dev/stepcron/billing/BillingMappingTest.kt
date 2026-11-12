@@ -1,13 +1,16 @@
 package dev.stepcron.billing
 
 import com.android.billingclient.api.BillingClient.BillingResponseCode
+import com.android.billingclient.api.BillingClient.ConnectionState
 import com.android.billingclient.api.ProductDetails.RecurrenceMode
 import com.android.billingclient.api.Purchase.PurchaseState
 import dev.stepcron.shared.license.LicenseProducts
 import dev.stepcron.shared.license.Unlock
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BillingMappingTest {
@@ -76,6 +79,7 @@ class BillingMappingTest {
         assertEquals(setOf(Unlock.LIFETIME, Unlock.SUBSCRIPTION), summary.owned)
         assertEquals(emptySet<Unlock>(), summary.pending)
         assertEquals(listOf("b"), summary.toAcknowledge)
+        assertEquals(setOf(Unlock.SUBSCRIPTION), summary.unacknowledged)
     }
 
     @Test
@@ -122,10 +126,13 @@ class BillingMappingTest {
             problem = BillingProblem.NETWORK,
         )
 
-        val after = BillingMapping.afterPurchaseUpdate(before, bought, nowMillis = 1_000L)
+        val after = BillingMapping.afterPurchaseUpdate(before, bought.copy(unacknowledged = setOf(Unlock.LIFETIME)), nowMillis = 1_000L)
 
         assertEquals(setOf(Unlock.LIFETIME), after.owned)
         assertEquals(emptySet<Unlock>(), after.pending)
+        // Bis zur Bestätigung bei Play offen.
+        assertEquals(setOf(Unlock.LIFETIME), after.unacknowledged)
+        assertTrue(after.hasOpenPurchase)
         assertEquals(1_000L, after.checkedAtMillis)
         assertNull(after.problem)
 
@@ -153,6 +160,92 @@ class BillingMappingTest {
     fun `an empty purchase update changes nothing`() {
         val before = BillingState(problem = BillingProblem.NETWORK)
         assertSame(before, BillingMapping.afterPurchaseUpdate(before, PurchaseSummary(), 1_000L))
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Aktualisierung: Käufe gleich nach ihrer Abfrage
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    fun `a successful purchase query replaces purchases and time right away`() {
+        val before = BillingState(
+            availability = BillingAvailability.ERROR,
+            owned = setOf(Unlock.SUBSCRIPTION),
+            pending = setOf(Unlock.LIFETIME),
+            unacknowledged = setOf(Unlock.SUBSCRIPTION),
+            checkedAtMillis = 500L,
+            problem = BillingProblem.NETWORK,
+        )
+        val summary = PurchaseSummary(owned = setOf(Unlock.LIFETIME), toAcknowledge = listOf("t"), unacknowledged = setOf(Unlock.LIFETIME))
+
+        val after = BillingMapping.afterPurchaseQuery(before, BillingResponseCode.OK, summary, nowMillis = 1_000L)
+
+        assertEquals(BillingAvailability.READY, after.availability)
+        assertEquals(setOf(Unlock.LIFETIME), after.owned)
+        assertEquals(emptySet<Unlock>(), after.pending)
+        assertEquals(setOf(Unlock.LIFETIME), after.unacknowledged)
+        assertEquals(1_000L, after.checkedAtMillis)
+        assertNull(after.problem)
+    }
+
+    @Test
+    fun `a purchase that arrived during the query is not overwritten by it`() {
+        // Der Kauf kam während der Abfrage herein (afterPurchaseUpdate); deren älteres Ergebnis wird übergangen.
+        val bought = BillingMapping.afterPurchaseUpdate(
+            BillingState(availability = BillingAvailability.READY, owned = emptySet(), checkedAtMillis = 500L),
+            PurchaseSummary(owned = setOf(Unlock.LIFETIME)),
+            nowMillis = 900L,
+        )
+
+        val after = BillingMapping.afterPurchaseQuery(bought, BillingResponseCode.OK, summary = null, nowMillis = 1_000L)
+
+        assertEquals(setOf(Unlock.LIFETIME), after.owned)
+        assertEquals(900L, after.checkedAtMillis)
+        assertEquals(BillingAvailability.READY, after.availability)
+    }
+
+    @Test
+    fun `a failed purchase query keeps the last purchases and names the problem`() {
+        val before = BillingState(availability = BillingAvailability.READY, owned = setOf(Unlock.LIFETIME), checkedAtMillis = 500L)
+
+        val after = BillingMapping.afterPurchaseQuery(before, BillingResponseCode.SERVICE_UNAVAILABLE, summary = null, nowMillis = 1_000L)
+
+        assertEquals(setOf(Unlock.LIFETIME), after.owned)
+        assertEquals(500L, after.checkedAtMillis)
+        assertEquals(BillingAvailability.ERROR, after.availability)
+        assertEquals(BillingProblem.NETWORK, after.problem)
+    }
+
+    @Test
+    fun `confirmed purchases are no longer open`() {
+        val before = BillingState(owned = setOf(Unlock.LIFETIME), unacknowledged = setOf(Unlock.LIFETIME), pending = setOf(Unlock.SUBSCRIPTION))
+
+        val after = BillingMapping.afterAcknowledged(before, setOf(Unlock.LIFETIME))
+
+        assertEquals(emptySet<Unlock>(), after.unacknowledged)
+        // Die offene Zahlung bleibt offen.
+        assertTrue(after.hasOpenPurchase)
+        assertFalse(after.copy(pending = emptySet()).hasOpenPurchase)
+        assertSame(after, BillingMapping.afterAcknowledged(after, setOf(Unlock.LIFETIME)))
+        assertSame(before, BillingMapping.afterAcknowledged(before, emptySet()))
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Verbinden
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    fun `connecting waits for a setup in progress instead of starting another`() {
+        assertEquals(ConnectStep.CONNECTED, BillingMapping.connectStep(ConnectionState.CONNECTED, ownSetupRunning = false))
+        assertEquals(ConnectStep.CONNECTED, BillingMapping.connectStep(ConnectionState.CONNECTED, ownSetupRunning = true))
+        // Die eigene Einrichtung einer abgebrochenen Aktualisierung läuft noch: auf sie warten.
+        assertEquals(ConnectStep.AWAIT_OWN_SETUP, BillingMapping.connectStep(ConnectionState.CONNECTING, ownSetupRunning = true))
+        // Die Library verbindet sich selbst neu: startConnection ergäbe sofort DEVELOPER_ERROR.
+        assertEquals(ConnectStep.WAIT_FOR_LIBRARY, BillingMapping.connectStep(ConnectionState.CONNECTING, ownSetupRunning = false))
+        assertEquals(ConnectStep.START, BillingMapping.connectStep(ConnectionState.DISCONNECTED, ownSetupRunning = false))
+        assertEquals(ConnectStep.START, BillingMapping.connectStep(ConnectionState.CLOSED, ownSetupRunning = false))
+        // Getrennt, obwohl die eigene Einrichtung nie geantwortet hat: neu beginnen statt ewig zu warten.
+        assertEquals(ConnectStep.START, BillingMapping.connectStep(ConnectionState.DISCONNECTED, ownSetupRunning = true))
     }
 
     // ---------------------------------------------------------------------------------------------

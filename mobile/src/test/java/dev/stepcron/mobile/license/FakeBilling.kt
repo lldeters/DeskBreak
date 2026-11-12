@@ -7,6 +7,7 @@ import dev.stepcron.billing.BillingProblem
 import dev.stepcron.billing.BillingState
 import dev.stepcron.billing.PurchaseEvent
 import dev.stepcron.shared.license.Unlock
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.atomic.AtomicInteger
@@ -22,12 +23,19 @@ class FakeBilling(private val clock: () -> Long = System::currentTimeMillis) : B
 
     val refreshes = AtomicInteger()
 
+    /**
+     * So lange braucht [refresh] nach dem Abfrage-Ergebnis noch (wie die Angebots-Abfrage von Play, nachdem die Käufe
+     * schon im Stand stehen).
+     */
+    @Volatile
+    var afterAnswerMillis = 0L
+
     @Volatile
     private var answer: () -> BillingState = { succeeded(emptySet()) }
 
-    /** Die nächsten Abfragen sind erfolgreich und finden [unlocks]. */
-    fun owns(vararg unlocks: Unlock) {
-        answer = { succeeded(unlocks.toSet()) }
+    /** Die nächsten Abfragen sind erfolgreich und finden [unlocks] sowie offene Käufe [pending]. */
+    fun owns(vararg unlocks: Unlock, pending: Set<Unlock> = emptySet()) {
+        answer = { succeeded(unlocks.toSet()).copy(pending = pending) }
     }
 
     /** Die nächsten Abfragen schlagen fehl; Käufe und Zeitpunkt der letzten erfolgreichen bleiben. */
@@ -43,6 +51,7 @@ class FakeBilling(private val clock: () -> Long = System::currentTimeMillis) : B
     override suspend fun refresh() {
         refreshes.incrementAndGet()
         state.value = answer()
+        if (afterAnswerMillis > 0L) delay(afterAnswerMillis)
     }
 
     override fun launchPurchase(activity: Activity, unlock: Unlock): Boolean = false

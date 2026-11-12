@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * Ablauf: [refresh] verbindet sich und fragt Angebote und Käufe ab ([state]). [launchPurchase] öffnet den
  * Kaufdialog von Play; das Ergebnis kommt als [PurchaseEvent] über [events] und aktualisiert [state]. Gekaufte
- * Produkte bestätigt (acknowledge) die Umsetzung selbst – sonst erstattet Play sie nach drei Tagen.
+ * Produkte bestätigt (acknowledge) die Umsetzung selbst – sonst erstattet Play sie nach drei Tagen. Solange das
+ * aussteht oder eine Zahlung offen ist ([BillingState.hasOpenPurchase]), sollten die Apps [refresh] bald wiederholen.
  */
 interface BillingGateway {
 
@@ -66,11 +67,19 @@ data class BillingState(
     val owned: Set<Unlock>? = null,
     /** Begonnene, noch nicht bezahlte Käufe (z. B. Barzahlung im Laden), die Play noch abschließen muss. */
     val pending: Set<Unlock> = emptySet(),
+    /**
+     * Bezahlte Käufe, die noch nicht bei Play bestätigt (acknowledge) sind – die Bestätigung läuft oder schlug fehl und
+     * wird beim nächsten [BillingGateway.refresh] wiederholt. Sie zählen schon zu [owned].
+     */
+    val unacknowledged: Set<Unlock> = emptySet(),
     /** Zeitpunkt der letzten erfolgreichen Kauf-Abfrage (Epoch-Millis), 0 = noch keine. */
     val checkedAtMillis: Long = 0L,
     /** Grund, falls die letzte Aktion fehlschlug. */
     val problem: BillingProblem? = null,
-)
+) {
+    /** Ein Kauf ist noch offen (Zahlung ausstehend oder unbestätigt): bald erneut bei Play nachfragen. */
+    val hasOpenPurchase: Boolean get() = pending.isNotEmpty() || unacknowledged.isNotEmpty()
+}
 
 /** Gründe, aus denen Play etwas nicht konnte – für eine verständliche Meldung. */
 enum class BillingProblem {

@@ -1,5 +1,6 @@
 package dev.stepcron.shared.license
 
+import dev.stepcron.shared.license.LicenseRules.CLOCK_TOLERANCE_MILLIS
 import dev.stepcron.shared.license.LicenseRules.DAY_MILLIS
 import dev.stepcron.shared.license.LicenseRules.SUBSCRIPTION_TRUST_MILLIS
 import dev.stepcron.shared.license.LicenseRules.TRIAL_MILLIS
@@ -82,29 +83,87 @@ class LicenseRulesTest {
     @Test
     fun `peer info merges the earliest trial start and the peer unlock`() {
         val watch = LicenseRecord(trialStartMillis = start + DAY_MILLIS)
-        val merged = LicenseRules.withPeerInfo(watch, LicenseInfo(trialStartMillis = start, unlock = "LIFETIME", checkedAtMillis = start))
+        val merged = LicenseRules.withPeerInfo(watch, LicenseInfo(trialStartMillis = start, unlock = "LIFETIME", checkedAtMillis = start), start)
         assertEquals(start, merged.trialStartMillis)
         assertEquals(LicenseStatus.Unlocked(Unlock.LIFETIME), LicenseRules.status(merged, start + 10 * DAY_MILLIS))
     }
 
     @Test
     fun `peer without trial start keeps ours`() {
-        val merged = LicenseRules.withPeerInfo(LicenseRecord(trialStartMillis = start), LicenseInfo())
+        val merged = LicenseRules.withPeerInfo(LicenseRecord(trialStartMillis = start), LicenseInfo(), start)
         assertEquals(start, merged.trialStartMillis)
     }
 
     @Test
     fun `older peer info does not override newer`() {
         val record = LicenseRecord(peerUnlock = "SUBSCRIPTION", peerCheckedAtMillis = start + 10)
-        val merged = LicenseRules.withPeerInfo(record, LicenseInfo(unlock = null, checkedAtMillis = start))
+        val merged = LicenseRules.withPeerInfo(record, LicenseInfo(unlock = null, checkedAtMillis = start), start + 20)
         assertEquals("SUBSCRIPTION", merged.peerUnlock)
-        val revoked = LicenseRules.withPeerInfo(record, LicenseInfo(unlock = null, checkedAtMillis = start + 20))
+        val revoked = LicenseRules.withPeerInfo(record, LicenseInfo(unlock = null, checkedAtMillis = start + 20), start + 20)
         assertNull(revoked.peerUnlock)
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Abweichende Uhrzeit
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    fun `a peer report from a clock far ahead does not freeze the peer state`() {
+        // Das andere Gerät ging ein Jahr vor und meldete damals ein Abo; inzwischen ist es gekündigt.
+        val record = LicenseRecord(trialStartMillis = start, peerUnlock = "SUBSCRIPTION", peerCheckedAtMillis = start + 365 * DAY_MILLIS)
+        val cancelled = LicenseRules.withPeerInfo(record, LicenseInfo(trialStartMillis = start, unlock = null, checkedAtMillis = start), start)
+        assertNull(cancelled.peerUnlock)
+        assertEquals(start, cancelled.peerCheckedAtMillis)
+        // Auch eine Meldung ganz ohne Play-Abfrage löst den falschen Stand.
+        val unknown = LicenseRules.withPeerInfo(record, LicenseInfo(trialStartMillis = start), start)
+        assertNull(unknown.peerUnlock)
+        assertEquals(0L, unknown.peerCheckedAtMillis)
+        // Danach gilt wieder die übliche Reihenfolge.
+        val renewed = LicenseRules.withPeerInfo(cancelled, LicenseInfo(unlock = "SUBSCRIPTION", checkedAtMillis = start + 10), start + 10)
+        assertEquals("SUBSCRIPTION", LicenseRules.withPeerInfo(renewed, LicenseInfo(checkedAtMillis = start + 5), start + 10).peerUnlock)
+    }
+
+    @Test
+    fun `a slightly early peer report still beats an older one`() {
+        // Weniger als die Toleranz voraus: gilt als richtige Zeit, ältere Meldungen bleiben übergangen.
+        val record = LicenseRecord(peerUnlock = "SUBSCRIPTION", peerCheckedAtMillis = start + CLOCK_TOLERANCE_MILLIS)
+        val older = LicenseRules.withPeerInfo(record, LicenseInfo(unlock = null, checkedAtMillis = start), start)
+        assertEquals(record, older)
+        val beyond = LicenseRules.withPeerInfo(record, LicenseInfo(unlock = null, checkedAtMillis = start), start - 1)
+        assertNull(beyond.peerUnlock)
+    }
+
+    @Test
+    fun `a subscription confirmed far in the future is not trusted`() {
+        val slightlyAhead = LicenseRecord(trialStartMillis = start - 10 * DAY_MILLIS, peerUnlock = "SUBSCRIPTION", peerCheckedAtMillis = start + CLOCK_TOLERANCE_MILLIS)
+        assertEquals(LicenseStatus.Unlocked(Unlock.SUBSCRIPTION), LicenseRules.status(slightlyAhead, start))
+        val farAhead = slightlyAhead.copy(peerCheckedAtMillis = start + CLOCK_TOLERANCE_MILLIS + 1)
+        assertTrue(LicenseRules.status(farAhead, start) is LicenseStatus.Expired)
+        val ownFarAhead = LicenseRecord(trialStartMillis = start - 10 * DAY_MILLIS, ownUnlock = "SUBSCRIPTION", ownCheckedAtMillis = start + 400 * DAY_MILLIS)
+        assertNull(LicenseRules.effectiveUnlock(ownFarAhead, start))
+        // Ein Einmalkauf gilt unabhängig vom Zeitpunkt.
+        assertEquals(Unlock.LIFETIME, LicenseRules.effectiveUnlock(ownFarAhead.copy(ownUnlock = "LIFETIME"), start))
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Offene Käufe
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    fun `an own check remembers an open purchase until the next check`() {
+        val open = LicenseRules.withOwnCheck(LicenseRecord(trialStartMillis = start), emptyList(), start, openPurchase = true)
+        assertTrue(open.ownOpenPurchase)
+        assertNull(open.ownUnlock)
+        val done = LicenseRules.withOwnCheck(open, listOf(Unlock.LIFETIME), start + 1)
+        assertFalse(done.ownOpenPurchase)
+        assertEquals("LIFETIME", done.ownUnlock)
+        // Nur die eigene Sicht: Das andere Gerät erfährt davon nichts.
+        assertEquals(LicenseInfo(start, null, start), LicenseRules.infoFor(open))
     }
 
     @Test
     fun `unknown unlock names are ignored`() {
-        val merged = LicenseRules.withPeerInfo(LicenseRecord(), LicenseInfo(unlock = "PLATINUM", checkedAtMillis = start))
+        val merged = LicenseRules.withPeerInfo(LicenseRecord(), LicenseInfo(unlock = "PLATINUM", checkedAtMillis = start), start)
         assertNull(merged.peerUnlock)
         assertNull(LicenseRules.effectiveUnlock(LicenseRecord(ownUnlock = "PLATINUM", ownCheckedAtMillis = start), start))
     }
@@ -127,6 +186,10 @@ class LicenseRulesTest {
         assertEquals(record, LicenseCodec.decodeRecord(LicenseCodec.encodeRecord(record)))
         val info = LicenseInfo(trialStartMillis = start, unlock = "SUBSCRIPTION", checkedAtMillis = start)
         assertEquals(info, LicenseCodec.decodeInfo(LicenseCodec.encodeInfo(info)))
+        val open = record.copy(ownOpenPurchase = true)
+        assertEquals(open, LicenseCodec.decodeRecord(LicenseCodec.encodeRecord(open)))
+        // Gespeichert von einer Version ohne das Feld: kein offener Kauf.
+        assertEquals(record, LicenseCodec.decodeRecord("""{"trialStartMillis":$start,"ownUnlock":"LIFETIME","ownCheckedAtMillis":$start}"""))
         assertNull(LicenseCodec.decodeRecord("not json"))
         assertNull(LicenseCodec.decodeInfo(byteArrayOf(1, 2, 3)))
     }
