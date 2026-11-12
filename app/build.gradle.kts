@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "dev.stepcron.wear"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.stepcron.wear"
@@ -104,6 +104,7 @@ dependencies {
 
     // Abgleich mit der Handy-App über den Wearable Data Layer (optional: die Uhr läuft auch ohne Handy).
     implementation(project(":shared"))
+    implementation(project(":billing"))
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
 

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "dev.stepcron.mobile"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.stepcron.wear"
@@ -55,6 +55,7 @@ tasks.withType<Test>().configureEach {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":billing"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

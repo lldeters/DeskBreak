@@ -1,5 +1,6 @@
 package dev.stepcron.shared.sync
 
+import dev.stepcron.shared.license.LicenseInfo
 import kotlinx.serialization.Serializable
 
 /**
@@ -13,6 +14,8 @@ import kotlinx.serialization.Serializable
  * - Eine Sicherung spielt das Handy als DataItem unter [RESTORE_PREFIX]`<id>` mit dem Asset [RESTORE_ASSET]
  *   ([SyncBackup]) zurück; die Uhr antwortet mit der Message [RESTORE_RESULT] ([RestoreResult]) und löscht
  *   das DataItem.
+ * - Lizenz: Das Handy meldet seine Sicht per Message [LICENSE] ([LicenseInfo], siehe LicenseCodec), die Uhr ihre
+ *   im Snapshot ([SyncSnapshot.license]).
  */
 object SyncPaths {
     const val SNAPSHOT = "/deskbreak/snapshot"
@@ -24,6 +27,9 @@ object SyncPaths {
     const val RESTORE_PREFIX = "/deskbreak/restore/"
     const val RESTORE_ASSET = "backup"
     const val RESTORE_RESULT = "/deskbreak/restore-result"
+
+    /** Handy → Uhr: [LicenseInfo] des Handys (Testbeginn, eigene Play-Abfrage). */
+    const val LICENSE = "/deskbreak/license"
 
     /** Capabilities (res/values/wear.xml der jeweiligen App), über die sich die Geräte finden. */
     const val CAPABILITY_WATCH = "deskbreak_watch"
@@ -103,6 +109,8 @@ data class SyncSnapshot(
     val settings: SyncSettings,
     val status: SyncStatus,
     val events: List<SyncEvent>,
+    /** Lizenz-Sicht der Uhr; `null` bei Uhren-Versionen ohne Lizenz. */
+    val license: LicenseInfo? = null,
 )
 
 /**

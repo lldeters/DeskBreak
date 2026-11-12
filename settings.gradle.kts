@@ -21,8 +21,10 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "DeskBreak"
-// :app = Uhr, :mobile = Handy-App, :shared = Sync-Protokoll beider Apps.
+// :app = Uhr, :mobile = Handy-App, :shared = Sync-Protokoll und Lizenzregeln beider Apps,
+// :billing = Google Play Billing beider Apps.
 include(":app")
 include(":shared")
+include(":billing")
 include(":mobile")
 include(":baselineprofile")

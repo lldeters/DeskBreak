@@ -28,6 +28,8 @@ junit = "4.13.2"
 # Uhr <-> Handy: Wearable Data Layer und das gemeinsame Sync-Protokoll.
 playServicesWearable = "19.0.0"
 kotlinxSerialization = "1.9.0"
+# Freischaltung über Google Play (Play verlangt für neue Apps und Updates mindestens Version 8).
+playBilling = "9.1.0"
 # Handy-App
 composeMaterial3 = "1.3.2"
 # Screenshots der Handy-App auf der JVM (nur mit -Pscreenshots, siehe mobile/build.gradle.kts)
@@ -38,6 +40,7 @@ uiautomator = "2.3.0"
 androidxTestExtJunit = "1.2.1"
 
 [libraries]
+play-billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "playBilling" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 

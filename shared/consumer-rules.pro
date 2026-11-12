@@ -6,3 +6,9 @@
 -keepclasseswithmembers class dev.stepcron.shared.sync.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+-keepclassmembers class dev.stepcron.shared.license.** {
+    *** Companion;
+}
+-keepclasseswithmembers class dev.stepcron.shared.license.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}

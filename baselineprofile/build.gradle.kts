@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "dev.stepcron.wear.baselineprofile"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 30
